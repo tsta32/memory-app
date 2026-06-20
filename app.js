@@ -34,7 +34,7 @@
   var pendingDiff = null;
   var sessionMissedIds = [];
 
-  var settings = { volume: 80, newCardRatio: 5 }; // volume 0-100, newCardRatio: 1 new card per N questions
+  var settings = { volume: 100, newCardRatio: 5 }; // volume 0-200 (%), newCardRatio: 1 new card per N questions
 
   // ---------- persistence ----------
   function loadCards(){
@@ -657,38 +657,65 @@
     if(audioCtx.state === 'suspended'){ audioCtx.resume(); }
     return audioCtx;
   }
+  // Master compressor so louder volume settings don't clip/distort when several
+  // overlapping notes play at once - lets us push raw gain much higher safely.
+  var masterCompressor = null;
+  function getMasterChain(ctx){
+    if(!masterCompressor || masterCompressor.context !== ctx){
+      masterCompressor = ctx.createDynamicsCompressor();
+      masterCompressor.threshold.value = -12;
+      masterCompressor.knee.value = 18;
+      masterCompressor.ratio.value = 8;
+      masterCompressor.attack.value = 0.002;
+      masterCompressor.release.value = 0.15;
+      masterCompressor.connect(ctx.destination);
+    }
+    return masterCompressor;
+  }
+
   function tone(freq, startTime, duration, type, gainPeak){
     var ctx = getAudioCtx();
     if(!ctx) return;
-    var volMul = Math.max(0, Math.min(1, (settings.volume==null?80:settings.volume) / 100));
+    // volume slider goes 0-200%, so volMul can exceed 1.0 for a real loudness boost
+    var volPct = (settings.volume==null ? 100 : settings.volume);
+    var volMul = Math.max(0, volPct / 100) * 2.4; // 100% slider -> 2.4x base gain, much louder than before
     if(volMul <= 0) return;
     var osc = ctx.createOscillator();
     var gain = ctx.createGain();
     osc.type = type || 'triangle';
     osc.frequency.value = freq;
-    var peak = (gainPeak || 0.2) * volMul;
+    var peak = Math.min((gainPeak || 0.2) * volMul, 1.6); // compressor handles the ceiling
     gain.gain.setValueAtTime(0, startTime);
     gain.gain.linearRampToValueAtTime(peak, startTime + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-    osc.connect(gain); gain.connect(ctx.destination);
+    var chain = getMasterChain(ctx);
+    osc.connect(gain); gain.connect(chain);
     osc.start(startTime); osc.stop(startTime + duration + 0.02);
   }
   // Bright, punchy "correct" sound: a fast major arpeggio plus a high bell-like
   // overtone on the last note for extra sparkle. Scales further with streaks.
+  // Plays a single bell-like chime: a fundamental tone plus a quiet octave
+  // overtone for a metallic "ding" character, similar to a doorbell/notification chime.
+  function chimeNote(freq, startTime, duration, gainPeak){
+    var ctx = getAudioCtx();
+    if(!ctx) return;
+    tone(freq, startTime, duration, 'sine', gainPeak);
+    tone(freq * 2, startTime, duration * 0.6, 'sine', gainPeak * 0.35);
+    tone(freq * 2.76, startTime, duration * 0.4, 'sine', gainPeak * 0.15);
+  }
+
+  // "Ding-dong" two-note notification chime (high note then a slightly lower note),
+  // similar in spirit to a ride-hailing app's match alert or a doorbell.
   function playCorrectSound(big){
     var ctx = getAudioCtx();
     if(!ctx) return;
     var t = ctx.currentTime;
-    var notes = big ? [523.25, 659.25, 783.99, 1046.5, 1318.5] : [523.25, 659.25, 1046.5];
-    var step = big ? 0.05 : 0.055;
-    notes.forEach(function(f, i){
-      tone(f, t + i*step, 0.22, 'triangle', 0.5);
-    });
-    // bright bell overtone on final note for a crisp, satisfying "ding"
-    var lastT = t + (notes.length-1)*step;
-    tone(notes[notes.length-1]*2, lastT, 0.16, 'sine', 0.22);
+    // E6 (ding) -> C6 (dong) - bright, clean interval, classic doorbell feel
+    chimeNote(1318.5, t, 0.5, 0.9);
+    chimeNote(1046.5, t + 0.16, 0.6, 0.85);
     if(big){
-      tone(notes[notes.length-1]*1.5, lastT + 0.02, 0.2, 'sine', 0.18);
+      // on a streak, add a quick high sparkle echo after the main ding-dong
+      chimeNote(1568.0, t + 0.34, 0.35, 0.4);
     }
   }
   // Wrong answers are intentionally silent per user preference - no sound, no
