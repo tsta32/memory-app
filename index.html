@@ -222,6 +222,38 @@
   .add-mode-btn.active{ border-color: var(--info); background: var(--info-bg); color: var(--info-text); }
   .add-pane{ display:none; }
   .add-pane.active{ display:block; }
+
+  .tabs-3{ display:flex; gap:6px; margin-bottom:14px; }
+  .tabs-3 .tab-btn{ font-size:13px; padding:9px 6px; }
+
+  .due-tag{ font-size:11px; padding:2px 8px; border-radius: var(--radius-md); white-space:nowrap; flex-shrink:0; }
+  .due-tag.due-now{ background: var(--success-bg); color: var(--success-text); }
+  .due-tag.due-soon{ background: var(--warning-bg); color: var(--warning); }
+  .due-tag.due-later{ background: var(--surface-2); color: var(--text-3); }
+  .due-tag.due-new{ background: var(--info-bg); color: var(--info-text); }
+
+  .list-row.with-due{ flex-wrap:wrap; }
+  .list-row .text2{ font-size:13px; flex:1; min-width:0; }
+  .list-row .text2 .ko{ font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list-row .text2 .en{ color: var(--text-2); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .settings-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .settings-row:last-child{ border-bottom:none; }
+  .settings-row .label{ font-size:14px; }
+  .settings-row .sub{ font-size:12px; color:var(--text-3); margin-top:2px; }
+  .volume-row{ display:flex; align-items:center; gap:10px; }
+  .volume-row input[type="range"]{ width:140px; }
+  .volume-row span{ font-size:13px; color:var(--text-2); min-width:32px; text-align:right; }
+
+  .stepper{ display:flex; align-items:center; gap:8px; }
+  .stepper button{ width:32px; height:32px; padding:0; font-size:16px; line-height:1; }
+  .stepper .val{ font-size:14px; min-width:64px; text-align:center; }
+
+  .export-box textarea{
+    width:100%; min-height:140px; font-family: ui-monospace, "SF Mono", monospace; font-size:12px;
+    padding:10px 12px; border-radius: var(--radius-md); border:1px solid var(--border-strong);
+    background: var(--surface-2); color: var(--text); resize: vertical; line-height:1.6;
+  }
 </style>
 </head>
 <body>
@@ -236,9 +268,10 @@
   <div id="setupScreen">
     <div class="header"><h1>영어 템플릿 암기</h1></div>
 
-    <div class="tabs">
+    <div class="tabs tabs-3">
       <button id="tabQuiz" class="tab-btn active">학습</button>
       <button id="tabBookmark" class="tab-btn">★ 북마크 (<span id="bookmarkTabCount">0</span>)</button>
+      <button id="tabSettings" class="tab-btn">⚙ 설정</button>
     </div>
 
     <div id="quizSetupPane" class="pane active">
@@ -252,7 +285,8 @@
           <input type="number" id="customCountInput" placeholder="직접 입력" min="1" inputmode="numeric" />
           <button id="customCountBtn" style="white-space:nowrap;">이 개수로</button>
         </div>
-        <p class="muted" id="customCountHint" style="margin-bottom:14px;"></p>
+        <p class="muted" id="customCountHint" style="margin-bottom:10px;"></p>
+        <p class="muted" id="newCardRatioInfo" style="margin-bottom:14px;"></p>
 
         <button id="startBtn" style="width:100%; font-weight:500;">시작하기</button>
       </div>
@@ -297,6 +331,19 @@
           <div class="section-title">전체 카드 (<span id="cardListCount">0</span>개)</div>
           <div id="cardList" style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
         </div>
+
+        <div class="export-box" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+          <div class="add-toggle" id="exportToggle">
+            <div class="title" style="font-size:14px;">⧉ 전체 문장 엑셀로 복사하기</div>
+            <span class="chevron" id="exportChevron">▾</span>
+          </div>
+          <div id="exportPane" style="display:none; margin-top:10px;">
+            <p class="muted" style="margin-bottom:8px;">아래 칸 전체를 복사(누르고 전체선택 후 Ctrl+C)해서 엑셀에 붙여넣으면 한국어/영어 두 열로 펼쳐져요. 새 문장 추가하기 전에 중복 확인용으로 쓰세요.</p>
+            <textarea id="exportTextarea" readonly></textarea>
+            <button id="exportCopyBtn" style="width:100%; font-weight:500; margin-top:8px;">전체 복사하기</button>
+            <p class="muted" id="exportCopyFeedback" style="margin-top:6px; min-height:16px;"></p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -306,6 +353,35 @@
         <p class="muted" style="margin-bottom:12px;">오답으로 막혔던 표현이나 직접 표시한 카드 모음</p>
         <div id="bookmarkList" style="display:flex; flex-direction:column; gap:6px;"></div>
         <div id="bookmarkEmpty" class="empty-state" style="display:none;">아직 북마크한 문장이 없어요</div>
+      </div>
+    </div>
+
+    <div id="settingsPane" class="pane">
+      <div class="card">
+        <h2 style="font-size:15px; margin-bottom:8px;">⚙ 설정</h2>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">정답 효과음 음량</div>
+            <div class="sub">오답일 때는 소리가 나지 않아요</div>
+          </div>
+          <div class="volume-row">
+            <input type="range" id="volumeSlider" min="0" max="100" step="5" value="80" />
+            <span id="volumeValue">80%</span>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div>
+            <div class="label">새 카드 출제 비율</div>
+            <div class="sub">한 번도 안 푼 카드를 몇 문제당 1개씩 섞을지</div>
+          </div>
+          <div class="stepper">
+            <button type="button" id="ratioMinus">−</button>
+            <div class="val" id="ratioValue">5문제당 1개</div>
+            <button type="button" id="ratioPlus">+</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

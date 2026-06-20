@@ -7,6 +7,7 @@
   var ONE_DAY = 24*60*60*1000;
   var WRONG_INTERVALS_DAYS = [1,3,7,15];
   var STORAGE_KEY = 'srs_cards_v1';
+  var SETTINGS_KEY = 'srs_settings_v1';
 
   var seedDeck = [
     { ko: "도와주셔서 감사합니다", en: "thank you for your help" },
@@ -33,6 +34,8 @@
   var pendingDiff = null;
   var sessionMissedIds = [];
 
+  var settings = { volume: 80, newCardRatio: 5 }; // volume 0-100, newCardRatio: 1 new card per N questions
+
   // ---------- persistence ----------
   function loadCards(){
     try{
@@ -41,6 +44,13 @@
         var parsed = JSON.parse(raw);
         if(parsed && Array.isArray(parsed.cards)){
           cards = parsed.cards;
+          // migrate older saved data that doesn't have everAnswered:
+          // infer it from stage>0 (already progressed past the first correct answer)
+          cards.forEach(function(c){
+            if(typeof c.everAnswered !== 'boolean'){
+              c.everAnswered = (c.stage || 0) > 0;
+            }
+          });
           nextId = parsed.nextId || (cards.reduce(function(m,c){ return Math.max(m, c.id); }, 0) + 1);
           return;
         }
@@ -48,7 +58,7 @@
     }catch(e){}
     // first run: seed with sample deck
     cards = seedDeck.map(function(d){
-      return { id: nextId++, ko: d.ko, en: d.en, stage: 0, dueAt: Date.now(), bookmarked: false };
+      return { id: nextId++, ko: d.ko, en: d.en, stage: 0, dueAt: Date.now(), bookmarked: false, everAnswered: false };
     });
     saveCards();
   }
@@ -56,6 +66,25 @@
   function saveCards(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ cards: cards, nextId: nextId }));
+    }catch(e){}
+  }
+
+  function loadSettings(){
+    try{
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(parsed){
+          if(typeof parsed.volume === 'number') settings.volume = parsed.volume;
+          if(typeof parsed.newCardRatio === 'number') settings.newCardRatio = parsed.newCardRatio;
+        }
+      }
+    }catch(e){}
+  }
+
+  function saveSettings(){
+    try{
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     }catch(e){}
   }
 
@@ -125,6 +154,32 @@
     return null;
   }
 
+  // ---------- review status display helper ----------
+  function formatDuration(ms){
+    if(ms <= 0) return '지금';
+    var mins = Math.round(ms / ONE_MIN);
+    if(mins < 60) return mins + '분 후';
+    var hours = Math.round(ms / (60*ONE_MIN));
+    if(hours < 24) return hours + '시간 후';
+    var days = Math.round(ms / ONE_DAY);
+    return days + '일 후';
+  }
+
+  function reviewStatusInfo(c){
+    if(!c.everAnswered){
+      return { text: '새 카드', cls: 'due-new' };
+    }
+    var remaining = c.dueAt - now();
+    var stageLabel = c.stage > 0
+      ? WRONG_INTERVALS_DAYS[Math.min(c.stage-1, WRONG_INTERVALS_DAYS.length-1)] + '일 주기'
+      : '당일 주기';
+    if(remaining <= 0){
+      return { text: stageLabel + ' · 지금 복습 가능', cls: 'due-now' };
+    }
+    var soon = remaining <= ONE_DAY;
+    return { text: stageLabel + ' · ' + formatDuration(remaining) + ' 복습', cls: soon ? 'due-soon' : 'due-later' };
+  }
+
   // ---------- DOM refs ----------
   var $ = function(id){ return document.getElementById(id); };
 
@@ -145,12 +200,16 @@
   function setTab(which){
     $('quizSetupPane').classList.toggle('active', which==='quiz');
     $('bookmarkPane').classList.toggle('active', which==='bookmark');
+    $('settingsPane').classList.toggle('active', which==='settings');
     $('tabQuiz').classList.toggle('active', which==='quiz');
     $('tabBookmark').classList.toggle('active', which==='bookmark');
+    $('tabSettings').classList.toggle('active', which==='settings');
     if(which === 'bookmark') renderBookmarkList();
+    if(which === 'settings') renderSettingsPane();
   }
   on('tabQuiz', 'click', function(){ setTab('quiz'); });
   on('tabBookmark', 'click', function(){ setTab('bookmark'); });
+  on('tabSettings', 'click', function(){ setTab('settings'); });
 
   // ---------- bookmark + card list rendering ----------
   function renderBookmarkList(){
@@ -182,10 +241,12 @@
     listEl.innerHTML = '';
     $('cardListCount').textContent = cards.length;
     cards.slice().reverse().forEach(function(c){
+      var status = reviewStatusInfo(c);
       var row = document.createElement('div');
-      row.className = 'list-row';
+      row.className = 'list-row with-due';
       row.innerHTML =
-        '<div class="text"><div class="ko">'+escapeHtml(c.ko)+' → '+escapeHtml(c.en)+'</div></div>' +
+        '<div class="text2"><div class="ko">'+escapeHtml(c.ko)+' → '+escapeHtml(c.en)+'</div></div>' +
+        '<span class="due-tag '+status.cls+'">'+escapeHtml(status.text)+'</span>' +
         '<div class="btns">' +
           '<button type="button" class="icon-btn bm '+(c.bookmarked?'bookmarked':'')+'" aria-label="북마크">'+(c.bookmarked?'★':'☆')+'</button>' +
           '<button type="button" class="icon-btn del" aria-label="삭제">🗑</button>' +
@@ -205,14 +266,18 @@
       });
       listEl.appendChild(row);
     });
+    refreshExportTextareaIfOpen();
   }
 
   // ---------- setup screen: count selection ----------
   function refreshSetupInfo(){
     var avail = availableCards();
-    $('availInfo').textContent = '지금 풀 수 있는 카드: ' + avail.length + '개';
+    var dueNewCount = cards.filter(function(c){ return !c.everAnswered && c.dueAt <= now(); }).length;
+    var dueReviewCount = avail.length - dueNewCount;
+    $('availInfo').textContent = '지금 풀 수 있는 카드: ' + avail.length + '개 (복습 ' + dueReviewCount + ' / 새 카드 ' + dueNewCount + ')';
     buildCountOptions(avail.length);
     $('customCountHint').textContent = '전체 저장된 문장: ' + cards.length + '개 (그보다 많이는 시작할 수 없어요)';
+    $('newCardRatioInfo').textContent = '새 카드 ' + (settings.newCardRatio||5) + '문제당 1개씩 섞여서 출제됩니다 (설정 탭에서 조절 가능)';
   }
 
   function buildCountOptions(maxAvail){
@@ -280,6 +345,55 @@
     chevron.classList.toggle('open', !isOpen);
   });
 
+  // ---------- export all cards for Excel (duplicate-checking) ----------
+  on('exportToggle', 'click', function(){
+    var pane = $('exportPane');
+    var chevron = $('exportChevron');
+    var isOpen = pane.style.display === 'block';
+    pane.style.display = isOpen ? 'none' : 'block';
+    chevron.classList.toggle('open', !isOpen);
+    if(!isOpen) refreshExportTextarea();
+  });
+
+  function refreshExportTextarea(){
+    var lines = cards.map(function(c){ return c.ko + '\t' + c.en; });
+    $('exportTextarea').value = lines.join('\n');
+  }
+  function refreshExportTextareaIfOpen(){
+    var pane = $('exportPane');
+    if(pane && pane.style.display === 'block') refreshExportTextarea();
+  }
+
+  on('exportCopyBtn', 'click', function(){
+    var ta = $('exportTextarea');
+    refreshExportTextarea();
+    ta.focus();
+    ta.select();
+    var fb = $('exportCopyFeedback');
+    var done = false;
+    try{
+      done = document.execCommand && document.execCommand('copy');
+    }catch(e){ done = false; }
+    if(!done && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(ta.value).then(function(){
+        fb.textContent = '복사되었습니다 (' + cards.length + '개 문장)';
+        fb.style.color = 'var(--success-text)';
+      }).catch(function(){
+        fb.textContent = '자동 복사에 실패했어요. 텍스트를 직접 선택해서 복사해주세요';
+        fb.style.color = 'var(--danger-text)';
+      });
+      return;
+    }
+    if(done){
+      fb.textContent = '복사되었습니다 (' + cards.length + '개 문장)';
+      fb.style.color = 'var(--success-text)';
+    } else {
+      fb.textContent = '자동 복사에 실패했어요. 텍스트를 직접 선택해서 복사해주세요';
+      fb.style.color = 'var(--danger-text)';
+    }
+    setTimeout(function(){ fb.textContent = ''; }, 2500);
+  });
+
   // ---------- add card form: mode tabs ----------
   on('addModeSingle', 'click', function(){
     $('addModeSingle').classList.add('active');
@@ -302,7 +416,7 @@
       fb.style.color = 'var(--danger-text)';
       return;
     }
-    cards.push({ id: nextId++, ko: ko, en: en, stage: 0, dueAt: now(), bookmarked: bmInp.checked });
+    cards.push({ id: nextId++, ko: ko, en: en, stage: 0, dueAt: now(), bookmarked: bmInp.checked, everAnswered: false });
     saveCards();
     koInp.value = ''; enInp.value = ''; bmInp.checked = false;
     fb.textContent = '카드가 추가되었습니다';
@@ -353,7 +467,7 @@
       return;
     }
     parsed.added.forEach(function(item){
-      cards.push({ id: nextId++, ko: item.ko, en: item.en, stage: 0, dueAt: now(), bookmarked: false });
+      cards.push({ id: nextId++, ko: item.ko, en: item.en, stage: 0, dueAt: now(), bookmarked: false, everAnswered: false });
     });
     saveCards();
     ta.value = '';
@@ -392,11 +506,39 @@
     renderCardList();
   });
 
+  // Build a session queue mixing due review cards with never-answered "new" cards,
+  // at roughly 1 new card per `settings.newCardRatio` questions.
+  function buildSessionSelection(n){
+    var t = now();
+    var dueReview = cards.filter(function(c){ return c.everAnswered && c.dueAt <= t; });
+    var dueNew = cards.filter(function(c){ return !c.everAnswered && c.dueAt <= t; });
+    dueReview.sort(function(a,b){ return a.dueAt - b.dueAt; });
+    dueNew.sort(function(a,b){ return a.dueAt - b.dueAt; });
+
+    var ratio = Math.max(1, settings.newCardRatio || 5);
+    var result = [];
+    var ri = 0, ni = 0;
+    var slot = 0;
+    while(result.length < n && (ri < dueReview.length || ni < dueNew.length)){
+      slot++;
+      var wantNew = (slot % ratio === 0);
+      if(wantNew && ni < dueNew.length){
+        result.push(dueNew[ni++]);
+      } else if(ri < dueReview.length){
+        result.push(dueReview[ri++]);
+      } else if(ni < dueNew.length){
+        result.push(dueNew[ni++]);
+      }
+    }
+    return result;
+  }
+
+  function availableCardsCount(){
+    return availableCards().length;
+  }
+
   function startSession(){
-    var avail = availableCards();
-    avail.sort(function(a,b){ return a.dueAt - b.dueAt; });
-    var n = Math.min(chosenCount, avail.length);
-    var chosen = avail.slice(0, n);
+    var chosen = buildSessionSelection(chosenCount);
     sessionQueue = chosen.map(function(c){ return c.id; });
     sessionUniqueIds = chosen.map(function(c){ return c.id; });
     sessionDoneCount = 0;
@@ -518,30 +660,70 @@
   function tone(freq, startTime, duration, type, gainPeak){
     var ctx = getAudioCtx();
     if(!ctx) return;
+    var volMul = Math.max(0, Math.min(1, (settings.volume==null?80:settings.volume) / 100));
+    if(volMul <= 0) return;
     var osc = ctx.createOscillator();
     var gain = ctx.createGain();
     osc.type = type || 'triangle';
     osc.frequency.value = freq;
+    var peak = (gainPeak || 0.2) * volMul;
     gain.gain.setValueAtTime(0, startTime);
-    gain.gain.linearRampToValueAtTime(gainPeak || 0.2, startTime + 0.01);
+    gain.gain.linearRampToValueAtTime(peak, startTime + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
     osc.connect(gain); gain.connect(ctx.destination);
     osc.start(startTime); osc.stop(startTime + duration + 0.02);
   }
+  // Bright, punchy "correct" sound: a fast major arpeggio plus a high bell-like
+  // overtone on the last note for extra sparkle. Scales further with streaks.
   function playCorrectSound(big){
     var ctx = getAudioCtx();
     if(!ctx) return;
     var t = ctx.currentTime;
-    var notes = big ? [523.25, 659.25, 783.99, 1046.5] : [523.25, 659.25, 783.99];
-    notes.forEach(function(f, i){ tone(f, t + i*0.06, 0.18, 'triangle', 0.18); });
+    var notes = big ? [523.25, 659.25, 783.99, 1046.5, 1318.5] : [523.25, 659.25, 1046.5];
+    var step = big ? 0.05 : 0.055;
+    notes.forEach(function(f, i){
+      tone(f, t + i*step, 0.22, 'triangle', 0.5);
+    });
+    // bright bell overtone on final note for a crisp, satisfying "ding"
+    var lastT = t + (notes.length-1)*step;
+    tone(notes[notes.length-1]*2, lastT, 0.16, 'sine', 0.22);
+    if(big){
+      tone(notes[notes.length-1]*1.5, lastT + 0.02, 0.2, 'sine', 0.18);
+    }
   }
+  // Wrong answers are intentionally silent per user preference - no sound, no
+  // negative audio feedback. Visual shake + NG text + red flash communicate it instead.
   function playWrongSound(){
-    var ctx = getAudioCtx();
-    if(!ctx) return;
-    var t = ctx.currentTime;
-    tone(110, t, 0.1, 'square', 0.15);
-    tone(110, t + 0.12, 0.1, 'square', 0.15);
+    // intentionally no-op
   }
+
+  // ---------- settings pane ----------
+  function renderSettingsPane(){
+    $('volumeSlider').value = settings.volume;
+    $('volumeValue').textContent = settings.volume + '%';
+    $('ratioValue').textContent = settings.newCardRatio + '문제당 1개';
+  }
+  on('volumeSlider', 'input', function(e){
+    settings.volume = parseInt(e.target.value, 10) || 0;
+    $('volumeValue').textContent = settings.volume + '%';
+    saveSettings();
+  });
+  on('volumeSlider', 'change', function(){
+    // play a short preview tone so the user can hear the new volume immediately
+    playCorrectSound(false);
+  });
+  on('ratioMinus', 'click', function(){
+    settings.newCardRatio = Math.max(2, settings.newCardRatio - 1);
+    $('ratioValue').textContent = settings.newCardRatio + '문제당 1개';
+    saveSettings();
+    refreshSetupInfo();
+  });
+  on('ratioPlus', 'click', function(){
+    settings.newCardRatio = Math.min(50, settings.newCardRatio + 1);
+    $('ratioValue').textContent = settings.newCardRatio + '문제당 1개';
+    saveSettings();
+    refreshSetupInfo();
+  });
 
   // ---------- visual effects ----------
   function getCardRect(){
@@ -669,6 +851,7 @@
 
   // ---------- scheduling ----------
   function scheduleCorrect(card, classification){
+    card.everAnswered = true;
     if(classification === 'easy'){
       card.stage = 0;
       card.dueAt = now() + FIFTEEN_MIN;
@@ -805,7 +988,9 @@
     var requiredIds = [
       'setupScreen','quizScreen','doneScreen','cancelModal','cancelSessionBtn',
       'cancelModalBack','cancelModalConfirm','startBtn','checkBtn','nextBtn',
-      'koreanText','answerInput','diffPanel','markCorrectBtn','markWrongBtn'
+      'koreanText','answerInput','diffPanel','markCorrectBtn','markWrongBtn',
+      'tabSettings','settingsPane','volumeSlider','ratioMinus','ratioPlus',
+      'exportToggle','exportPane','exportTextarea','exportCopyBtn'
     ];
     var missing = requiredIds.filter(function(id){ return !$(id); });
     if(missing.length){
@@ -815,6 +1000,7 @@
     }
   })();
 
+  loadSettings();
   loadCards();
   setTab('quiz');
   renderCardList();
