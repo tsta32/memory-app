@@ -116,19 +116,22 @@ function refreshUrgency(){
 function renderChapterSelector(){
   var el=$('chapterSelectList');el.innerHTML='';
   if(chapters.length===0){el.innerHTML='<p class="muted" style="padding:8px 0;">챕터 없음 — 설정 탭에서 만들어주세요.</p>';return;}
+  var t=now();
+  function availCount(chId){return cards.filter(function(c){return c.chapterId===chId&&c.dueAt<=t;}).length;}
+  var totalAvail=cards.filter(function(c){return c.dueAt<=t;}).length;
   var allSel=Object.keys(selectedChapterIds).length===0;
   var allRow=document.createElement('label');allRow.className='chapter-select-row';
   var allCb=document.createElement('input');allCb.type='checkbox';allCb.checked=allSel;
   allCb.addEventListener('change',function(){selectedChapterIds={};renderChapterSelector();refreshSetupInfo();});
   allRow.appendChild(allCb);
-  allRow.innerHTML+='<span class="ch-name">전체</span><span class="ch-count">'+cards.length+'개</span>';
+  allRow.innerHTML+='<span class="ch-name">전체</span><span class="ch-count">지금 풀 수 있는 카드 '+totalAvail+'개</span>';
   el.appendChild(allRow);
   chapters.forEach(function(ch){
     var row=document.createElement('label');row.className='chapter-select-row';
     var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!selectedChapterIds[ch.id];
     cb.addEventListener('change',function(){if(cb.checked)selectedChapterIds[ch.id]=true;else delete selectedChapterIds[ch.id];renderChapterSelector();refreshSetupInfo();});
     row.appendChild(cb);
-    row.innerHTML+='<span class="ch-name">'+esc(ch.name)+'</span><span class="ch-count">'+chapterCardCount(ch.id)+'개</span>';
+    row.innerHTML+='<span class="ch-name">'+esc(ch.name)+'</span><span class="ch-count">지금 '+availCount(ch.id)+'개 / 전체 '+chapterCardCount(ch.id)+'개</span>';
     el.appendChild(row);
   });
 }
@@ -176,7 +179,24 @@ on('customCountBtn','click',function(){
 });
 on('ngFilterCheck','change',function(){refreshNgFilterInfo();});
 on('ngFilterCount','input',function(){if($('ngFilterCheck').checked)refreshNgFilterInfo();});
-on('simulateBtn','click',function(){cards.forEach(function(c){c.dueAt=now()-1000;});saveCards();refreshSetupInfo();});
+
+// practice mode flag - when true, correct answers do NOT update schedules
+var practiceMode=false;
+
+on('practiceBtn','click',function(){
+  var selIds=Object.keys(selectedChapterIds).map(Number);
+  var useNg=$('ngFilterCheck').checked;
+  var minNg=parseInt($('ngFilterCount').value,10)||1;
+  var chosen=useNg?buildNgSession(minNg,chosenCount):buildSession(chosenCount,selIds.length?selIds:null);
+  if(!chosen.length){alert('풀 수 있는 카드가 없어요.');return;}
+  practiceMode=true;
+  sessionQueue=chosen.map(function(c){return c.id;});sessionUniqueIds=chosen.map(function(c){return c.id;});
+  sessionDoneCount=0;streak=0;sessionMissedIds=[];retryQueue=[];
+  $('setupScreen').style.display='none';$('quizScreen').style.display='block';
+  // show practice indicator in the stats bar
+  $('progressCount').style.color='var(--warning)';
+  loadNext();
+});
 
 /* ---------- session ---------- */
 function buildSession(n,chIds){
@@ -198,6 +218,7 @@ function buildNgSession(min,n){
   f.sort(function(a,b){return(b.ngCount||0)-(a.ngCount||0);});return f.slice(0,n);
 }
 on('startBtn','click',function(){
+  practiceMode=false;
   var selIds=Object.keys(selectedChapterIds).map(Number);
   var useNg=$('ngFilterCheck').checked;
   var minNg=parseInt($('ngFilterCount').value,10)||1;
@@ -254,7 +275,7 @@ function renderAllCards(){
     var bm=document.createElement('button');bm.type='button';bm.className='icon-btn bm'+(c.bookmarked?' on':'');bm.innerHTML=c.bookmarked?'★':'☆';
     bm.addEventListener('click',function(e){e.stopPropagation();c.bookmarked=!c.bookmarked;saveCards();renderAllCards();});
     var del=document.createElement('button');del.type='button';del.className='icon-btn';del.innerHTML='🗑';
-    del.addEventListener('click',function(e){e.stopPropagation();cards=cards.filter(function(x){return x.id!==c.id;});saveCards();renderAllCards();refreshSetupInfo();});
+    del.addEventListener('click',function(e){e.stopPropagation();if(!confirm('"'+c.ko+'" 문장을 삭제할까요?'))return;cards=cards.filter(function(x){return x.id!==c.id;});saveCards();renderAllCards();refreshSetupInfo();});
     btns.appendChild(bm);btns.appendChild(del);
     row.appendChild(cbDiv);row.appendChild(body);row.appendChild(btns);listEl.appendChild(row);
   });
@@ -272,8 +293,25 @@ on('toggleKo','click',function(){acShowKo=!acShowKo;$('toggleKo').classList.togg
 on('toggleEn','click',function(){acShowEn=!acShowEn;$('toggleEn').classList.toggle('active',acShowEn);renderAllCards();});
 on('allCardsSearch','input',function(e){acSearch=e.target.value;renderAllCards();});
 
+on('selectAllBtn','click',function(){
+  // select all currently visible cards
+  var q=acSearch.trim().toLowerCase();
+  cards.filter(function(c){
+    if(acChapterFilter!==null&&c.chapterId!==acChapterFilter)return false;
+    if(!q)return true;
+    return c.ko.toLowerCase().indexOf(q)!==-1||c.en.toLowerCase().indexOf(q)!==-1;
+  }).forEach(function(c){acCheckedIds[c.id]=true;});
+  renderAllCards();
+});
+on('deselectAllBtn','click',function(){
+  acCheckedIds={};renderAllCards();
+});
+
 on('ngBulkBtn','click',function(){
-  Object.keys(acCheckedIds).map(Number).forEach(function(id){
+  var ids=Object.keys(acCheckedIds).map(Number);
+  if(!ids.length)return;
+  if(!confirm(ids.length+'개 문장을 오답 처리할까요?\n\n재도전 횟수 +1, 1일 뒤 복습 스케줄로 등록됩니다.'))return;
+  ids.forEach(function(id){
     var c=findCard(id);if(!c)return;
     c.ngCount=(c.ngCount||0)+1;c.everAnswered=true;
     c.stage=Math.min((c.stage||0)+1,WRONG_INTERVALS_DAYS.length);
@@ -282,7 +320,10 @@ on('ngBulkBtn','click',function(){
   saveCards();acCheckedIds={};renderAllCards();refreshSetupInfo();
 });
 on('delBulkBtn','click',function(){
-  var ids=Object.keys(acCheckedIds).map(Number);var s={};ids.forEach(function(id){s[id]=true;});
+  var ids=Object.keys(acCheckedIds).map(Number);
+  if(!ids.length)return;
+  if(!confirm(ids.length+'개 문장을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.'))return;
+  var s={};ids.forEach(function(id){s[id]=true;});
   cards=cards.filter(function(c){return!s[c.id];});
   saveCards();acCheckedIds={};renderAllCards();refreshSetupInfo();
 });
@@ -465,7 +506,10 @@ function loadNext(){
 
 function finishSession(){
   $('quizScreen').style.display='none';$('doneScreen').style.display='block';
-  $('doneSummary').textContent=sessionUniqueIds.length+'개 전부 정답 처리 완료';
+  var practiceNote=practiceMode?' (연습 모드 — 복습 스케줄 미반영)':'';
+  $('doneSummary').textContent=sessionUniqueIds.length+'개 완료'+practiceNote;
+  $('progressCount').style.color='';
+  practiceMode=false;
   var mw=$('missedWrap'),ml=$('missedList');ml.innerHTML='';
   var unique=Array.from(new Set(sessionMissedIds)).map(findCard).filter(Boolean);
   mw.style.display=unique.length?'block':'none';
@@ -482,8 +526,12 @@ on('restartBtn','click',function(){$('doneScreen').style.display='none';$('setup
 
 function finalizeCorrect(){
   var cls=hintLevel>=2?'hard':'easy';
-  scheduleCorrect(current,cls);sessionDoneCount++;
-  if(cls==='hard'){sessionMissedIds.push(current.id);current.ngCount=(current.ngCount||0)+1;streak=0;retryQueue.push(current.id);}
+  if(!practiceMode){
+    scheduleCorrect(current,cls);
+    if(cls==='hard'){sessionMissedIds.push(current.id);current.ngCount=(current.ngCount||0)+1;}
+  }
+  sessionDoneCount++;
+  if(cls==='hard'){streak=0;retryQueue.push(current.id);}
   else streak++;
   $('koreanText').style.color='var(--success-text)';var big=streak>=3;
   flashCP('var(--success)',big||cls==='hard');bloomEffect();bigText('OK','#085041');playCorrectSound(big);
