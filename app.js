@@ -573,103 +573,85 @@ function playWrongSound(){}
 var SVGNS='http://www.w3.org/2000/svg';
 function getCardRect(){var c=$('quizCard');return{w:c.clientWidth,h:c.clientHeight};}
 
-/* ─── FULL-SCREEN BALLOON COVER EFFECT ───
-   Strategy: pack balloons in a tight grid so they completely tile the screen,
-   all start stationary (covering everything), then all rise simultaneously.
-   Once the last balloon has cleared the top, call onDone().                 */
+/* ─── BALLOON BURST: natural dense rise covering full screen ───
+   3 rapid waves totalling ~300 balloons, random positions & timing.
+   onDone() fires once the last balloon has left the screen.          */
 function bloomEffect(onDone){
-  var svg=$('fxLayer');
   var vw=window.innerWidth, vh=window.innerHeight;
+  var svg=$('fxLayer');
 
-  // Balloon size tuned so that a grid fully covers the viewport with slight overlap
-  var R=28;          // balloon half-width
-  var RY=R*1.3;      // balloon half-height (taller than wide)
-  var colGap=R*2-2;  // columns overlap slightly
-  var rowGap=RY*2-2;
+  // Warm palette only — no blue/purple
+  var colors=['#FF8FAB','#FFB347','#FFD966','#A8E6A3','#F4A261',
+              '#FCA5A5','#6EE7B7','#FDE68A','#FBCFE8','#D9F99D',
+              '#FCD34D','#86EFAC','#FDA4AF','#FED7AA','#BBF7D0',
+              '#FECACA','#FEF08A','#D1FAE5','#FFE4E6','#ECFCCB'];
 
-  var cols=Math.ceil(vw/colGap)+1;
-  var rows=Math.ceil(vh/rowGap)+2; // extra rows top & bottom
+  var total=0, done=0, launched=false;
 
-  var colors=['#FF8FAB','#FFB347','#FFD966','#A8E6A3','#93C5FD','#C4B5FD',
-              '#FCA5A5','#6EE7B7','#FDE68A','#FBCFE8','#BAE6FD','#D9F99D'];
-
-  var balloons=[];
-  for(var row=0;row<rows;row++){
-    for(var col=0;col<cols;col++){
-      var cx=col*colGap - R + (row%2===1?colGap/2:0); // offset every other row
-      var cy=vh - row*rowGap + RY;                     // fill from bottom up
-
+  function spawnBalloon(delay){
+    total++;
+    setTimeout(function(){
+      var g=document.createElementNS('http://www.w3.org/2000/svg','g');
       var color=colors[Math.floor(Math.random()*colors.length)];
-      var g=document.createElementNS(SVGNS,'g');
+      var r=10+Math.random()*16;
+      var bx=Math.random()*vw;
+      var extra=10+Math.random()*80;
+      var by=vh+extra;
+      var driftX=(Math.random()-0.5)*110;
+      var wobbleAmp=14+Math.random()*32;
+      var wobbleFreq=1.4+Math.random()*2;
+      var dur=950+Math.random()*700;
 
-      var body=document.createElementNS(SVGNS,'ellipse');
-      body.setAttribute('cx',0);body.setAttribute('cy',0);
-      body.setAttribute('rx',String(R));body.setAttribute('ry',String(RY));
-      body.setAttribute('fill',color);body.setAttribute('opacity','0.96');
+      var body=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+      body.setAttribute('cx','0');body.setAttribute('cy','0');
+      body.setAttribute('rx',String(r));body.setAttribute('ry',String(r*1.28));
+      body.setAttribute('fill',color);
 
-      var shine=document.createElementNS(SVGNS,'ellipse');
-      shine.setAttribute('cx',String(-R*0.3));shine.setAttribute('cy',String(-RY*0.32));
-      shine.setAttribute('rx',String(R*0.22));shine.setAttribute('ry',String(RY*0.22));
-      shine.setAttribute('fill','rgba(255,255,255,0.5)');
+      var shine=document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+      shine.setAttribute('cx',String(-r*0.28));shine.setAttribute('cy',String(-r*0.35));
+      shine.setAttribute('rx',String(r*0.21));shine.setAttribute('ry',String(r*0.28));
+      shine.setAttribute('fill','rgba(255,255,255,0.48)');
 
-      var str=document.createElementNS(SVGNS,'line');
-      str.setAttribute('x1','0');str.setAttribute('y1',String(RY));
-      str.setAttribute('x2',String((Math.random()-0.5)*5));str.setAttribute('y2',String(RY+14));
-      str.setAttribute('stroke',color);str.setAttribute('stroke-width','1.5');str.setAttribute('opacity','0.55');
+      var str=document.createElementNS('http://www.w3.org/2000/svg','line');
+      str.setAttribute('x1','0');str.setAttribute('y1',String(r*1.28));
+      str.setAttribute('x2',String((Math.random()-0.5)*5));
+      str.setAttribute('y2',String(r*1.28+13));
+      str.setAttribute('stroke',color);str.setAttribute('stroke-width','1.4');
+      str.setAttribute('opacity','0.5');
 
       g.appendChild(body);g.appendChild(str);g.appendChild(shine);
-      g.setAttribute('transform','translate('+cx.toFixed(1)+','+cy.toFixed(1)+')');
       svg.appendChild(g);
-      balloons.push({el:g, startX:cx, startY:cy});
-    }
+
+      var t0=null;
+      (function step(ts){
+        if(!t0)t0=ts;
+        var p=Math.min((ts-t0)/dur,1);
+        var ease=1-Math.pow(1-p,2.3);
+        var cx=bx+driftX*ease+Math.sin(p*Math.PI*wobbleFreq)*wobbleAmp*(1-p);
+        var cy=by-(vh+r*3+extra)*ease;
+        g.setAttribute('transform','translate('+cx.toFixed(1)+','+cy.toFixed(1)+')');
+        var op=p<0.08?p/0.08:p>0.80?Math.max(0,(1-p)/0.20):1;
+        g.style.opacity=op.toFixed(3);
+        if(p<1){ requestAnimationFrame(step); }
+        else {
+          g.remove(); done++;
+          if(done>=total&&launched&&onDone) onDone();
+        }
+      })(performance.now());
+    }, delay);
   }
 
-  // Phase 1: hold for 80ms so the screen looks covered, then rise
-  var riseStart=null;
-  var riseDuration=700; // ms to fly off the top
-  // travel distance needed to clear the screen = vh + RY (balloon bottom clears top)
-  var travel=vh+RY*2;
+  // Wave 1 (main burst): 180 balloons, 0-350ms
+  var i;
+  for(i=0;i<180;i++) spawnBalloon(Math.random()*350);
+  // Wave 2 (fill gaps): 80 balloons, 30-300ms
+  for(i=0;i<80;i++)  spawnBalloon(30+Math.random()*300);
+  // Wave 3 (stragglers): 40 balloons, 80-240ms
+  for(i=0;i<40;i++)  spawnBalloon(80+Math.random()*240);
 
-  // stagger rows slightly for a wave feel
-  var rowStagger=18; // ms per row
-
-  function animate(ts){
-    if(!riseStart)riseStart=ts;
-    var elapsed=ts-riseStart;
-    var allDone=true;
-    for(var i=0;i<balloons.length;i++){
-      var b=balloons[i];
-      // which row is this?
-      var rowIdx=Math.floor(i/cols);
-      var t=Math.max(0,elapsed - rowIdx*rowStagger);
-      var p=Math.min(t/riseDuration,1);
-      if(p<1)allDone=false;
-      // ease-in-out: accelerate then decelerate
-      var ease=p<0.5?2*p*p:(1-Math.pow(-2*p+2,2)/2);
-      var dy=travel*ease;
-      // gentle horizontal wobble
-      var dx=Math.sin(p*Math.PI*2 + i*0.4)*8*(1-p);
-      b.el.setAttribute('transform',
-        'translate('+(b.startX+dx).toFixed(1)+','+(b.startY-dy).toFixed(1)+')');
-    }
-    if(!allDone){
-      requestAnimationFrame(animate);
-    } else {
-      // clean up
-      for(var j=0;j<balloons.length;j++) balloons[j].el.remove();
-      if(onDone) onDone();
-    }
-  }
-
-  // wait one frame for SVG to render (so cover is visible), then start rising
-  requestAnimationFrame(function(){
-    requestAnimationFrame(function(){
-      setTimeout(function(){
-        requestAnimationFrame(animate);
-      }, 80);
-    });
-  });
+  setTimeout(function(){ launched=true; }, 30);
 }
+
 
 /* ─── COMBO TEXT ─── */
 function showComboText(n){
