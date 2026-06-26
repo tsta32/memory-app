@@ -455,12 +455,12 @@ function renderMemCards(vis){
     var wrap=document.createElement('div');
     wrap.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px;';
     var body=document.createElement('div');body.style.flex='1';
-    var ko='',en='';
-    if(memShowKo) ko='<div style="font-size:20px;font-weight:500;line-height:1.6;margin-bottom:'+(memShowEn?'8px':'0')+';">'+esc(c.ko)+'</div>';
-    if(memShowEn) en='<div style="font-size:17px;color:var(--text-2);line-height:1.6;">'+esc(c.en)+'</div>';
     var st=reviewStatus(c);
     var badge='<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;"><span class="due-tag '+st.cls+'" style="font-size:12px;">'+esc(st.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge" style="font-size:12px;">재도전 '+c.ngCount+'회</span>':'')+'</div>';
-    body.innerHTML=ko+en+badge;
+    body.innerHTML=
+      '<div data-mem="ko" style="font-size:20px;font-weight:500;line-height:1.6;margin-bottom:8px;color:'+(memShowKo?'':'transparent')+';">'+esc(c.ko)+'</div>'+
+      '<div data-mem="en" style="font-size:17px;color:'+(memShowEn?'var(--text-2)':'transparent')+';line-height:1.6;">'+esc(c.en)+'</div>'+
+      badge;
     var ngBtn=document.createElement('button');
     ngBtn.type='button';
     ngBtn.style.cssText='flex-shrink:0;font-size:12px;padding:6px 10px;color:var(--danger);border-color:var(--danger);margin-top:2px;';
@@ -475,8 +475,8 @@ function renderMemCards(vis){
         showMemToast('복습 스케줄에 추가되었습니다');
         var st2=reviewStatus(c);
         body.innerHTML=
-          (memShowKo?'<div style="font-size:20px;font-weight:500;line-height:1.6;margin-bottom:'+(memShowEn?'8px':'0')+';">'+esc(c.ko)+'</div>':'')+
-          (memShowEn?'<div style="font-size:17px;color:var(--text-2);line-height:1.6;">'+esc(c.en)+'</div>':'')+
+          '<div style="font-size:20px;font-weight:500;line-height:1.6;margin-bottom:8px;color:'+(memShowKo?'':'transparent')+';">'+esc(c.ko)+'</div>'+
+          '<div style="font-size:17px;color:'+(memShowEn?'var(--text-2)':'transparent')+';line-height:1.6;">'+esc(c.en)+'</div>'+
           '<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;"><span class="due-tag '+st2.cls+'" style="font-size:12px;">'+esc(st2.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge" style="font-size:12px;">재도전 '+c.ngCount+'회</span>':'')+'</div>';
       });
     })(c,body);
@@ -498,12 +498,17 @@ on('memModeClose','click',function(){
   renderAllCards();
 });
 on('memToggleKo','click',function(){
-  memShowKo=!memShowKo;$('memToggleKo').classList.toggle('active',memShowKo);
-  renderMemCards(memVisCards);
+  memShowKo=!memShowKo;
+  $('memToggleKo').classList.toggle('active',memShowKo);
+  // 재렌더링 없이 DOM에서 ko 줄 color만 직접 변경 → 스크롤 고정
+  var koEls=$('memCardList').querySelectorAll('[data-mem="ko"]');
+  koEls.forEach(function(el){el.style.color=memShowKo?'':'transparent';});
 });
 on('memToggleEn','click',function(){
-  memShowEn=!memShowEn;$('memToggleEn').classList.toggle('active',memShowEn);
-  renderMemCards(memVisCards);
+  memShowEn=!memShowEn;
+  $('memToggleEn').classList.toggle('active',memShowEn);
+  var enEls=$('memCardList').querySelectorAll('[data-mem="en"]');
+  enEls.forEach(function(el){el.style.color=memShowEn?'var(--text-2)':'transparent';});
 });
 
 on('ngBulkBtn','click',function(){
