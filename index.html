@@ -239,7 +239,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
           <button type="button" id="deselectAllBtn" style="font-size:12px;padding:5px 9px;">선택해제</button>
           <div style="flex:1;"></div>
           <button type="button" id="ngBulkBtn" class="ng-bulk-btn" style="font-size:14px;font-weight:500;padding:9px 16px;" disabled>오답 처리</button>
-          <button type="button" id="delBulkBtn" class="del-bulk-btn" style="font-size:13px;padding:8px 12px;" disabled>삭제</button>
+          <button type="button" id="editBulkBtn" style="font-size:13px;padding:8px 14px;border-color:var(--accent);color:var(--accent-text);" disabled>✏️ 편집</button>
         </div>
         <input type="text" id="allCardsSearch" placeholder="한국어 또는 영어로 검색" style="margin-bottom:10px;" />
         <div class="chip-row" id="acChapterFilter"></div>
@@ -391,6 +391,31 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     <div class="modal-actions">
       <button type="button" id="cancelModalBack">계속 풀기</button>
       <button type="button" id="cancelModalConfirm" class="modal-danger">취소하고 홈으로</button>
+    </div>
+  </div>
+</div>
+
+<!-- edit modal -->
+<div class="modal-overlay" id="editModal" style="align-items:flex-start;padding:16px;overflow-y:auto;">
+  <div class="modal-box" style="max-width:480px;width:100%;max-height:none;">
+    <h3 style="margin-bottom:4px;">✏️ 문장 편집</h3>
+    <p class="muted" style="margin-bottom:16px;">내용을 수정하고 저장 버튼을 눌러주세요.</p>
+    <div id="editCardList" style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;"></div>
+    <div class="modal-actions">
+      <button type="button" id="editCancelBtn">취소</button>
+      <button type="button" id="editSaveBtn" style="border-color:var(--accent);color:var(--accent-text);">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- edit confirm modal -->
+<div class="modal-overlay" id="editConfirmModal">
+  <div class="modal-box">
+    <h3 style="margin-bottom:8px;">변경 내용 확인</h3>
+    <div id="editDiffList" style="margin-bottom:18px;display:flex;flex-direction:column;gap:10px;max-height:340px;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" id="editConfirmCancel" class="modal-danger">취소 (되돌리기)</button>
+      <button type="button" id="editConfirmApply" style="border-color:var(--success);color:var(--success-text);">적용</button>
     </div>
   </div>
 </div>

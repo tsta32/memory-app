@@ -360,7 +360,8 @@ function renderAllCards(){
 }
 function updateBulkBar(){
   var n=Object.keys(acCheckedIds).length;
-  $('ngBulkBtn').disabled=n===0;$('delBulkBtn').disabled=n===0;
+  $('ngBulkBtn').disabled=n===0;
+  $('editBulkBtn').disabled=n===0;
 }
 
 on('sortAdded','click',function(){acSort='added';['sortAdded','sortNg','sortAlpha'].forEach(function(id){$(id).classList.remove('active');});$('sortAdded').classList.add('active');renderAllCards();});
@@ -517,14 +518,138 @@ on('ngBulkBtn','click',function(){
   });
   saveCards();acCheckedIds={};renderAllCards();refreshSetupInfo();
 });
-on('delBulkBtn','click',function(){
+on('editBulkBtn','click',function(){
   var ids=Object.keys(acCheckedIds).map(Number);
   if(!ids.length)return;
-  if(!confirm(ids.length+'개 문장을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.'))return;
-  var s={};ids.forEach(function(id){s[id]=true;});
-  cards=cards.filter(function(c){return!s[c.id];});
-  saveCards();acCheckedIds={};renderAllCards();refreshSetupInfo();
+  openEditModal(ids);
 });
+
+/* ---------- bulk edit modal ---------- */
+var editingSnapshots=[]; // [{id, origKo, origEn}] - 편집 전 원본
+
+function openEditModal(ids){
+  editingSnapshots=[];
+  var list=$('editCardList');
+  list.innerHTML='';
+  ids.forEach(function(id){
+    var c=findCard(id);if(!c)return;
+    editingSnapshots.push({id:id,origKo:c.ko,origEn:c.en});
+
+    var wrap=document.createElement('div');
+    wrap.style.cssText='background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:14px;';
+
+    var koLabel=document.createElement('div');
+    koLabel.style.cssText='font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;';
+    koLabel.textContent='한국어';
+
+    var koInput=document.createElement('input');
+    koInput.type='text';
+    koInput.value=c.ko;
+    koInput.dataset.id=id;
+    koInput.dataset.field='ko';
+    koInput.style.marginBottom='10px';
+    koInput.placeholder='한국어 뜻';
+
+    var enLabel=document.createElement('div');
+    enLabel.style.cssText='font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;';
+    enLabel.textContent='영어';
+
+    var enInput=document.createElement('input');
+    enInput.type='text';
+    enInput.value=c.en;
+    enInput.dataset.id=id;
+    enInput.dataset.field='en';
+    enInput.placeholder='영어 정답';
+
+    wrap.appendChild(koLabel);wrap.appendChild(koInput);
+    wrap.appendChild(enLabel);wrap.appendChild(enInput);
+    list.appendChild(wrap);
+  });
+  $('editModal').classList.add('show');
+}
+
+on('editCancelBtn','click',function(){
+  $('editModal').classList.remove('show');
+  editingSnapshots=[];
+});
+
+on('editSaveBtn','click',function(){
+  // 변경사항 수집
+  var inputs=$('editCardList').querySelectorAll('input');
+  var changes={}; // id -> {ko, en}
+  inputs.forEach(function(inp){
+    var id=parseInt(inp.dataset.id,10);
+    if(!changes[id]) changes[id]={};
+    changes[id][inp.dataset.field]=inp.value.trim();
+  });
+
+  // 실제로 변경된 카드만 필터
+  var diffs=[];
+  editingSnapshots.forEach(function(snap){
+    var ch=changes[snap.id];
+    if(!ch)return;
+    var koChanged=ch.ko!==snap.origKo;
+    var enChanged=ch.en!==snap.origEn;
+    if(koChanged||enChanged){
+      diffs.push({id:snap.id,origKo:snap.origKo,origEn:snap.origEn,newKo:ch.ko,newEn:ch.en,koChanged:koChanged,enChanged:enChanged});
+    }
+  });
+
+  if(diffs.length===0){
+    $('editModal').classList.remove('show');
+    editingSnapshots=[];
+    return;
+  }
+
+  // 확인 모달로 변경 내용 보여주기
+  $('editModal').classList.remove('show');
+  showEditConfirm(diffs);
+});
+
+var pendingEdits=[];
+function showEditConfirm(diffs){
+  pendingEdits=diffs;
+  var list=$('editDiffList');
+  list.innerHTML='';
+  diffs.forEach(function(d){
+    var block=document.createElement('div');
+    block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:12px;border:1.5px solid var(--border);';
+    var html='';
+    if(d.koChanged){
+      html+='<div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:3px;">한국어</div>';
+      html+='<div style="font-size:13px;color:var(--danger);text-decoration:line-through;margin-bottom:2px;">'+esc(d.origKo)+'</div>';
+      html+='<div style="font-size:13px;color:var(--success);margin-bottom:6px;">'+esc(d.newKo)+'</div>';
+    }
+    if(d.enChanged){
+      html+='<div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:3px;">영어</div>';
+      html+='<div style="font-size:13px;color:var(--danger);text-decoration:line-through;margin-bottom:2px;">'+esc(d.origEn)+'</div>';
+      html+='<div style="font-size:13px;color:var(--success);">'+esc(d.newEn)+'</div>';
+    }
+    block.innerHTML=html;
+    list.appendChild(block);
+  });
+  $('editConfirmModal').classList.add('show');
+}
+
+on('editConfirmCancel','click',function(){
+  $('editConfirmModal').classList.remove('show');
+  pendingEdits=[];
+});
+
+on('editConfirmApply','click',function(){
+  pendingEdits.forEach(function(d){
+    var c=findCard(d.id);if(!c)return;
+    if(d.koChanged)c.ko=d.newKo;
+    if(d.enChanged)c.en=d.newEn;
+  });
+  saveCards();
+  acCheckedIds={};
+  $('editConfirmModal').classList.remove('show');
+  pendingEdits=[];
+  editingSnapshots=[];
+  renderAllCards();
+});
+
 
 /* ---------- add card ---------- */
 function refreshAddSelects(){
