@@ -19,8 +19,8 @@ var acChapterFilter=null,acCheckedIds={};
 var acReverse=false; // 역순 여부
 var acBmOnly=false;  // 북마크만 보기
 
-var quizOrderRandom=false; // 출제 순서: false=추가순, true=랜덤
-var quizBmOnly=false;       // 북마크만 출제
+var quizOrder='added'; // 'added'|'reverse'|'alpha'|'random'
+var quizBmOnly=false;
 var selectedChapterIds={};
 var chosenCount=10;
 
@@ -223,7 +223,8 @@ function refreshSetupInfo(){
   $('availInfo').textContent='지금 풀 수 있는 카드: '+avail.length+'개 (복습 '+(avail.length-dueNew)+' / 새 카드 '+dueNew+')';
   buildCountOptions(avail.length);
   $('customCountHint').textContent='전체 저장된 문장: '+cards.length+'개';
-  $('newCardRatioInfo').textContent='새 카드 '+(settings.newCardRatio||5)+'문제당 1개씩 섞여서 출제됩니다';
+  var orderLabel={'added':'추가순','reverse':'역순','alpha':'알파벳순','random':'랜덤'}[quizOrder]||quizOrder;
+  $('newCardRatioInfo').textContent='복습 카드는 기한 임박순 · 새 카드는 '+orderLabel+' · '+(settings.newCardRatio||5)+'문제당 1개 섞기';
   refreshNgFilterInfo();refreshUrgency();
 }
 function refreshNgFilterInfo(){
@@ -259,8 +260,14 @@ on('customCountBtn','click',function(){
 on('ngFilterCheck','change',function(){refreshNgFilterInfo();});
 on('ngFilterCount','input',function(){if($('ngFilterCheck').checked)refreshNgFilterInfo();});
 on('bmFilterCheck','change',function(){quizBmOnly=$('bmFilterCheck').checked;refreshSetupInfo();});
-on('orderAdded','click',function(){quizOrderRandom=false;$('orderAdded').classList.add('active');$('orderRandom').classList.remove('active');});
-on('orderRandom','click',function(){quizOrderRandom=true;$('orderRandom').classList.add('active');$('orderAdded').classList.remove('active');});
+['orderAdded','orderReverse','orderAlpha','orderRandom'].forEach(function(id){
+  on(id,'click',function(){
+    quizOrder=id.replace('order','').toLowerCase();
+    ['orderAdded','orderReverse','orderAlpha','orderRandom'].forEach(function(bid){$(bid).classList.remove('active');});
+    $(id).classList.add('active');
+    refreshSetupInfo();
+  });
+});
 
 // practice mode flag - when true, correct answers do NOT update schedules
 var practiceMode=false;
@@ -273,16 +280,40 @@ on('practiceBtn','click',function(){
 function buildSession(n,chIds){
   var t=now();
   var pool=cards.filter(function(c){return!chIds||!chIds.length||chIds.indexOf(c.chapterId)!==-1;});
+
+  // 복습 카드: 기한이 된 카드, 항상 기한 임박순 (quizOrder와 무관)
   var dueRev=pool.filter(function(c){return c.everAnswered&&c.dueAt<=t;});
-  var dueNew=pool.filter(function(c){return!c.everAnswered&&c.dueAt<=t;});
-  dueRev.sort(function(a,b){return a.dueAt-b.dueAt;});dueNew.sort(function(a,b){return a.dueAt-b.dueAt;});
-  var ratio=Math.max(1,settings.newCardRatio||5),result=[],ri=0,ni=0,slot=0;
-  while(result.length<n&&(ri<dueRev.length||ni<dueNew.length)){
+  dueRev.sort(function(a,b){return a.dueAt-b.dueAt;});
+
+  // 새 카드: 한 번도 안 푼 카드, quizOrder에 따라 정렬
+  var newCards=pool.filter(function(c){return!c.everAnswered;});
+  if(quizOrder==='reverse'){
+    newCards.sort(function(a,b){return b.id-a.id;}); // 최근 추가 역순
+  } else if(quizOrder==='alpha'){
+    newCards.sort(function(a,b){return a.en.localeCompare(b.en);});
+  } else if(quizOrder==='random'){
+    shuffleArray(newCards);
+  } else {
+    // added: 기존 추가순 (id 오름차순, dueAt 순)
+    newCards.sort(function(a,b){return a.dueAt-b.dueAt;});
+  }
+
+  // 비율 로직: N문제당 1개 새 카드 섞기
+  // 복습 카드가 없으면 전부 새 카드로 채움 (비율 의미 없음)
+  var ratio=Math.max(1,settings.newCardRatio||5);
+  var result=[],ri=0,ni=0,slot=0;
+  while(result.length<n&&(ri<dueRev.length||ni<newCards.length)){
     slot++;
-    if(slot%ratio===0&&ni<dueNew.length)result.push(dueNew[ni++]);
-    else if(ri<dueRev.length)result.push(dueRev[ri++]);
-    else if(ni<dueNew.length)result.push(dueNew[ni++]);
-  }return result;
+    if(slot%ratio===0&&ni<newCards.length){
+      result.push(newCards[ni++]);
+    } else if(ri<dueRev.length){
+      result.push(dueRev[ri++]);
+    } else if(ni<newCards.length){
+      // 복습 카드 소진 → 새 카드로만 채움
+      result.push(newCards[ni++]);
+    }
+  }
+  return result;
 }
 function buildNgSession(min,n){
   var f=cards.filter(function(c){return(c.ngCount||0)>=min;});
@@ -304,10 +335,8 @@ function startSessionWith(isPractice){
   } else {
     chosen=buildSession(chosenCount,selIds.length?selIds:null);
   }
-  // 북마크 필터
+  // 북마크 필터 (buildSession 이후 추가 필터링)
   if(quizBmOnly) chosen=chosen.filter(function(c){return c.bookmarked;});
-  // 랜덤 순서
-  if(quizOrderRandom) chosen=shuffleArray(chosen.slice());
   if(!chosen.length){$('ngFilterInfo').textContent='해당 카드 없음';$('ngFilterInfo').style.color='var(--danger-text)';return;}
   sessionQueue=chosen.map(function(c){return c.id;});sessionUniqueIds=chosen.map(function(c){return c.id;});
   sessionDoneCount=0;streak=0;sessionMissedIds=[];retryQueue=[];currentIsRetry=false;
