@@ -534,40 +534,46 @@ function renderMemCards(vis){
   var list=$('memCardList');list.innerHTML='';
   if(!vis.length){list.innerHTML='<p class="muted" style="text-align:center;padding:40px 0;">표시할 문장이 없어요</p>';return;}
   vis.forEach(function(c){
-    var wrap=document.createElement('div');
-    wrap.style.cssText='background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px;';
-    var body=document.createElement('div');body.style.flex='1';
+    var row=document.createElement('div');row.className='fc-row';
+    var cbDiv=document.createElement('div');cbDiv.className='fc-cb';
+    var body=document.createElement('div');body.className='fc-body';
     var st=reviewStatus(c);
-    var badge='<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;"><span class="due-tag '+st.cls+'" style="font-size:12px;">'+esc(st.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge" style="font-size:12px;">재도전 '+c.ngCount+'회</span>':'')+'</div>';
     body.innerHTML=
-      '<div data-mem="ko" style="font-size:20px;font-weight:500;line-height:1.6;margin-bottom:8px;color:'+(memShowKo?'':'transparent')+';">'+esc(c.ko)+'</div>'+
-      '<div data-mem="en" style="font-size:17px;color:'+(memShowEn?'var(--text-2)':'transparent')+';line-height:1.6;">'+esc(c.en)+'</div>'+
-      badge;
-    var ngBtn=document.createElement('button');
-    ngBtn.type='button';
-    ngBtn.style.cssText='flex-shrink:0;font-size:12px;padding:6px 10px;color:var(--danger);border-color:var(--danger);margin-top:2px;';
-    ngBtn.textContent='오답';
-    (function(c,body){
-      ngBtn.addEventListener('click',function(){
-        c.ngCount=(c.ngCount||0)+1;
-        c.everAnswered=true;
-        c.stage=Math.min((c.stage||0)+1,STAGE_DAYS.length);
-        c.dueAt=now()+STAGE_DAYS[Math.min(c.stage-1,STAGE_DAYS.length-1)]*ONE_DAY;
-        saveCards();
-        showMemToast('복습 스케줄에 추가되었습니다');
-        var st2=reviewStatus(c);
-        body.innerHTML=
-          '<div style="font-size:20px;font-weight:500;line-height:1.6;margin-bottom:8px;color:'+(memShowKo?'':'transparent')+';">'+esc(c.ko)+'</div>'+
-          '<div style="font-size:17px;color:'+(memShowEn?'var(--text-2)':'transparent')+';line-height:1.6;">'+esc(c.en)+'</div>'+
-          '<div style="margin-top:8px;display:flex;gap:5px;flex-wrap:wrap;"><span class="due-tag '+st2.cls+'" style="font-size:12px;">'+esc(st2.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge" style="font-size:12px;">재도전 '+c.ngCount+'회</span>':'')+'</div>';
-      });
-    })(c,body);
-    wrap.appendChild(body);wrap.appendChild(ngBtn);
-    wrap.appendChild(makeMemAskBtns(c.id));
-    list.appendChild(wrap);
+      '<div class="fc-ko" data-mem="ko" style="color:'+(memShowKo?'':'transparent')+';">'+esc(c.ko)+'</div>'+
+      '<div class="fc-en" data-mem="en" style="color:'+(memShowEn?'var(--text-2)':'transparent')+';">'+esc(c.en)+'</div>'+
+      '<div class="fc-meta"><span class="due-tag '+st.cls+'">'+esc(st.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge">재도전 '+c.ngCount+'회</span>':'')+'</div>';
+
+    var btns=document.createElement('div');btns.className='fc-btns';
+
+    var bm=document.createElement('button');bm.type='button';bm.className='icon-btn bm'+(c.bookmarked?' on':'');
+    bm.innerHTML=c.bookmarked?'★':'☆';
+    (function(c,bm){bm.addEventListener('click',function(){c.bookmarked=!c.bookmarked;saveCards();bm.innerHTML=c.bookmarked?'★':'☆';bm.style.color=c.bookmarked?'var(--warning)':'';});})(c,bm);
+
+    var ngBtn=document.createElement('button');ngBtn.type='button';ngBtn.className='icon-btn';
+    ngBtn.style.color='var(--danger)';ngBtn.textContent='NG';
+    (function(c,body){ngBtn.addEventListener('click',function(){
+      c.ngCount=(c.ngCount||0)+1;c.everAnswered=true;
+      c.stage=Math.min((c.stage||0)+1,STAGE_DAYS.length);
+      c.dueAt=now()+STAGE_DAYS[Math.min(c.stage-1,STAGE_DAYS.length-1)]*ONE_DAY;
+      saveCards();showMemToast('복습 스케줄에 추가되었습니다');
+      var st2=reviewStatus(c);
+      body.querySelector('.fc-meta').innerHTML='<span class="due-tag '+st2.cls+'">'+esc(st2.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge">재도전 '+c.ngCount+'회</span>':'');
+    });})(c,body);
+
+    var askBtn=document.createElement('button');askBtn.type='button';askBtn.className='icon-btn';
+    askBtn.textContent='💬';
+    (function(cid){askBtn.addEventListener('click',function(){openAskModal(cid);});})(c.id);
+
+    var noteBtn=document.createElement('button');noteBtn.type='button';noteBtn.className='icon-btn';
+    noteBtn.textContent='📋';
+    if(notes[c.id]&&notes[c.id].length) noteBtn.style.color='var(--accent-text)';
+    (function(cid){noteBtn.addEventListener('click',function(){openNotesModal(cid);});})(c.id);
+
+    btns.appendChild(bm);btns.appendChild(ngBtn);btns.appendChild(askBtn);btns.appendChild(noteBtn);
+    row.appendChild(cbDiv);row.appendChild(body);row.appendChild(btns);
+    list.appendChild(row);
   });
 }
-
 function openMemMode(){
   renderMemCards(memGetVisible());
   $('memModeOverlay').style.display='flex';
