@@ -8,6 +8,7 @@ var CARDS_KEY='srs_cards_v2',CHAPTERS_KEY='srs_chapters_v1',SETTINGS_KEY='srs_se
 var NOTES_KEY='srs_notes_v1';    // {cardId: [{id,date,q,a,summary}]}
 var TRENDS_KEY='srs_trends_v1';  // [{date, result}]
 var APIKEY_KEY='srs_apikey_v1';
+var BIZ_SESSIONS_KEY='srs_biz_sessions_v1'; // [{date,passRate,avgTime,totalSteps,steps:[{stepKo,userAnswer,pass,min,ideal}]}]
 
 var cards=[],chapters=[],settings={volume:100,newCardRatio:5};
 var nextCardId=1,nextChapterId=1;
@@ -168,6 +169,7 @@ function loadAll(){
   try{var nr=localStorage.getItem(NOTES_KEY);if(nr)notes=JSON.parse(nr)||{};}catch(e){}
   try{var tr=localStorage.getItem(TRENDS_KEY);if(tr)trends=JSON.parse(tr)||[];}catch(e){}
   try{var ak=localStorage.getItem(APIKEY_KEY);if(ak)apiKey=ak;}catch(e){}
+  try{var bs=localStorage.getItem(BIZ_SESSIONS_KEY);if(bs)bizSessions=JSON.parse(bs)||[];}catch(e){}
 }
 function saveNotes(){try{localStorage.setItem(NOTES_KEY,JSON.stringify(notes));}catch(e){}}
 function saveTrends(){try{localStorage.setItem(TRENDS_KEY,JSON.stringify(trends));}catch(e){}}
@@ -1413,11 +1415,14 @@ on('restartBtn','click',function(){$('doneScreen').style.display='none';$('setup
 var bizTimer=null;
 var bizTimeLeft=20;
 var BIZ_TIME=20;
-var bizCurrentQ=null; // {situation, question, ko, en} - 현재 문제
-var bizMinCardId=null; // 합격기준 문장 카드 id (추가됐으면)
-var bizIdealCardId=null;
+var bizCurrentQ=null;
+var bizStepIdx=0;
+var bizStepResults=[];
+var bizStepStartTime=0; // 각 문장 입력 시작 시간
+var bizSessions=[]; // 전체 세션 이력
+function saveBizSessions(){try{localStorage.setItem(BIZ_SESSIONS_KEY,JSON.stringify(bizSessions));}catch(e){}}
 
-// "실전연습" 챕터 확보 (없으면 생성)
+// "실전연습" 챕터 확보
 function getOrCreatePracticeChapter(){
   var ch=chapters.find(function(c){return c.name==='실전연습';});
   if(ch)return ch.id;
@@ -1437,25 +1442,23 @@ on('bizStartBtn','click',function(){
 on('bizBackBtn','click',function(){
   clearInterval(bizTimer);
   $('bizScreen').style.display='none';
-  $('setupScreen').style.display='block';
-  refreshSetupInfo();
+  $('setupScreen').style.display='block';refreshSetupInfo();
 });
 on('bizDoneBtn','click',function(){
   clearInterval(bizTimer);
   $('bizScreen').style.display='none';
-  $('setupScreen').style.display='block';
-  refreshSetupInfo();
+  $('setupScreen').style.display='block';refreshSetupInfo();
 });
 
 function bizLoadNext(){
   clearInterval(bizTimer);
+  bizStepIdx=0;bizStepResults=[];
   $('bizResultCard').style.display='none';
   $('bizQuestionCard').style.display='block';
   $('bizAnswer').value='';$('bizAnswer').disabled=false;
   $('bizSubmitBtn').style.display='block';$('bizLoading').style.display='none';
-  bizMinCardId=null;bizIdealCardId=null;
+  $('bizStepInfo').textContent='';
 
-  // 전체문장 카드 중 랜덤으로 몇 개 골라서 AI에게 문제 생성 요청
   var pool=cards.filter(function(c){return c.en&&c.ko;});
   if(!pool.length){alert('카드가 없어요. 먼저 카드를 추가해주세요.');return;}
   var sample=shuffleArray(pool.slice()).slice(0,Math.min(8,pool.length));
@@ -1470,26 +1473,42 @@ function bizLoadNext(){
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',max_tokens:400,
+      model:'claude-haiku-4-5-20251001',max_tokens:600,
       messages:[{role:'user',content:
-        '당신은 비즈니스 영어 트레이너입니다. 아래 영어 표현들을 참고해서 실제 업무 상황을 하나 만들고, 그 상황에서 상대방이 영어로 한 말을 제시해주세요. 학습자가 적절한 영어로 응답해야 합니다.\n\n참고 표현:\n'+sampleText+'\n\n다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):\n{"situation":"한국어로 2~3문장의 상황 설명","question":"상대방이 영어로 한 말 (1~2문장)","hint":"어떤 뉘앙스의 답변이 필요한지 한국어 힌트 한 줄"}'
+        '당신은 비즈니스 영어 트레이너입니다. 아래 영어 표현들을 참고해서 실제 업무 상황을 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n규칙:\n- 상황 설명과 상대방의 영어 발화를 만드세요\n- 학습자가 답해야 할 내용을 한국어로 2~4개 문장으로 쪼개서 제시하세요\n- 각 문장은 독립적으로 영어로 표현 가능한 단위여야 합니다\n- 답변 내용은 비즈니스 상황에 맞는 자연스러운 흐름이어야 합니다\n\n다음 JSON으로만 응답 (다른 텍스트 없이):\n{"situation":"한국어 2~3문장 상황 설명","question":"상대방이 영어로 한 말 (1~2문장)","steps":[{"ko":"첫 번째로 영어로 표현해야 할 내용 (한국어)"},{"ko":"두 번째 내용"},{"ko":"세 번째 내용 (선택)"}]}'
       }]
     })
   }).then(function(r){return r.json();}).then(function(data){
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
-    var q;try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){q={situation:'거래처 담당자와 미팅 중입니다.',question:"I'm sorry, could you clarify what you mean?",hint:'명확히 설명하겠다는 의사 전달'};}
+    var q;
+    try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}
+    catch(e){q={situation:'거래처 담당자와 미팅 중입니다.',question:"Could you give me an update on the project?",steps:[{ko:"죄송하다고 사과하세요"},{ko:"현재 상황을 간략히 설명하세요"},{ko:"언제까지 해결하겠다고 약속하세요"}]};}
+    if(!q.steps||!q.steps.length)q.steps=[{ko:"적절히 답변하세요"}];
     bizCurrentQ=q;
     $('bizBadge').textContent='상황';
     $('bizSituation').textContent=q.situation||'';
-    $('bizQuestion').innerHTML='<span style="color:var(--accent-text);">상대:</span> "'+esc(q.question||'')+'"'+(q.hint?'<div style="font-size:12px;color:var(--text-3);margin-top:6px;">힌트: '+esc(q.hint)+'</div>':'');
-    $('bizSubmitBtn').disabled=false;
-    // 타이머 시작
-    bizStartTimer();
-    setTimeout(function(){$('bizAnswer').focus();},100);
+    $('bizQuestion').innerHTML='<span style="color:var(--accent-text);">상대:</span> "'+esc(q.question||'')+'"';
+    bizShowStep();
   }).catch(function(){
     $('bizSituation').textContent='네트워크 오류가 발생했어요.';
     $('bizSubmitBtn').disabled=false;
   });
+}
+
+function bizShowStep(){
+  if(!bizCurrentQ)return;
+  var step=bizCurrentQ.steps[bizStepIdx];
+  var total=bizCurrentQ.steps.length;
+  $('bizStepInfo').innerHTML=
+    '<span style="font-size:12px;color:var(--text-3);font-weight:700;">'+( bizStepIdx+1)+'/'+total+' 문장</span>'+
+    '<div style="font-size:16px;font-weight:700;color:var(--warning);margin-top:6px;">→ '+esc(step.ko)+'</div>'+
+    '<div style="font-size:12px;color:var(--text-3);margin-top:4px;">위 내용을 영어로 입력하세요</div>';
+  $('bizAnswer').value='';$('bizAnswer').disabled=false;
+  $('bizSubmitBtn').disabled=false;$('bizSubmitBtn').style.display='block';
+  $('bizLoading').style.display='none';
+  bizStepStartTime=Date.now();
+  bizStartTimer();
+  setTimeout(function(){$('bizAnswer').focus();},100);
 }
 
 function bizStartTimer(){
@@ -1503,68 +1522,137 @@ function bizStartTimer(){
     $('bizTimerFill').style.width=pct+'%';
     $('bizTimerFill').style.background=bizTimeLeft<=5?'var(--danger)':bizTimeLeft<=10?'var(--warning)':'var(--accent)';
     $('bizTimerText').textContent=bizTimeLeft+'초';
-    if(bizTimeLeft<=0){clearInterval(bizTimer);bizSubmit(true);}
+    if(bizTimeLeft<=0){clearInterval(bizTimer);bizSubmitStep(true);}
   },1000);
 }
 
-on('bizSubmitBtn','click',function(){bizSubmit(false);});
+on('bizSubmitBtn','click',function(){bizSubmitStep(false);});
 
-function bizSubmit(timeUp){
+function bizSubmitStep(timeUp){
   clearInterval(bizTimer);
   var answer=($('bizAnswer').value||'').trim();
   $('bizAnswer').disabled=true;$('bizSubmitBtn').style.display='none';
   $('bizLoading').style.display='block';
 
-  if(!bizCurrentQ){$('bizLoading').style.display='none';return;}
-
-  var prompt='비즈니스 영어 평가자로서 아래 대화 상황에서 학습자의 응답을 평가해주세요.\n\n상황: '+bizCurrentQ.situation+'\n상대방: "'+bizCurrentQ.question+'"\n학습자 응답: "'+(timeUp?'(시간 초과, 미응답)':answer)+'"\n\n평가 기준:\n- 의미가 명확히 전달되는가\n- 비즈니스 상황에 적합한 격식체인가\n- 너무 informal하거나 의미가 애매하면 오답\n\n다음 JSON으로만 응답 (다른 텍스트 없이):\n{"pass":true/false,"feedback":"한국어로 2~3문장 피드백","min":"합격 기준이 되는 최소한의 개선 문장 (영어)","min_ko":"합격 기준 문장의 한국어 뜻","ideal":"이상적인 비즈니스 표현 (영어)","ideal_ko":"이상적인 문장의 한국어 뜻"}';
+  var step=bizCurrentQ.steps[bizStepIdx];
+  var prompt='비즈니스 영어 평가자입니다.\n\n상황: '+bizCurrentQ.situation+'\n상대방: "'+bizCurrentQ.question+'"\n\n학습자가 표현해야 할 내용: "'+step.ko+'"\n학습자가 입력한 영어: "'+(timeUp?'(시간 초과)':answer)+'"\n\n평가 기준:\n- 제시한 한국어 내용의 의미가 영어로 잘 전달됐는가\n- 비즈니스 상황에 적합한 격식인가\n- informal하거나 의미가 불명확하면 오답\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장 피드백","min":"합격 기준 최소 표현 (영어)","min_ko":"합격 기준 한국어 뜻","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어 뜻"}';
 
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:600,messages:[{role:'user',content:prompt}]})
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:prompt}]})
   }).then(function(r){return r.json();}).then(function(data){
     $('bizLoading').style.display='none';
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
-    var res;try{res=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){res={pass:false,feedback:'평가 중 오류가 발생했어요.',min:answer,min_ko:'',ideal:answer,ideal_ko:''};}
-    bizShowResult(res,timeUp);
+    var res;
+    try{res=JSON.parse(raw.replace(/```json|```/g,'').trim());}
+    catch(e){res={pass:false,feedback:'평가 오류',min:answer,min_ko:'',ideal:answer,ideal_ko:''};}
+    var elapsed=timeUp?BIZ_TIME:Math.round((Date.now()-bizStepStartTime)/1000);
+    res.timeUp=timeUp;res.stepKo=step.ko;res.userAnswer=answer;res.elapsed=elapsed;
+    bizStepResults.push(res);
+    bizShowStepResult(res);
   }).catch(function(){
     $('bizLoading').style.display='none';
-    bizShowResult({pass:false,feedback:'네트워크 오류가 발생했어요.',min:'',min_ko:'',ideal:'',ideal_ko:''},false);
+    var elapsed2=timeUp?BIZ_TIME:Math.round((Date.now()-bizStepStartTime)/1000);
+    var res={pass:false,feedback:'네트워크 오류',min:'',min_ko:'',ideal:'',ideal_ko:'',timeUp:timeUp,stepKo:step.ko,userAnswer:answer,elapsed:elapsed2};
+    bizStepResults.push(res);
+    bizShowStepResult(res);
   });
 }
 
-function bizShowResult(res,timeUp){
+function bizShowStepResult(res){
+  // 현재 문장 결과를 stepInfo 아래에 인라인으로 표시
+  var pass=res.pass&&!res.timeUp;
+  var stepResultHtml=
+    '<div style="margin-top:10px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2);border:1.5px solid '+(pass?'var(--success-text)':'var(--danger-text)')+';">'+
+    '<div style="font-weight:800;color:'+(pass?'var(--success-text)':'var(--danger-text)')+';">'+(res.timeUp?'⏰ 시간 초과':pass?'✅ 통과':'❌ 오답')+'</div>'+
+    '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">'+esc(res.feedback||'')+'</div>'+
+    '<div style="font-size:12px;margin-top:6px;"><span style="color:var(--text-3);font-weight:700;">합격기준 </span>'+esc(res.min||'')+'</div>'+
+    '<div style="font-size:12px;margin-top:2px;"><span style="color:var(--text-3);font-weight:700;">이상적 </span>'+esc(res.ideal||'')+'</div>'+
+    '</div>';
+
+  var current=$('bizStepInfo').innerHTML;
+  $('bizStepInfo').innerHTML=current+stepResultHtml;
+
+  var isLast=bizStepIdx>=bizCurrentQ.steps.length-1;
+  if(isLast){
+    // 모든 문장 완료 → 결과 화면
+    setTimeout(function(){bizShowFinalResult();},1200);
+  } else {
+    // 다음 문장
+    bizStepIdx++;
+    var nextBtn=document.createElement('button');
+    nextBtn.type='button';
+    nextBtn.style.cssText='width:100%;margin-top:10px;font-weight:700;border-color:var(--accent);color:var(--accent-text);';
+    nextBtn.textContent='다음 문장 →';
+    nextBtn.onclick=function(){
+      nextBtn.remove();
+      bizShowStep();
+    };
+    $('bizStepInfo').appendChild(nextBtn);
+  }
+}
+
+function bizShowFinalResult(){
   $('bizQuestionCard').style.display='none';
   $('bizResultCard').style.display='block';
-  var pass=res.pass&&!timeUp;
-  $('bizVerdict').textContent=timeUp?'⏰ 시간 초과':pass?'✅ 합격':'❌ 불합격';
-  $('bizVerdict').style.color=pass?'var(--success-text)':'var(--danger-text)';
-  $('bizFeedback').textContent=res.feedback||'';
-  $('bizMinSentence').innerHTML='<div style="font-weight:700;">'+esc(res.min||'')+'</div>'+(res.min_ko?'<div style="font-size:12px;color:var(--text-3);margin-top:2px;">'+esc(res.min_ko)+'</div>':'');
-  $('bizIdealSentence').innerHTML='<div style="font-weight:700;">'+esc(res.ideal||'')+'</div>'+(res.ideal_ko?'<div style="font-size:12px;color:var(--text-3);margin-top:2px;">'+esc(res.ideal_ko)+'</div>':'');
 
-  // + 버튼 토글 로직
-  function setupAddBtn(btn,en,ko,idRef){
-    btn.textContent='＋';btn.style.color='var(--success-text)';btn.style.background='transparent';
-    btn.onclick=function(){
-      if(idRef.id){
-        // 이미 추가됨 → 삭제
-        cards=cards.filter(function(c){return c.id!==idRef.id;});
-        saveCards();idRef.id=null;
-        btn.textContent='＋';btn.style.color='var(--success-text)';
-      } else {
-        // 추가
-        var chId=getOrCreatePracticeChapter();
-        var newCard={id:nextCardId++,ko:ko||en,en:en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0,lastTestedAt:0};
-        cards.push(newCard);saveCards();idRef.id=newCard.id;
-        btn.textContent='✓';btn.style.color='var(--accent-text)';
-      }
-    };
-  }
-  var minRef={id:null},idealRef={id:null};
-  setupAddBtn($('bizMinAddBtn'),res.min||'',res.min_ko||'',minRef);
-  setupAddBtn($('bizIdealAddBtn'),res.ideal||'',res.ideal_ko||'',idealRef);
+  var passCount=bizStepResults.filter(function(r){return r.pass&&!r.timeUp;}).length;
+  var total=bizStepResults.length;
+  var allPass=passCount===total;
+  var avgTime=total?Math.round(bizStepResults.reduce(function(s,r){return s+(r.elapsed||0);},0)/total):0;
+
+  // 세션 저장
+  var sessionData={
+    date:new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
+    passRate:Math.round(passCount/total*100),
+    avgTime:avgTime,
+    totalSteps:total,
+    situation:bizCurrentQ?bizCurrentQ.situation:'',
+    question:bizCurrentQ?bizCurrentQ.question:'',
+    steps:bizStepResults.map(function(r){return {stepKo:r.stepKo,userAnswer:r.userAnswer,pass:r.pass,elapsed:r.elapsed,min:r.min,min_ko:r.min_ko,ideal:r.ideal,ideal_ko:r.ideal_ko,feedback:r.feedback};})
+  };
+  bizSessions.unshift(sessionData);
+  if(bizSessions.length>100)bizSessions=bizSessions.slice(0,100);
+  saveBizSessions();
+
+  $('bizVerdict').textContent=allPass?'✅ 전체 통과 ('+passCount+'/'+total+')':'📝 '+passCount+'/'+total+' 통과';
+  $('bizVerdict').style.color=allPass?'var(--success-text)':'var(--warning)';
+  $('bizFeedback').textContent='평균 입력 시간: '+avgTime+'초  |  각 문장별 합격기준/이상적 표현을 확인하고 + 버튼으로 카드에 추가하세요.';
+
+  // 각 문장별 결과 + 버튼
+  var cont=$('bizStepResultList');
+  cont.innerHTML='';
+  bizStepResults.forEach(function(res,i){
+    var block=document.createElement('div');
+    block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px;';
+    block.innerHTML=
+      '<div style="font-size:11px;font-weight:800;color:var(--text-3);margin-bottom:4px;">'+(i+1)+'번째: '+esc(res.stepKo||'')+'</div>';
+
+    function makeRow(label,en,ko){
+      var row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:6px;margin-top:4px;';
+      var txt=document.createElement('div');txt.style.flex='1';
+      txt.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--text-3);">'+label+'</div>'+
+        '<div style="font-size:13px;font-weight:600;">'+esc(en||'')+'</div>'+
+        (ko?'<div style="font-size:11px;color:var(--text-3);">'+esc(ko)+'</div>':'');
+      var ref={id:null};
+      var addBtn=document.createElement('button');addBtn.type='button';
+      addBtn.style.cssText='font-size:18px;padding:2px 8px;background:transparent;border:1.5px solid var(--border);border-radius:999px;flex-shrink:0;color:var(--success-text);';
+      addBtn.textContent='＋';
+      (function(en,ko,ref,btn){
+        btn.onclick=function(){
+          if(ref.id){cards=cards.filter(function(c){return c.id!==ref.id;});saveCards();ref.id=null;btn.textContent='＋';btn.style.color='var(--success-text)';}
+          else{var chId=getOrCreatePracticeChapter();var nc={id:nextCardId++,ko:ko||en,en:en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0,lastTestedAt:0};cards.push(nc);saveCards();ref.id=nc.id;btn.textContent='✓';btn.style.color='var(--accent-text)';}
+        };
+      })(en,ko,ref,addBtn);
+      row.appendChild(txt);row.appendChild(addBtn);
+      return row;
+    }
+    block.appendChild(makeRow('합격기준',res.min,res.min_ko));
+    block.appendChild(makeRow('이상적',res.ideal,res.ideal_ko));
+    cont.appendChild(block);
+  });
 }
 
 on('bizNextBtn','click',function(){bizLoadNext();});
@@ -2098,6 +2186,120 @@ function makeMemAskBtns(cardId){
 }
 
 /* ---------- 질문 경향 분석 ---------- */
+/* ---------- 실전 테스트 이력 ---------- */
+on('bizHistoryBtn','click',function(){
+  var list=$('bizHistoryList'),empty=$('bizHistoryEmpty');
+  list.innerHTML='';
+  if(!bizSessions.length){list.style.display='none';empty.style.display='block';}
+  else{
+    list.style.display='flex';empty.style.display='none';
+    bizSessions.forEach(function(s,i){
+      var block=document.createElement('div');
+      block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:12px;border:1.5px solid var(--border);';
+      var passColor=s.passRate>=80?'var(--success-text)':s.passRate>=50?'var(--warning)':'var(--danger-text)';
+      block.innerHTML=
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
+        '<span style="font-size:11px;color:var(--text-3);font-weight:700;">'+esc(s.date)+'</span>'+
+        '<span style="font-size:16px;font-weight:800;color:'+passColor+';">'+s.passRate+'%</span>'+
+        '</div>'+
+        '<div style="display:flex;gap:12px;font-size:12px;color:var(--text-3);margin-bottom:6px;">'+
+        '<span>📝 '+s.totalSteps+'문장</span>'+
+        '<span>⏱ 평균 '+s.avgTime+'초</span>'+
+        '</div>'+
+        '<div style="font-size:12px;color:var(--text-2);">'+esc(s.situation||'')+'</div>';
+      // 상세 토글
+      var detail=document.createElement('details');
+      detail.style.marginTop='6px';
+      var summary=document.createElement('summary');
+      summary.style.cssText='font-size:12px;color:var(--accent-text);font-weight:700;cursor:pointer;';
+      summary.textContent='문장별 결과 보기';
+      detail.appendChild(summary);
+      (s.steps||[]).forEach(function(step,j){
+        var sr=document.createElement('div');
+        sr.style.cssText='margin-top:6px;padding:6px 8px;background:var(--surface);border-radius:var(--r-sm);font-size:12px;';
+        sr.innerHTML='<div style="font-weight:700;color:'+(step.pass?'var(--success-text)':'var(--danger-text)')+';">'+(j+1)+'. '+esc(step.stepKo||'')+'</div>'+
+          '<div style="color:var(--text-3);margin-top:2px;">내 답변: '+esc(step.userAnswer||'(미응답)')+'</div>'+
+          (step.ideal?'<div style="color:var(--accent-text);margin-top:2px;">이상적: '+esc(step.ideal)+'</div>':'');
+        detail.appendChild(sr);
+      });
+      block.appendChild(detail);
+      list.appendChild(block);
+    });
+  }
+  $('bizHistoryModal').classList.add('show');
+});
+on('bizHistoryClose','click',function(){$('bizHistoryModal').classList.remove('show');});
+
+/* ---------- 약점 분석 ---------- */
+on('bizWeaknessBtn','click',function(){
+  // 이전 분석 이력 (trends에서 biz_ prefix로 구분)
+  var prev=$('bizWeaknessPrev');prev.innerHTML='';
+  var bizTrends=trends.filter(function(t){return t.type==='biz_weakness';});
+  if(bizTrends.length){
+    bizTrends.slice(0,3).forEach(function(t){
+      var block=document.createElement('div');
+      block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;font-size:12px;';
+      block.innerHTML='<div style="color:var(--text-3);font-weight:700;margin-bottom:4px;">'+esc(t.date)+'</div>'+
+        '<div style="white-space:pre-wrap;line-height:1.6;color:var(--text-2);">'+esc(t.result)+'</div>';
+      prev.appendChild(block);
+    });
+  } else {
+    prev.innerHTML='<p class="muted">아직 분석 이력이 없어요</p>';
+  }
+  $('bizWeaknessResult').style.display='none';
+  $('bizWeaknessModal').classList.add('show');
+});
+on('bizWeaknessClose','click',function(){$('bizWeaknessModal').classList.remove('show');});
+on('bizWeaknessRunBtn','click',function(){
+  if(!apiKey){alert('설정 탭에서 API 키를 먼저 입력해주세요.');return;}
+  if(!bizSessions.length){alert('실전 테스트 이력이 없어요. 먼저 실전 테스트를 풀어보세요.');return;}
+  $('bizWeaknessLoading').style.display='block';
+  $('bizWeaknessResult').style.display='none';
+  $('bizWeaknessRunBtn').disabled=true;
+
+  // 최근 30세션의 오답 데이터 수집
+  var failedSteps=[];
+  bizSessions.slice(0,30).forEach(function(s){
+    (s.steps||[]).forEach(function(step){
+      if(!step.pass){
+        failedSteps.push('상황: '+s.situation+'\n지시: '+step.stepKo+'\n내 답변: '+step.userAnswer+'\n피드백: '+step.feedback+'\n이상적: '+step.ideal);
+      }
+    });
+  });
+
+  var overallStats='총 '+bizSessions.length+'세션, 평균 정답률: '+
+    Math.round(bizSessions.reduce(function(s,x){return s+x.passRate;},0)/bizSessions.length)+'%, '+
+    '평균 입력시간: '+Math.round(bizSessions.reduce(function(s,x){return s+x.avgTime;},0)/bizSessions.length)+'초';
+
+  var prompt='비즈니스 영어 코치입니다. 아래는 학습자의 실전 테스트 결과입니다.\n\n전체 통계: '+overallStats+'\n\n오답 사례:\n'+failedSteps.slice(0,20).join('\n---\n')+'\n\n분석 요청:\n1. 학습자의 약한 부분을 구체적으로 3~5가지 리스트로 정리해주세요\n2. 각 약점에 대한 실용적인 대처법을 1~2문장으로 붙여주세요\n3. 앞으로 테스트에서 특히 신경써야 할 포인트를 요약해주세요\n\n한국어로 답변해주세요.';
+
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1200,messages:[{role:'user',content:prompt}]})
+  }).then(function(r){return r.json();}).then(function(data){
+    $('bizWeaknessLoading').style.display='none';$('bizWeaknessRunBtn').disabled=false;
+    var result=(data.content&&data.content[0]&&data.content[0].text)||'(결과 없음)';
+    $('bizWeaknessResult').style.display='block';
+    $('bizWeaknessResult').textContent=result;
+    // 이력 저장
+    var date=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
+    trends.unshift({type:'biz_weakness',date:date,result:result});
+    if(trends.length>40)trends=trends.slice(0,40);
+    saveTrends();
+    // 이전 분석 목록 갱신
+    var prev=$('bizWeaknessPrev');
+    var block=document.createElement('div');
+    block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;font-size:12px;';
+    block.innerHTML='<div style="color:var(--text-3);font-weight:700;margin-bottom:4px;">'+esc(date)+' (방금)</div>'+
+      '<div style="white-space:pre-wrap;line-height:1.6;color:var(--text-2);">'+esc(result)+'</div>';
+    prev.insertBefore(block,prev.firstChild);
+  }).catch(function(err){
+    $('bizWeaknessLoading').style.display='none';$('bizWeaknessRunBtn').disabled=false;
+    $('bizWeaknessResult').style.display='block';$('bizWeaknessResult').textContent='오류: '+err.message;
+  });
+});
+
 on('trendOpenBtn','click',function(){
   // 전체 이력 표시
   var hist=$('trendHistory');hist.innerHTML='';
