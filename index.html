@@ -186,7 +186,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     <div class="main-tabs">
       <button class="main-tab active" id="tabQuiz">학습</button>
       <button class="main-tab" id="tabAllCards">전체 문장</button>
-      <button class="main-tab" id="tabAdd">카드 추가</button>
+      <button class="main-tab" id="tabAdd">카드 관리</button>
       <button class="main-tab" id="tabSettings">⚙ 설정</button>
     </div>
 
@@ -207,7 +207,8 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
 
         <!-- 2. 시작 버튼 크게 -->
         <button id="startBtn" style="width:100%;font-weight:800;font-size:18px;padding:16px;margin-bottom:8px;">▶ 시작하기</button>
-        <button id="practiceBtn" style="width:100%;font-weight:700;margin-bottom:14px;font-size:13px;color:var(--text-2);padding:10px;">🎯 연습 모드 (스케줄 영향 없음)</button>
+        <button id="practiceBtn" style="width:100%;font-weight:700;margin-bottom:8px;font-size:13px;color:var(--text-2);padding:10px;">🎯 연습 모드 (스케줄 영향 없음)</button>
+        <button id="bizStartBtn" style="width:100%;font-weight:700;margin-bottom:14px;font-size:13px;padding:10px;border-color:var(--warning);color:var(--warning);">💼 실전 비즈니스 테스트 (AI 평가)</button>
 
         <!-- 3. 챕터 선택 -->
         <div style="font-size:12px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">챕터 선택 <span style="font-weight:600;text-transform:none;letter-spacing:0;">(복수 선택 가능)</span></div>
@@ -253,6 +254,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
           <button type="button" id="sortNg" class="sort-btn">오답순</button>
           <button type="button" id="sortAlpha" class="sort-btn">알파벳순</button>
           <button type="button" id="sortRandom" class="sort-btn">랜덤</button>
+          <button type="button" id="sortRecent" class="sort-btn">최근 테스트순</button>
           <button type="button" id="sortReverse" class="sort-btn" title="역순">⇅</button>
         </div>
         <!-- 줄2: 필터 + 표시 토글 -->
@@ -283,8 +285,6 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     <div class="pane" id="addPane">
       <div class="card" style="margin-bottom:12px;">
         <h2 style="font-size:15px;margin-bottom:14px;">카드 추가</h2>
-
-        <!-- 챕터 화살표 네비게이터 -->
         <div style="margin-bottom:12px;">
           <div class="form-label">챕터 선택</div>
           <div style="display:flex;align-items:center;gap:8px;">
@@ -294,11 +294,26 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
           </div>
           <input type="hidden" id="bulkChapterSelect" value="" />
         </div>
-
         <p class="muted" style="margin-bottom:8px;">엑셀에서 한국어·영어 두 열을 복사해서 그대로 붙여넣으세요.</p>
         <textarea class="bulk-ta" id="bulkInput" placeholder="도와주셔서 감사합니다&#9;thank you for your help&#10;이건 제 잘못이었어요&#9;this was my fault"></textarea>
         <button id="bulkAddBtn" style="width:100%;font-weight:800;font-size:16px;margin-top:10px;">추가하기</button>
         <p class="muted" id="bulkResult" style="margin-top:8px;min-height:16px;"></p>
+      </div>
+
+      <!-- 챕터 이동 -->
+      <div class="card" style="margin-bottom:12px;">
+        <h2 style="font-size:15px;margin-bottom:10px;">📁 챕터 이동</h2>
+        <p class="muted" style="margin-bottom:10px;">이동할 챕터를 선택하고 문장을 고르면 해당 챕터로 이동해요.</p>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <button type="button" id="moveChapterPrev" style="width:36px;height:36px;padding:0;font-size:18px;font-weight:700;flex-shrink:0;">‹</button>
+          <div id="moveChapterDisplay" style="flex:1;text-align:center;font-size:15px;font-weight:700;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--r-md);padding:8px 12px;min-height:38px;display:flex;align-items:center;justify-content:center;">챕터 없음</div>
+          <button type="button" id="moveChapterNext" style="width:36px;height:36px;padding:0;font-size:18px;font-weight:700;flex-shrink:0;">›</button>
+        </div>
+        <input type="hidden" id="moveChapterSelect" value="" />
+        <input type="text" id="moveCardSearch" placeholder="문장 검색..." style="margin-bottom:8px;" />
+        <div id="moveCardList" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;"></div>
+        <button type="button" id="moveCardApplyBtn" style="width:100%;font-weight:700;margin-top:10px;border-color:var(--accent);color:var(--accent-text);" disabled>선택한 카드 이동</button>
+        <p class="muted" id="moveCardResult" style="margin-top:6px;min-height:14px;"></p>
       </div>
 
       <!-- export -->
@@ -445,6 +460,59 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
         <div id="doneCardList" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;"></div>
       </div>
       <button id="restartBtn" style="width:100%;font-weight:500;">설정으로 돌아가기</button>
+    </div>
+  </div>
+
+  <!-- ===== BUSINESS GAME SCREEN ===== -->
+  <div id="bizScreen" style="display:none;">
+    <div class="quiz-top">
+      <button type="button" class="cancel-link" id="bizBackBtn">← 홈으로</button>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);">실전 비즈니스 테스트</div>
+    </div>
+    <!-- 타이머 -->
+    <div style="margin-bottom:12px;text-align:center;">
+      <div id="bizTimerBar" style="height:6px;border-radius:999px;background:var(--surface-2);margin-bottom:6px;overflow:hidden;">
+        <div id="bizTimerFill" style="height:100%;width:100%;background:var(--accent);border-radius:999px;transition:width 0.5s linear;"></div>
+      </div>
+      <span id="bizTimerText" style="font-size:13px;font-weight:700;color:var(--text-3);">20초</span>
+    </div>
+    <!-- 문제 카드 -->
+    <div class="card" id="bizQuestionCard" style="margin-bottom:12px;">
+      <div class="badge" id="bizBadge" style="margin-bottom:8px;">상황</div>
+      <div id="bizSituation" style="font-size:14px;color:var(--text-2);margin-bottom:12px;line-height:1.6;"></div>
+      <div id="bizQuestion" style="font-size:18px;font-weight:700;line-height:1.6;margin-bottom:14px;"></div>
+      <textarea id="bizAnswer" rows="3" style="width:100%;font-family:'Nunito',sans-serif;font-size:15px;padding:12px;border-radius:var(--r-md);border:1.5px solid var(--border-strong);background:var(--surface-2);color:var(--text);resize:none;line-height:1.6;" placeholder="영어로 답변을 입력하세요..."></textarea>
+      <button type="button" id="bizSubmitBtn" style="width:100%;margin-top:10px;font-weight:800;font-size:16px;background:linear-gradient(135deg,#34B3A0,#2A9D8F);border-color:#2A9D8F;color:#fff;">제출</button>
+      <div id="bizLoading" style="display:none;text-align:center;padding:12px;font-size:13px;color:var(--text-3);">⏳ 평가 중...</div>
+    </div>
+    <!-- 결과 카드 -->
+    <div id="bizResultCard" style="display:none;">
+      <div class="card" style="margin-bottom:10px;">
+        <div id="bizVerdict" style="font-size:16px;font-weight:800;margin-bottom:10px;"></div>
+        <div id="bizFeedback" style="font-size:13px;color:var(--text-2);line-height:1.7;margin-bottom:14px;"></div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <!-- 합격기준 문장 -->
+          <div style="background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;">
+            <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">합격 기준</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="bizMinSentence" style="flex:1;font-size:14px;font-weight:600;line-height:1.5;"></div>
+              <button type="button" id="bizMinAddBtn" style="font-size:18px;padding:2px 8px;background:transparent;border:1.5px solid var(--border);border-radius:999px;flex-shrink:0;color:var(--success-text);" title="실전연습 챕터에 추가">＋</button>
+            </div>
+          </div>
+          <!-- 이상적인 문장 -->
+          <div style="background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;">
+            <div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">이상적인 표현</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div id="bizIdealSentence" style="flex:1;font-size:14px;font-weight:600;line-height:1.5;"></div>
+              <button type="button" id="bizIdealAddBtn" style="font-size:18px;padding:2px 8px;background:transparent;border:1.5px solid var(--border);border-radius:999px;flex-shrink:0;color:var(--success-text);" title="실전연습 챕터에 추가">＋</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" id="bizNextBtn" style="flex:1;font-weight:700;border-color:var(--accent);color:var(--accent-text);">다음 문제 →</button>
+        <button type="button" id="bizDoneBtn" style="flex:1;font-weight:700;">홈으로</button>
+      </div>
     </div>
   </div>
 
