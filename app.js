@@ -1414,7 +1414,7 @@ on('restartBtn','click',function(){$('doneScreen').style.display='none';$('setup
 /* ========== 실전 비즈니스 게임 ========== */
 var bizTimer=null;
 var bizTimeLeft=20;
-var BIZ_TIME=20;
+var BIZ_TIME=40;
 var bizCurrentQ=null;
 var bizStepIdx=0;
 var bizStepResults=[];
@@ -1475,7 +1475,7 @@ function bizLoadNext(){
     body:JSON.stringify({
       model:'claude-haiku-4-5-20251001',max_tokens:600,
       messages:[{role:'user',content:
-        '당신은 비즈니스 영어 트레이너입니다. 아래 영어 표현들을 참고해서 실제 업무 상황을 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n규칙:\n- 상황 설명과 상대방의 영어 발화를 만드세요\n- 학습자가 답해야 할 내용을 한국어로 2~4개 문장으로 쪼개서 제시하세요\n- 각 문장은 독립적으로 영어로 표현 가능한 단위여야 합니다\n- 답변 내용은 비즈니스 상황에 맞는 자연스러운 흐름이어야 합니다\n\n다음 JSON으로만 응답 (다른 텍스트 없이):\n{"situation":"한국어 2~3문장 상황 설명","question":"상대방이 영어로 한 말 (1~2문장)","steps":[{"ko":"첫 번째로 영어로 표현해야 할 내용 (한국어)"},{"ko":"두 번째 내용"},{"ko":"세 번째 내용 (선택)"}]}'
+        '당신은 전기/회로설계 분야 제조업체의 비즈니스 영어 트레이너입니다. 아래 영어 표현들을 참고해서 실제 업무 상황을 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n도메인 설정:\n- 전기/전자 부품 제조업, 회로설계, PCB, 납품/QC/생산라인 관련 상황\n- 거래처, 해외 바이어, 본사 엔지니어, 품질팀 등과의 커뮤니케이션\n- IT 업무 상황(소프트웨어 개발, 앱 등)은 절대 사용하지 마세요\n\n규칙:\n- 상황 설명과 상대방의 영어 발화를 만드세요\n- 학습자가 답해야 할 내용을 한국어로 2~4개 문장으로 쪼개서 제시하세요\n- 각 문장에 해당 도메인 영어 단어 힌트를 1~3개 괄호 안에 제시하세요 (예: 수정 요청을 하세요 → [revision, amendment])\n- 답변 내용은 비즈니스 상황에 맞는 자연스러운 흐름이어야 합니다\n\n다음 JSON으로만 응답 (다른 텍스트 없이):\n{"situation":"한국어 2~3문장 상황 설명","question":"상대방이 영어로 한 말 (1~2문장)","steps":[{"ko":"첫 번째로 표현해야 할 내용 (한국어, 힌트단어 포함)"},{"ko":"두 번째 내용"},{"ko":"세 번째 내용 (선택)"}]}'
       }]
     })
   }).then(function(r){return r.json();}).then(function(data){
@@ -1514,19 +1514,26 @@ function bizShowStep(){
 function bizStartTimer(){
   bizTimeLeft=BIZ_TIME;
   $('bizTimerFill').style.width='100%';
+  $('bizTimerFill').style.background='var(--success)';
   $('bizTimerText').textContent=BIZ_TIME+'초';
+  $('bizTimerText').style.color='var(--text-3)';
   clearInterval(bizTimer);
   bizTimer=setInterval(function(){
     bizTimeLeft--;
+    var elapsed=BIZ_TIME-bizTimeLeft;
     var pct=Math.max(0,(bizTimeLeft/BIZ_TIME)*100);
     $('bizTimerFill').style.width=pct+'%';
-    $('bizTimerFill').style.background=bizTimeLeft<=5?'var(--danger)':bizTimeLeft<=10?'var(--warning)':'var(--accent)';
+    $('bizTimerFill').style.background=elapsed<=20?'#34A96E':elapsed<=30?'#D97706':'#E05555';
     $('bizTimerText').textContent=bizTimeLeft+'초';
+    $('bizTimerText').style.color=elapsed<=20?'var(--text-3)':elapsed<=30?'#D97706':'#E05555';
     if(bizTimeLeft<=0){clearInterval(bizTimer);bizSubmitStep(true);}
   },1000);
 }
 
 on('bizSubmitBtn','click',function(){bizSubmitStep(false);});
+on('bizAnswer','keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!$('bizSubmitBtn').disabled)bizSubmitStep(false);}
+});
 
 function bizSubmitStep(timeUp){
   clearInterval(bizTimer);
@@ -1535,7 +1542,7 @@ function bizSubmitStep(timeUp){
   $('bizLoading').style.display='block';
 
   var step=bizCurrentQ.steps[bizStepIdx];
-  var prompt='비즈니스 영어 평가자입니다.\n\n상황: '+bizCurrentQ.situation+'\n상대방: "'+bizCurrentQ.question+'"\n\n학습자가 표현해야 할 내용: "'+step.ko+'"\n학습자가 입력한 영어: "'+(timeUp?'(시간 초과)':answer)+'"\n\n평가 기준:\n- 제시한 한국어 내용의 의미가 영어로 잘 전달됐는가\n- 비즈니스 상황에 적합한 격식인가\n- informal하거나 의미가 불명확하면 오답\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장 피드백","min":"합격 기준 최소 표현 (영어)","min_ko":"합격 기준 한국어 뜻","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어 뜻"}';
+  var prompt='비즈니스 영어 평가자입니다.\n\n상황: '+bizCurrentQ.situation+'\n상대방: "'+bizCurrentQ.question+'"\n\n학습자가 표현해야 할 내용: "'+step.ko+'"\n학습자가 입력한 영어: "'+(answer||(timeUp?'(미응답)':''))+(timeUp&&answer?' [시간초과/미완성]':'')+'"\n\n평가 기준:\n- 제시한 한국어 내용의 의미가 영어로 잘 전달됐는가\n- 비즈니스 상황에 적합한 격식인가\n- informal하거나 의미가 불명확하면 오답\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장 피드백","min":"합격 기준 최소 표현 (영어)","min_ko":"합격 기준 한국어 뜻","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어 뜻"}';
 
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
