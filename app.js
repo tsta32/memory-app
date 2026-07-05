@@ -71,7 +71,14 @@ function expandContractions(s){
   // positive contractions
   s=s.replace(/\bi'm\b/g,'i am');
   s=s.replace(/\byou're\b/g,'you are');
-  s=s.replace(/\bhe's\b/g,'he is');          // covers he has too — normalised same
+  // 's = is 또는 has 양쪽 처리: has도 is로 통일
+  s=s.replace(/\bhe has\b/g,'he is');
+  s=s.replace(/\bshe has\b/g,'she is');
+  s=s.replace(/\bit has\b/g,'it is');
+  s=s.replace(/\bthat has\b/g,'that is');
+  s=s.replace(/\bwhat has\b/g,'what is');
+  s=s.replace(/\bthere has\b/g,'there is');
+  s=s.replace(/\bhe's\b/g,'he is');
   s=s.replace(/\bshe's\b/g,'she is');
   s=s.replace(/\bit's\b/g,'it is');
   s=s.replace(/\bwe're\b/g,'we are');
