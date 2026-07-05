@@ -1413,16 +1413,14 @@ on('restartBtn','click',function(){$('doneScreen').style.display='none';$('setup
 
 /* ========== 실전 비즈니스 게임 ========== */
 var bizTimer=null;
-var bizTimeLeft=20;
+var bizTimeLeft=40;
 var BIZ_TIME=40;
-var bizCurrentQ=null;
-var bizStepIdx=0;
 var bizStepResults=[];
-var bizStepStartTime=0; // 각 문장 입력 시작 시간
-var bizSessions=[]; // 전체 세션 이력
+var bizStepStartTime=0;
+var bizSessions=[];
+var bizCurrentKo=''; // 현재 한국어 지시문
 function saveBizSessions(){try{localStorage.setItem(BIZ_SESSIONS_KEY,JSON.stringify(bizSessions));}catch(e){}}
 
-// "실전연습" 챕터 확보
 function getOrCreatePracticeChapter(){
   var ch=chapters.find(function(c){return c.name==='실전연습';});
   if(ch)return ch.id;
@@ -1452,60 +1450,57 @@ on('bizDoneBtn','click',function(){
 
 function bizLoadNext(){
   clearInterval(bizTimer);
-  bizStepIdx=0;bizStepResults=[];
+  bizStepResults=[];
   $('bizResultCard').style.display='none';
   $('bizQuestionCard').style.display='block';
   $('bizAnswer').value='';$('bizAnswer').disabled=false;
   $('bizSubmitBtn').style.display='block';$('bizLoading').style.display='none';
   $('bizStepInfo').textContent='';
-
-  var pool=cards.filter(function(c){return c.en&&c.ko;});
-  if(!pool.length){alert('카드가 없어요. 먼저 카드를 추가해주세요.');return;}
-  var sample=shuffleArray(pool.slice()).slice(0,Math.min(8,pool.length));
-  var sampleText=sample.map(function(c){return '- '+c.ko+' / '+c.en;}).join('\n');
-
   $('bizBadge').textContent='문제 생성 중...';
   $('bizSituation').textContent='';
-  $('bizQuestion').textContent='잠시만요...';
-  $('bizSubmitBtn').disabled=true;
+
+  // 카드에서 샘플 뽑기
+  var pool=cards.filter(function(c){return c.en&&c.ko;});
+  if(!pool.length){alert('카드가 없어요.');return;}
+  var sample=shuffleArray(pool.slice()).slice(0,Math.min(10,pool.length));
+  var sampleText=sample.map(function(c){return '- '+c.ko+' / '+c.en;}).join('\n');
 
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',max_tokens:600,
+      model:'claude-haiku-4-5-20251001',max_tokens:500,
       messages:[{role:'user',content:
-        '당신은 전기/회로설계 분야 제조업체의 비즈니스 영어 트레이너입니다. 아래 영어 표현들을 참고해서 실제 업무 상황을 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n도메인 설정:\n- 전기/전자 부품 제조업, 회로설계, PCB, 납품/QC/생산라인 관련 상황\n- 거래처, 해외 바이어, 본사 엔지니어, 품질팀 등과의 커뮤니케이션\n- IT 업무 상황(소프트웨어 개발, 앱 등)은 절대 사용하지 마세요\n\n규칙:\n- 상황 설명과 상대방의 영어 발화를 만드세요\n- 학습자가 답해야 할 내용을 한국어로 2~4개 문장으로 쪼개서 제시하세요\n- 각 문장에 해당 도메인 영어 단어 힌트를 1~3개 괄호 안에 제시하세요 (예: 수정 요청을 하세요 → [revision, amendment])\n- 답변 내용은 비즈니스 상황에 맞는 자연스러운 흐름이어야 합니다\n\n다음 JSON으로만 응답 (다른 텍스트 없이):\n{"situation":"한국어 2~3문장 상황 설명","question":"상대방이 영어로 한 말 (1~2문장)","steps":[{"ko":"첫 번째로 표현해야 할 내용 (한국어, 힌트단어 포함)"},{"ko":"두 번째 내용"},{"ko":"세 번째 내용 (선택)"}]}'
+        '당신은 전기/회로설계 제조업 분야 비즈니스 영어 트레이너입니다.\n\n아래 영어 표현들을 참고해서, 실제 업무에서 영어로 전달해야 할 한국어 내용을 2~4개 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n규칙:\n- 전기/전자부품 제조업, 회로설계, PCB, 납품, QC, 생산라인 상황\n- IT/소프트웨어 상황은 절대 금지\n- 각 항목은 한국어로 자연스러운 비즈니스 의사소통 내용\n- 관련 영어 단어 힌트를 대괄호 안에 1~3개 포함 (예: [revision, amendment])\n\nJSON으로만 응답:\n{"items":[{"ko":"전달할 한국어 내용 (힌트: [단어1, 단어2])"},{"ko":"..."},{"ko":"..."}]}'
       }]
     })
   }).then(function(r){return r.json();}).then(function(data){
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
     var q;
     try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}
-    catch(e){q={situation:'거래처 담당자와 미팅 중입니다.',question:"Could you give me an update on the project?",steps:[{ko:"죄송하다고 사과하세요"},{ko:"현재 상황을 간략히 설명하세요"},{ko:"언제까지 해결하겠다고 약속하세요"}]};}
-    if(!q.steps||!q.steps.length)q.steps=[{ko:"적절히 답변하세요"}];
-    bizCurrentQ=q;
-    $('bizBadge').textContent='상황';
-    $('bizSituation').textContent=q.situation||'';
-    $('bizQuestion').innerHTML='<span style="color:var(--accent-text);">상대:</span> "'+esc(q.question||'')+'"';
-    bizShowStep();
+    catch(e){q={items:[{ko:'납기가 1주일 지연될 것 같다고 전달하세요 (힌트: [delay, lead time])'},{ko:'수정된 회로도를 내일까지 보내겠다고 말하세요 (힌트: [schematic, revised])'}]};}
+    if(!q.items||!q.items.length)q.items=[{ko:'죄송하다고 사과하고 최대한 빨리 처리하겠다고 하세요 (힌트: [apologize, handle])'}];
+
+    // 첫 문제 표시
+    bizStepResults=q.items.map(function(){return null;});
+    window._bizItems=q.items;
+    window._bizItemIdx=0;
+    bizShowItem(q.items[0],0,q.items.length);
   }).catch(function(){
-    $('bizSituation').textContent='네트워크 오류가 발생했어요.';
-    $('bizSubmitBtn').disabled=false;
+    $('bizBadge').textContent='오류';
+    $('bizSituation').textContent='네트워크 오류가 발생했어요. 다시 시도해주세요.';
   });
 }
 
-function bizShowStep(){
-  if(!bizCurrentQ)return;
-  var step=bizCurrentQ.steps[bizStepIdx];
-  var total=bizCurrentQ.steps.length;
-  $('bizStepInfo').innerHTML=
-    '<span style="font-size:12px;color:var(--text-3);font-weight:700;">'+( bizStepIdx+1)+'/'+total+' 문장</span>'+
-    '<div style="font-size:16px;font-weight:700;color:var(--warning);margin-top:6px;">→ '+esc(step.ko)+'</div>'+
-    '<div style="font-size:12px;color:var(--text-3);margin-top:4px;">위 내용을 영어로 입력하세요</div>';
+function bizShowItem(item,idx,total){
+  bizCurrentKo=item.ko;
+  $('bizBadge').textContent=total>1?(idx+1)+'/'+total+' 문장':'문제';
+  $('bizSituation').innerHTML='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">영어로 표현하세요</div>'+
+    '<div style="font-size:18px;font-weight:700;color:var(--text);line-height:1.6;">'+esc(item.ko)+'</div>';
   $('bizAnswer').value='';$('bizAnswer').disabled=false;
   $('bizSubmitBtn').disabled=false;$('bizSubmitBtn').style.display='block';
   $('bizLoading').style.display='none';
+  $('bizStepInfo').innerHTML='';
   bizStepStartTime=Date.now();
   bizStartTimer();
   setTimeout(function(){$('bizAnswer').focus();},100);
@@ -1514,7 +1509,7 @@ function bizShowStep(){
 function bizStartTimer(){
   bizTimeLeft=BIZ_TIME;
   $('bizTimerFill').style.width='100%';
-  $('bizTimerFill').style.background='var(--success)';
+  $('bizTimerFill').style.background='#34A96E';
   $('bizTimerText').textContent=BIZ_TIME+'초';
   $('bizTimerText').style.color='var(--text-3)';
   clearInterval(bizTimer);
@@ -1526,23 +1521,26 @@ function bizStartTimer(){
     $('bizTimerFill').style.background=elapsed<=20?'#34A96E':elapsed<=30?'#D97706':'#E05555';
     $('bizTimerText').textContent=bizTimeLeft+'초';
     $('bizTimerText').style.color=elapsed<=20?'var(--text-3)':elapsed<=30?'#D97706':'#E05555';
-    if(bizTimeLeft<=0){clearInterval(bizTimer);bizSubmitStep(true);}
+    if(bizTimeLeft<=0){clearInterval(bizTimer);bizSubmitItem(true);}
   },1000);
 }
 
-on('bizSubmitBtn','click',function(){bizSubmitStep(false);});
+on('bizSubmitBtn','click',function(){bizSubmitItem(false);});
 on('bizAnswer','keydown',function(e){
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!$('bizSubmitBtn').disabled)bizSubmitStep(false);}
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!$('bizSubmitBtn').disabled&&$('bizSubmitBtn').style.display!=='none')bizSubmitItem(false);}
 });
 
-function bizSubmitStep(timeUp){
+function bizSubmitItem(timeUp){
   clearInterval(bizTimer);
   var answer=($('bizAnswer').value||'').trim();
   $('bizAnswer').disabled=true;$('bizSubmitBtn').style.display='none';
   $('bizLoading').style.display='block';
 
-  var step=bizCurrentQ.steps[bizStepIdx];
-  var prompt='비즈니스 영어 평가자입니다.\n\n상황: '+bizCurrentQ.situation+'\n상대방: "'+bizCurrentQ.question+'"\n\n학습자가 표현해야 할 내용: "'+step.ko+'"\n학습자가 입력한 영어: "'+(answer||(timeUp?'(미응답)':''))+(timeUp&&answer?' [시간초과/미완성]':'')+'"\n\n평가 기준:\n- 제시한 한국어 내용의 의미가 영어로 잘 전달됐는가\n- 비즈니스 상황에 적합한 격식인가\n- informal하거나 의미가 불명확하면 오답\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장 피드백","min":"합격 기준 최소 표현 (영어)","min_ko":"합격 기준 한국어 뜻","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어 뜻"}';
+  var ko=bizCurrentKo;
+  var elapsed=timeUp?BIZ_TIME:Math.round((Date.now()-bizStepStartTime)/1000);
+
+  var prompt='비즈니스 영어 평가자입니다.\n\n전달해야 할 한국어 내용: "'+ko+'"\n학습자가 입력한 영어: "'+(answer||'(미응답)')+(timeUp&&answer?' [시간초과]':timeUp?' [시간초과]':'')+
+    '"\n\n평가 기준:\n- 한국어 내용의 의미가 영어로 명확히 전달됐는가\n- 제조업/전기 분야 비즈니스 상황에 적합한 격식체인가\n- 너무 informal하거나 의미가 불명확하면 불합격\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장","min":"합격 기준 최소 표현 (영어)","min_ko":"합격기준 한국어","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어"}';
 
   fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
@@ -1551,110 +1549,85 @@ function bizSubmitStep(timeUp){
   }).then(function(r){return r.json();}).then(function(data){
     $('bizLoading').style.display='none';
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
-    var res;
-    try{res=JSON.parse(raw.replace(/```json|```/g,'').trim());}
-    catch(e){res={pass:false,feedback:'평가 오류',min:answer,min_ko:'',ideal:answer,ideal_ko:''};}
-    var elapsed=timeUp?BIZ_TIME:Math.round((Date.now()-bizStepStartTime)/1000);
-    res.timeUp=timeUp;res.stepKo=step.ko;res.userAnswer=answer;res.elapsed=elapsed;
-    bizStepResults.push(res);
-    bizShowStepResult(res);
+    var res;try{res=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){res={pass:false,feedback:'평가 오류',min:'',min_ko:'',ideal:'',ideal_ko:''};}
+    res.ko=ko;res.userAnswer=answer;res.elapsed=elapsed;res.timeUp=timeUp;
+    var idx=window._bizItemIdx||0;
+    bizStepResults[idx]=res;
+
+    // 결과 인라인 표시
+    var pass=res.pass&&!timeUp;
+    var resultHtml='<div style="margin-top:10px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2);border:1.5px solid '+(pass?'#34A96E':'#E05555')+';">'+
+      '<div style="font-weight:800;color:'+(pass?'#34A96E':'#E05555')+';">'+(timeUp&&!answer?'⏰ 시간 초과':pass?'✅ 합격':'❌ 불합격')+'</div>'+
+      '<div style="font-size:12px;color:var(--text-2);margin-top:3px;">'+esc(res.feedback||'')+'</div>'+
+      '<div style="font-size:12px;margin-top:5px;"><span style="color:var(--text-3);font-weight:700;">합격기준 </span>'+esc(res.min||'')+'</div>'+
+      '<div style="font-size:12px;margin-top:2px;"><span style="color:var(--text-3);font-weight:700;">이상적 </span>'+esc(res.ideal||'')+'</div>'+
+      '</div>';
+    $('bizStepInfo').innerHTML=resultHtml;
+
+    var items=window._bizItems||[];
+    var nextIdx=idx+1;
+    if(nextIdx<items.length){
+      // 다음 문장 버튼
+      var nb=document.createElement('button');nb.type='button';
+      nb.style.cssText='width:100%;margin-top:10px;font-weight:700;border-color:var(--accent);color:var(--accent-text);';
+      nb.textContent='다음 문장 →';
+      nb.onclick=function(){window._bizItemIdx=nextIdx;bizShowItem(items[nextIdx],nextIdx,items.length);};
+      $('bizStepInfo').appendChild(nb);
+    } else {
+      // 전체 완료
+      setTimeout(function(){bizShowFinalResult();},1000);
+    }
   }).catch(function(){
     $('bizLoading').style.display='none';
-    var elapsed2=timeUp?BIZ_TIME:Math.round((Date.now()-bizStepStartTime)/1000);
-    var res={pass:false,feedback:'네트워크 오류',min:'',min_ko:'',ideal:'',ideal_ko:'',timeUp:timeUp,stepKo:step.ko,userAnswer:answer,elapsed:elapsed2};
-    bizStepResults.push(res);
-    bizShowStepResult(res);
+    $('bizSubmitBtn').style.display='block';$('bizAnswer').disabled=false;
+    alert('네트워크 오류. 다시 시도해주세요.');
   });
-}
-
-function bizShowStepResult(res){
-  // 현재 문장 결과를 stepInfo 아래에 인라인으로 표시
-  var pass=res.pass&&!res.timeUp;
-  var stepResultHtml=
-    '<div style="margin-top:10px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2);border:1.5px solid '+(pass?'var(--success-text)':'var(--danger-text)')+';">'+
-    '<div style="font-weight:800;color:'+(pass?'var(--success-text)':'var(--danger-text)')+';">'+(res.timeUp?'⏰ 시간 초과':pass?'✅ 통과':'❌ 오답')+'</div>'+
-    '<div style="font-size:13px;color:var(--text-2);margin-top:4px;">'+esc(res.feedback||'')+'</div>'+
-    '<div style="font-size:12px;margin-top:6px;"><span style="color:var(--text-3);font-weight:700;">합격기준 </span>'+esc(res.min||'')+'</div>'+
-    '<div style="font-size:12px;margin-top:2px;"><span style="color:var(--text-3);font-weight:700;">이상적 </span>'+esc(res.ideal||'')+'</div>'+
-    '</div>';
-
-  var current=$('bizStepInfo').innerHTML;
-  $('bizStepInfo').innerHTML=current+stepResultHtml;
-
-  var isLast=bizStepIdx>=bizCurrentQ.steps.length-1;
-  if(isLast){
-    // 모든 문장 완료 → 결과 화면
-    setTimeout(function(){bizShowFinalResult();},1200);
-  } else {
-    // 다음 문장
-    bizStepIdx++;
-    var nextBtn=document.createElement('button');
-    nextBtn.type='button';
-    nextBtn.style.cssText='width:100%;margin-top:10px;font-weight:700;border-color:var(--accent);color:var(--accent-text);';
-    nextBtn.textContent='다음 문장 →';
-    nextBtn.onclick=function(){
-      nextBtn.remove();
-      bizShowStep();
-    };
-    $('bizStepInfo').appendChild(nextBtn);
-  }
 }
 
 function bizShowFinalResult(){
   $('bizQuestionCard').style.display='none';
   $('bizResultCard').style.display='block';
 
-  var passCount=bizStepResults.filter(function(r){return r.pass&&!r.timeUp;}).length;
-  var total=bizStepResults.length;
-  var allPass=passCount===total;
-  var avgTime=total?Math.round(bizStepResults.reduce(function(s,r){return s+(r.elapsed||0);},0)/total):0;
+  var results=bizStepResults.filter(function(r){return r;});
+  var passCount=results.filter(function(r){return r.pass&&!r.timeUp;}).length;
+  var total=results.length;
+  var avgTime=total?Math.round(results.reduce(function(s,r){return s+(r.elapsed||0);},0)/total):0;
 
   // 세션 저장
-  var sessionData={
+  var session={
     date:new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
-    passRate:Math.round(passCount/total*100),
-    avgTime:avgTime,
-    totalSteps:total,
-    situation:bizCurrentQ?bizCurrentQ.situation:'',
-    question:bizCurrentQ?bizCurrentQ.question:'',
-    steps:bizStepResults.map(function(r){return {stepKo:r.stepKo,userAnswer:r.userAnswer,pass:r.pass,elapsed:r.elapsed,min:r.min,min_ko:r.min_ko,ideal:r.ideal,ideal_ko:r.ideal_ko,feedback:r.feedback};})
+    passRate:total?Math.round(passCount/total*100):0,
+    avgTime:avgTime,totalSteps:total,
+    steps:results.map(function(r){return {stepKo:r.ko,userAnswer:r.userAnswer,pass:r.pass,elapsed:r.elapsed,min:r.min,min_ko:r.min_ko,ideal:r.ideal,ideal_ko:r.ideal_ko,feedback:r.feedback};})
   };
-  bizSessions.unshift(sessionData);
+  bizSessions.unshift(session);
   if(bizSessions.length>100)bizSessions=bizSessions.slice(0,100);
   saveBizSessions();
 
-  $('bizVerdict').textContent=allPass?'✅ 전체 통과 ('+passCount+'/'+total+')':'📝 '+passCount+'/'+total+' 통과';
-  $('bizVerdict').style.color=allPass?'var(--success-text)':'var(--warning)';
-  $('bizFeedback').textContent='평균 입력 시간: '+avgTime+'초  |  각 문장별 합격기준/이상적 표현을 확인하고 + 버튼으로 카드에 추가하세요.';
+  $('bizVerdict').textContent=passCount+'/'+total+' 합격';
+  $('bizVerdict').style.color=passCount===total?'var(--success-text)':'var(--warning)';
+  $('bizFeedback').textContent='평균 입력 시간: '+avgTime+'초';
 
-  // 각 문장별 결과 + 버튼
-  var cont=$('bizStepResultList');
-  cont.innerHTML='';
-  bizStepResults.forEach(function(res,i){
+  var cont=$('bizStepResultList');cont.innerHTML='';
+  results.forEach(function(res,i){
     var block=document.createElement('div');
     block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px;';
-    block.innerHTML=
-      '<div style="font-size:11px;font-weight:800;color:var(--text-3);margin-bottom:4px;">'+(i+1)+'번째: '+esc(res.stepKo||'')+'</div>';
-
-    function makeRow(label,en,ko){
-      var row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:6px;margin-top:4px;';
+    block.innerHTML='<div style="font-size:12px;font-weight:800;color:var(--text-3);margin-bottom:4px;">'+(i+1)+'. '+esc(res.ko||'')+'</div>';
+    function makeRow(label,en,ko_){
+      var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;margin-top:4px;';
       var txt=document.createElement('div');txt.style.flex='1';
       txt.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--text-3);">'+label+'</div>'+
         '<div style="font-size:13px;font-weight:600;">'+esc(en||'')+'</div>'+
-        (ko?'<div style="font-size:11px;color:var(--text-3);">'+esc(ko)+'</div>':'');
+        (ko_?'<div style="font-size:11px;color:var(--text-3);">'+esc(ko_)+'</div>':'');
       var ref={id:null};
       var addBtn=document.createElement('button');addBtn.type='button';
-      addBtn.style.cssText='font-size:18px;padding:2px 8px;background:transparent;border:1.5px solid var(--border);border-radius:999px;flex-shrink:0;color:var(--success-text);';
+      addBtn.style.cssText='font-size:18px;padding:2px 8px;background:transparent;border:1.5px solid var(--border);border-radius:999px;flex-shrink:0;color:var(--success-text);cursor:pointer;';
       addBtn.textContent='＋';
-      (function(en,ko,ref,btn){
-        btn.onclick=function(){
-          if(ref.id){cards=cards.filter(function(c){return c.id!==ref.id;});saveCards();ref.id=null;btn.textContent='＋';btn.style.color='var(--success-text)';}
-          else{var chId=getOrCreatePracticeChapter();var nc={id:nextCardId++,ko:ko||en,en:en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0,lastTestedAt:0};cards.push(nc);saveCards();ref.id=nc.id;btn.textContent='✓';btn.style.color='var(--accent-text)';}
-        };
-      })(en,ko,ref,addBtn);
-      row.appendChild(txt);row.appendChild(addBtn);
-      return row;
+      (function(en,ko_,ref,btn){btn.onclick=function(){
+        if(ref.id){cards=cards.filter(function(c){return c.id!==ref.id;});saveCards();ref.id=null;btn.textContent='＋';btn.style.color='var(--success-text)';}
+        else{var chId=getOrCreatePracticeChapter();var nc={id:nextCardId++,ko:ko_||en,en:en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0,lastTestedAt:0};cards.push(nc);saveCards();ref.id=nc.id;btn.textContent='✓';btn.style.color='var(--accent-text)';}
+      };})(en,ko_,ref,addBtn);
+      row.appendChild(txt);row.appendChild(addBtn);return row;
     }
     block.appendChild(makeRow('합격기준',res.min,res.min_ko));
     block.appendChild(makeRow('이상적',res.ideal,res.ideal_ko));

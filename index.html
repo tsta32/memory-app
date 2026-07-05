@@ -475,31 +475,26 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     </div>
     <!-- 타이머 -->
     <div style="margin-bottom:12px;">
-      <div id="bizTimerBar" style="height:6px;border-radius:999px;background:var(--surface-2);margin-bottom:6px;overflow:hidden;">
-        <div id="bizTimerFill" style="height:100%;width:100%;background:var(--accent);border-radius:999px;transition:width 0.5s linear;"></div>
+      <div id="bizTimerBar" style="height:6px;border-radius:999px;background:var(--surface-2);margin-bottom:4px;overflow:hidden;">
+        <div id="bizTimerFill" style="height:100%;width:100%;background:#34A96E;border-radius:999px;transition:width 0.5s linear;"></div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span id="bizTimerText" style="font-size:13px;font-weight:700;color:var(--text-3);">20초</span>
-        <span id="bizStepCounter" style="font-size:12px;color:var(--text-3);"></span>
-      </div>
+      <span id="bizTimerText" style="font-size:13px;font-weight:700;color:var(--text-3);">40초</span>
     </div>
     <!-- 문제 카드 -->
     <div class="card" id="bizQuestionCard" style="margin-bottom:12px;">
-      <div class="badge" id="bizBadge" style="margin-bottom:8px;">상황</div>
-      <div id="bizSituation" style="font-size:14px;color:var(--text-2);margin-bottom:10px;line-height:1.6;"></div>
-      <div id="bizQuestion" style="font-size:15px;font-weight:700;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:var(--surface-2);border-radius:var(--r-md);"></div>
-      <!-- 문장별 지시 + 결과 누적 표시 -->
-      <div id="bizStepInfo" style="margin-bottom:12px;"></div>
-      <textarea id="bizAnswer" rows="2" style="width:100%;font-family:'Nunito',sans-serif;font-size:15px;padding:12px;border-radius:var(--r-md);border:1.5px solid var(--border-strong);background:var(--surface-2);color:var(--text);resize:none;line-height:1.6;" placeholder="영어로 입력하세요..."></textarea>
-      <button type="button" id="bizSubmitBtn" style="width:100%;margin-top:10px;font-weight:800;font-size:16px;background:linear-gradient(135deg,#34B3A0,#2A9D8F);border-color:#2A9D8F;color:#fff;">제출</button>
+      <div class="badge" id="bizBadge" style="margin-bottom:10px;">문제</div>
+      <div id="bizSituation" style="margin-bottom:14px;"></div>
+      <textarea id="bizAnswer" rows="3" style="width:100%;font-family:'Nunito',sans-serif;font-size:15px;padding:12px;border-radius:var(--r-md);border:1.5px solid var(--border-strong);background:var(--surface-2);color:var(--text);resize:none;line-height:1.6;margin-bottom:10px;" placeholder="영어로 입력 후 Enter 또는 제출 버튼..."></textarea>
+      <button type="button" id="bizSubmitBtn" style="width:100%;font-weight:800;font-size:16px;background:linear-gradient(135deg,#34B3A0,#2A9D8F);border-color:#2A9D8F;color:#fff;">제출 (Enter)</button>
       <div id="bizLoading" style="display:none;text-align:center;padding:12px;font-size:13px;color:var(--text-3);">⏳ 평가 중...</div>
+      <div id="bizStepInfo" style="margin-top:4px;"></div>
     </div>
-    <!-- 최종 결과 카드 -->
+    <!-- 최종 결과 -->
     <div id="bizResultCard" style="display:none;">
       <div class="card" style="margin-bottom:10px;">
-        <div id="bizVerdict" style="font-size:16px;font-weight:800;margin-bottom:6px;"></div>
-        <div id="bizFeedback" style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:12px;"></div>
-        <div id="bizStepResultList" style="display:flex;flex-direction:column;gap:6px;"></div>
+        <div id="bizVerdict" style="font-size:18px;font-weight:800;margin-bottom:4px;"></div>
+        <div id="bizFeedback" style="font-size:13px;color:var(--text-2);margin-bottom:12px;"></div>
+        <div id="bizStepResultList"></div>
       </div>
       <div style="display:flex;gap:8px;">
         <button type="button" id="bizNextBtn" style="flex:1;font-weight:700;border-color:var(--accent);color:var(--accent-text);">다음 문제 →</button>
