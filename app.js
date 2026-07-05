@@ -2115,6 +2115,39 @@ on('trendOpenBtn','click',function(){
   $('trendResult').style.display='none';
   $('trendModal').classList.add('show');
 });
+on('checkUpdateBtn','click',function(){
+  var status=$('checkUpdateStatus');
+  status.textContent='확인 중...';status.style.color='var(--text-3)';
+  if(!('serviceWorker' in navigator)){
+    status.textContent='서비스워커를 지원하지 않는 환경이에요';return;
+  }
+  navigator.serviceWorker.getRegistration().then(function(reg){
+    if(!reg){status.textContent='서비스워커가 등록되지 않았어요';return;}
+    reg.update().then(function(){
+      if(reg.waiting){
+        // 이미 대기 중인 새 버전 있음
+        showUpdateBanner(reg.waiting);
+        status.textContent='새 버전이 있어요! 위 배너에서 업데이트하세요';
+        status.style.color='var(--success-text)';
+      } else if(reg.installing){
+        // 설치 중
+        status.textContent='새 버전 다운로드 중... 잠시 후 배너가 뜰 거예요';
+        status.style.color='var(--warning)';
+        reg.installing.addEventListener('statechange',function(){
+          if(reg.installing&&reg.installing.state==='installed'){
+            showUpdateBanner(reg.installing);
+            status.textContent='새 버전 준비됐어요! 배너에서 업데이트하세요';
+            status.style.color='var(--success-text)';
+          }
+        });
+      } else {
+        status.textContent='✓ 최신 버전이에요';
+        status.style.color='var(--success-text)';
+        setTimeout(function(){status.textContent='';},3000);
+      }
+    });
+  });
+});
 on('trendModalClose','click',function(){$('trendModal').classList.remove('show');});
 on('trendRunBtn','click',function(){
   if(!apiKey){alert('설정 탭에서 API 키를 먼저 입력해주세요.');return;}
