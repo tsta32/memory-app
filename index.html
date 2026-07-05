@@ -386,14 +386,15 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     </div>
     <div class="card" id="quizCard">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <div class="badge" id="boxBadge" style="margin-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;font-size:10px;">새 카드</div>
-        <button type="button" id="quizAskBtn" style="font-size:12px;padding:4px 10px;color:var(--accent-text);border-color:var(--accent);white-space:nowrap;flex-shrink:0;">💬 질문</button>
-        <button type="button" id="quizNotesBtn" style="font-size:12px;padding:4px 10px;color:var(--text-2);white-space:nowrap;flex-shrink:0;">📋 이력</button>
+        <div class="badge" id="boxBadge" style="margin-bottom:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;font-size:10px;">새 카드</div>
+        <button type="button" id="quizAskBtn" style="font-size:11px;padding:4px 8px;color:var(--accent-text);border-color:var(--accent);white-space:nowrap;flex-shrink:0;">💬질문</button>
+        <button type="button" id="quizNotesBtn" style="font-size:11px;padding:4px 8px;color:var(--text-2);white-space:nowrap;flex-shrink:0;">📋이력</button>
         <div style="flex:1;"></div>
-        <label style="display:flex;align-items:center;gap:3px;font-size:22px;cursor:pointer;flex-shrink:0;line-height:1;" title="나중에 질문할 문장으로 표시">
-          <input type="checkbox" id="quizMarkCheck" style="display:none;" />
-          <span id="quizMarkStar" style="color:var(--text-3);">☆</span>
+        <label style="display:flex;align-items:center;gap:3px;font-size:12px;color:var(--text-3);font-weight:700;cursor:pointer;flex-shrink:0;white-space:nowrap;">
+          <input type="checkbox" id="quizMarkCheck" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0;" />
+          체크
         </label>
+        <button type="button" id="quizBmBtn" style="font-size:20px;padding:2px 4px;background:transparent;border:none;cursor:pointer;flex-shrink:0;line-height:1;color:var(--text-3);">☆</button>
       </div>
       <div id="koreanText"></div>
       <div id="hintText"></div>
@@ -430,7 +431,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
         <div id="missedList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;"></div>
       </div>
       <div id="doneMarkedSection" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:8px;">💬 질문 표시한 문장</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;">✅ 체크 표시한 문장</div>
         <div id="doneMarkedList" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px;">
@@ -524,7 +525,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     </div>
     <div id="testStatusContent" style="display:flex;flex-direction:column;gap:14px;max-height:540px;overflow-y:auto;"></div>
     <div style="display:flex;gap:8px;margin-top:14px;">
-      <button type="button" id="testStatusFailAll" style="flex:1;color:var(--danger);border-color:var(--danger);font-weight:700;">미완료 전부 오답처리 후 종료</button>
+      <button type="button" id="testStatusFailAll" style="flex:1;color:var(--warning);border-color:var(--warning);font-weight:700;">완료만 반영하고 종료</button>
     </div>
   </div>
 </div>

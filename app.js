@@ -1147,7 +1147,7 @@ function loadNext(){
   // 질문 표시 체크박스 상태 반영
   var qmc=$('quizMarkCheck');
   if(qmc) qmc.checked=!!quizMarkedIds[current.id];
-  updateQuizStar();
+  updateQuizBmBtn();
   $('boxBadge').textContent=isRetry?'재도전':(current.stage===0?'새 카드':'Lv'+current.stage+' · '+STAGE_DAYS[Math.min(current.stage-1,STAGE_DAYS.length-1)]+'일');
   $('koreanText').textContent=current.ko;showHint(0);updateStats();
 }
@@ -1180,17 +1180,27 @@ function finishSession(){
       markedIds.forEach(function(id){
         var c=findCard(id);if(!c)return;
         var row=document.createElement('div');
-        row.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;';
+        row.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:8px 12px;display:flex;align-items:center;gap:8px;';
         var txt=document.createElement('div');txt.style.flex='1';
         txt.innerHTML='<div style="font-size:13px;font-weight:700;">'+esc(c.ko)+'</div><div style="font-size:12px;color:var(--text-2);">'+esc(c.en)+'</div>';
-        var ab=document.createElement('button');ab.type='button';ab.style.cssText='font-size:11px;padding:4px 8px;color:var(--accent-text);border-color:var(--accent);flex-shrink:0;';
-        ab.textContent='💬 질문';(function(cid){ab.addEventListener('click',function(){openAskModal(cid);});})(id);
-        row.appendChild(txt);row.appendChild(ab);markedList.appendChild(row);
+        // 북마크
+        var bm=document.createElement('button');bm.type='button';
+        bm.style.cssText='font-size:18px;padding:2px 5px;background:transparent;border:none;cursor:pointer;flex-shrink:0;';
+        bm.textContent=c.bookmarked?'★':'☆';bm.style.color=c.bookmarked?'var(--warning)':'var(--text-3)';
+        (function(c,btn){btn.addEventListener('click',function(){c.bookmarked=!c.bookmarked;saveCards();btn.textContent=c.bookmarked?'★':'☆';btn.style.color=c.bookmarked?'var(--warning)':'var(--text-3)';});})(c,bm);
+        // 질문
+        var ab=document.createElement('button');ab.type='button';
+        ab.style.cssText='font-size:11px;padding:4px 8px;color:var(--accent-text);border-color:var(--accent);flex-shrink:0;';
+        ab.textContent='💬';(function(cid){ab.addEventListener('click',function(){openAskModal(cid);});})(id);
+        row.appendChild(txt);row.appendChild(bm);row.appendChild(ab);
+        markedList.appendChild(row);
       });
     } else {
       markedSection.style.display='none';
     }
   }
+  // 체크 표시는 이번 테스트용이므로 결과 표시 후 초기화
+  quizMarkedIds={};
 
   // 이번 테스트 전체 문장 목록 렌더
   doneCheckedIds={};
@@ -1262,18 +1272,63 @@ on('doneCopyBtn','click',function(){
 
 on('doneEditToggleBtn','click',function(){
   if(doneEditMode){
-    // 저장 - 변경사항 수집
+    // 변경사항 수집
     var inputs=$('doneCardList').querySelectorAll('input');
-    var changed=false;
+    var diffs=[];
     inputs.forEach(function(inp){
       var id=parseInt(inp.dataset.doneId,10);
       var field=inp.dataset.doneField;
       var val=inp.value.trim();
       var c=findCard(id);
-      if(c&&val&&c[field]!==val){c[field]=val;changed=true;}
+      if(c&&val&&c[field]!==val){
+        var existing=diffs.find(function(d){return d.id===id;});
+        if(!existing){existing={id:id,origKo:c.ko,origEn:c.en,newKo:c.ko,newEn:c.en};diffs.push(existing);}
+        if(field==='ko')existing.newKo=val;
+        if(field==='en')existing.newEn=val;
+      }
     });
-    if(changed) saveCards();
-    renderDoneCardList(false);
+    if(!diffs.length){renderDoneCardList(false);return;}
+    // 변경점 확인 모달 표시
+    var list=$('editDiffList');list.innerHTML='';
+    diffs.forEach(function(d){
+      var block=document.createElement('div');
+      block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:12px;border:1.5px solid var(--border);';
+      var html='';
+      if(d.newKo!==d.origKo){
+        html+='<div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:3px;">한국어</div>';
+        html+='<div style="font-size:13px;color:var(--danger);text-decoration:line-through;margin-bottom:2px;">'+esc(d.origKo)+'</div>';
+        html+='<div style="font-size:13px;color:var(--success-text);margin-bottom:6px;">'+esc(d.newKo)+'</div>';
+      }
+      if(d.newEn!==d.origEn){
+        html+='<div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:3px;">영어</div>';
+        html+='<div style="font-size:13px;color:var(--danger);text-decoration:line-through;margin-bottom:2px;">'+esc(d.origEn)+'</div>';
+        html+='<div style="font-size:13px;color:var(--success-text);">'+esc(d.newEn)+'</div>';
+      }
+      block.innerHTML=html;list.appendChild(block);
+    });
+    // editConfirmModal 재활용
+    var pendingDoneEdits=diffs;
+    $('editConfirmModal').classList.add('show');
+    // 기존 핸들러 교체를 위해 클론
+    var applyBtn=$('editConfirmApply');
+    var newApply=applyBtn.cloneNode(true);
+    applyBtn.parentNode.replaceChild(newApply,applyBtn);
+    newApply.addEventListener('click',function(){
+      pendingDoneEdits.forEach(function(d){
+        var c=findCard(d.id);if(!c)return;
+        c.ko=d.newKo;c.en=d.newEn;
+      });
+      saveCards();
+      $('editConfirmModal').classList.remove('show');
+      renderDoneCardList(false);
+    });
+    var cancelBtn=$('editConfirmCancel');
+    var newCancel=cancelBtn.cloneNode(true);
+    cancelBtn.parentNode.replaceChild(newCancel,cancelBtn);
+    newCancel.addEventListener('click',function(){
+      $('editConfirmModal').classList.remove('show');
+      renderDoneCardList(false);
+    });
   } else {
     renderDoneCardList(true);
   }
@@ -1442,23 +1497,26 @@ function renderTestStatusModal(){
   }
 }
 
-// 미완료 전부 오답처리 후 종료
+// 완료만 반영하고 종료 (미완료는 원상복구)
 on('testStatusFailAll','click',function(){
   $('testStatusModal').classList.remove('show');
+  // 미완료 카드들 원상복구 (세션 시작 전 상태로)
+  // sessionQueue + retryQueue에 남은 카드들 = 미완료
   var remaining=[];
   if(current&&sessionCompletedIds.indexOf(current.id)===-1) remaining.push(current.id);
   sessionQueue.forEach(function(id){if(remaining.indexOf(id)===-1)remaining.push(id);});
   retryQueue.forEach(function(id){if(remaining.indexOf(id)===-1)remaining.push(id);});
-  var now_=now();
   remaining.forEach(function(id){
     var c=findCard(id);if(!c)return;
-    if(sessionMissedIds.indexOf(id)===-1) c.ngCount=(c.ngCount||0)+1;
-    sessionMissedIds.push(id);
-    sessionSkippedIds.push(id);
-    sessionCompletedIds.push(id);
-    c.everAnswered=true;c.stage=0;c.dueAt=now_+FIFTEEN_MIN;
+    // ngCount 되돌리기 (이 세션에서 증가했으면)
+    if(sessionMissedIds.indexOf(id)!==-1){
+      c.ngCount=Math.max(0,(c.ngCount||1)-1);
+    }
+    // dueAt 원상복구 (지금 시점으로 - 즉시 다시 출제 가능하게)
+    c.dueAt=now();
   });
-  saveCards();sessionQueue=[];retryQueue=[];current=null;
+  saveCards();
+  sessionQueue=[];retryQueue=[];current=null;
   finishSession();
 });
 
@@ -1485,21 +1543,21 @@ on('quizMarkCheck','click',function(){
   if(!current)return;
   if($('quizMarkCheck').checked) quizMarkedIds[current.id]=true;
   else delete quizMarkedIds[current.id];
-  updateQuizStar();
 });
-// 별표 label 클릭 시 체크박스 토글
-$('quizMarkStar').parentElement.addEventListener('click',function(){
+
+// 북마크 버튼 (별표) - 전체문장 북마크와 연동
+on('quizBmBtn','click',function(){
   if(!current)return;
-  var cb=$('quizMarkCheck');cb.checked=!cb.checked;
-  if(cb.checked)quizMarkedIds[current.id]=true;else delete quizMarkedIds[current.id];
-  updateQuizStar();
+  current.bookmarked=!current.bookmarked;
+  saveCards();
+  updateQuizBmBtn();
 });
-function updateQuizStar(){
-  var star=$('quizMarkStar');if(!star)return;
-  var marked=current&&quizMarkedIds[current.id];
-  star.textContent=marked?'★':'☆';
-  star.style.color=marked?'var(--warning)':'var(--text-3)';
+function updateQuizBmBtn(){
+  var btn=$('quizBmBtn');if(!btn||!current)return;
+  btn.textContent=current.bookmarked?'★':'☆';
+  btn.style.color=current.bookmarked?'var(--warning)':'var(--text-3)';
 }
+
 on('quizAskBtn','click',function(){if(current)openAskModal(current.id);});
 on('quizNotesBtn','click',function(){if(current)openNotesModal(current.id);});
 
