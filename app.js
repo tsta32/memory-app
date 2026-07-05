@@ -2122,29 +2122,33 @@ on('checkUpdateBtn','click',function(){
     status.textContent='서비스워커를 지원하지 않는 환경이에요';return;
   }
   navigator.serviceWorker.getRegistration().then(function(reg){
-    if(!reg){status.textContent='서비스워커가 등록되지 않았어요';return;}
+    if(!reg){status.textContent='서비스워커가 없어요';return;}
     reg.update().then(function(){
-      if(reg.waiting){
-        // 이미 대기 중인 새 버전 있음
-        showUpdateBanner(reg.waiting);
-        status.textContent='새 버전이 있어요! 위 배너에서 업데이트하세요';
-        status.style.color='var(--success-text)';
-      } else if(reg.installing){
-        // 설치 중
-        status.textContent='새 버전 다운로드 중... 잠시 후 배너가 뜰 거예요';
-        status.style.color='var(--warning)';
-        reg.installing.addEventListener('statechange',function(){
-          if(reg.installing&&reg.installing.state==='installed'){
-            showUpdateBanner(reg.installing);
-            status.textContent='새 버전 준비됐어요! 배너에서 업데이트하세요';
-            status.style.color='var(--success-text)';
-          }
-        });
-      } else {
-        status.textContent='✓ 최신 버전이에요';
-        status.style.color='var(--success-text)';
-        setTimeout(function(){status.textContent='';},3000);
-      }
+      // update() 후 약간 기다렸다가 상태 확인
+      setTimeout(function(){
+        if(reg.waiting){
+          showUpdateBanner(reg.waiting);
+          status.textContent='새 버전이 있어요! 배너에서 업데이트하세요';
+          status.style.color='var(--success-text)';
+        } else if(reg.installing){
+          status.textContent='새 버전 다운로드 중...';
+          status.style.color='var(--warning)';
+          reg.installing.addEventListener('statechange',function(e){
+            if(e.target.state==='installed'&&navigator.serviceWorker.controller){
+              showUpdateBanner(e.target);
+              status.textContent='새 버전 준비됐어요! 배너에서 업데이트하세요';
+              status.style.color='var(--success-text)';
+            }
+          });
+        } else {
+          status.textContent='✓ 현재 최신 버전이에요';
+          status.style.color='var(--success-text)';
+          setTimeout(function(){status.textContent='';},3000);
+        }
+      }, 500);
+    }).catch(function(e){
+      status.textContent='확인 실패: 네트워크를 확인해주세요';
+      status.style.color='var(--danger-text)';
     });
   });
 });
