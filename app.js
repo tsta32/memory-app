@@ -1213,6 +1213,7 @@ function loadNext(){
   var svg=$('fxLayer');
   while(svg.firstChild) svg.removeChild(svg.firstChild);
   $('koreanText').style.color='';hintLevel=0;resetInputUI();
+  var fh=$('footerHint');if(fh){fh.textContent='Enter로 확인 · 다음 카드로 이동';fh.style.color='';}
   var id=null,isRetry=false;
   if(sessionQueue.length)id=sessionQueue.shift();
   else if(retryQueue.length){id=retryQueue.shift();isRetry=true;}
@@ -1688,15 +1689,60 @@ function checkAnswer(){
   if(!raw.trim()){escalateWrong();return;}
   var val=norm(raw), ans=norm(current.en);
   var valE=normExpand(raw), ansE=normExpand(current.en);
-  // 1) 완전 일치 (그대로 or 구두점만 다를 때)
+  // 1) 완전 일치
   if(val===ans){finalizeCorrect();return;}
-  // 2) 축약형↔원형 정규화 후 일치 (I'm == I am, can't == cannot 등)
+  // 2) 축약형 정규화 후 일치
   if(valE===ansE){finalizeCorrect();return;}
-  // 3) 오타 1글자 차이 또는 철자 순서 바뀜 → 판정 패널
+  // 3) 오타 1글자 차이 → 판정 패널
   if(lev(val,ans)===1||anagram(val,ans)){showDiff(raw,current.en);return;}
-  // 4) 축약형 정규화 후에도 오타 1글자 차이
+  // 4) 축약형 정규화 후 오타 1글자
   if(lev(valE,ansE)===1||anagram(valE,ansE)){showDiff(raw,current.en);return;}
-  escalateWrong();
+  // 5) 위 모두 불일치 → API 키 있으면 AI 재검토, 없으면 바로 오답
+  if(apiKey){
+    aiRecheckAnswer(raw, current.en, current.ko);
+  } else {
+    escalateWrong();
+  }
+}
+
+// AI 재검토: 의미상 동일한 표현인지 확인
+function aiRecheckAnswer(userAns, correctEn, koreanKo){
+  // 입력창 비활성화하고 로딩 표시
+  $('answerInput').disabled=true;
+  $('checkBtn').disabled=true;
+  $('checkBtn').textContent='확인 중...';
+
+  var prompt='영어 표현 평가자입니다.\n\n한국어 문장: "'+koreanKo+'"\n정답 표현: "'+correctEn+'"\n학습자 입력: "'+userAns+'"\n\n학습자 입력이 정답 표현과 의미상 동일하거나 충분히 유사한 표현인가요?\n- 단어가 달라도 의미가 같으면 정답\n- 격식체/비격식체 차이는 오답\n- 의미가 애매하거나 다르면 오답\n\nJSON으로만 응답: {"pass":true/false,"reason":"한국어로 한 줄 이유"}';
+
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:prompt}]})
+  }).then(function(r){return r.json();}).then(function(data){
+    $('answerInput').disabled=false;
+    $('checkBtn').disabled=false;
+    $('checkBtn').textContent='확인';
+    var raw2=(data.content&&data.content[0]&&data.content[0].text)||'{}';
+    var res;try{res=JSON.parse(raw2.replace(/```json|```/g,'').trim());}catch(e){res={pass:false};}
+    if(res.pass){
+      // AI가 정답으로 판단 → 정답 처리
+      finalizeCorrect();
+    } else {
+      // AI도 오답 → 이유 살짝 보여주고 오답 처리
+      escalateWrong();
+      // 이유 힌트 표시 (선택적)
+      if(res.reason){
+        var hint=$('footerHint');
+        if(hint){hint.textContent='AI 판정: '+res.reason;hint.style.color='var(--danger-text)';}
+      }
+    }
+  }).catch(function(){
+    // 네트워크 오류 시 기존 방식대로 오답 처리
+    $('answerInput').disabled=false;
+    $('checkBtn').disabled=false;
+    $('checkBtn').textContent='확인';
+    escalateWrong();
+  });
 }
 on('checkBtn','click',checkAnswer);on('nextBtn','click',loadNext);
 on('markCorrectBtn','click',finalizeCorrect);on('markWrongBtn','click',escalateWrong);
