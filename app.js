@@ -33,6 +33,29 @@ var quizBmOnly=false;
 var notes={};   // {cardId: [{id,date,q,a,summary}]}
 var trends=[];  // [{date,result}]
 var apiKey='';
+
+// OpenAI Chat Completions API 어댑터.
+// 기존 AI 기능의 응답 처리 코드를 유지할 수 있도록 Anthropic 응답 형태로 정규화합니다.
+function openAICompatRequest(maxTokens, messages, systemPrompt){
+  var allMessages=[];
+  if(systemPrompt) allMessages.push({role:'system',content:systemPrompt});
+  allMessages=allMessages.concat(messages||[]);
+  return fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body:JSON.stringify({model:'gpt-4o-mini',messages:allMessages,max_tokens:maxTokens})
+  }).then(function(response){
+    return response.json().then(function(data){
+      if(!response.ok){
+        var message=data&&data.error&&data.error.message?data.error.message:'OpenAI API 오류 ('+response.status+')';
+        throw new Error(message);
+      }
+      var content=data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
+      if(typeof content!=='string') throw new Error('OpenAI API에서 답변을 받지 못했습니다.');
+      return {json:function(){return Promise.resolve({content:[{text:content}]});}};
+    });
+  });
+}
 var quizMarkedIds={}; // 퀴즈 중 질문 표시한 카드 id
 var askTargetCardId=null; // 현재 질문 모달 대상 카드
 var selectedChapterIds={};
@@ -1466,16 +1489,9 @@ function bizLoadNext(){
   var sample=shuffleArray(pool.slice()).slice(0,Math.min(10,pool.length));
   var sampleText=sample.map(function(c){return '- '+c.ko+' / '+c.en;}).join('\n');
 
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({
-      model:'claude-haiku-4-5-20251001',max_tokens:500,
-      messages:[{role:'user',content:
+  openAICompatRequest(500, [{role:'user',content:
         '당신은 전기/회로설계 제조업 분야 비즈니스 영어 트레이너입니다.\n\n아래 영어 표현들을 참고해서, 실제 업무에서 영어로 전달해야 할 한국어 내용을 2~4개 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n규칙:\n- 전기/전자부품 제조업, 회로설계, PCB, 납품, QC, 생산라인 상황\n- IT/소프트웨어 상황은 절대 금지\n- 각 항목은 한국어로 자연스러운 비즈니스 의사소통 내용\n- 관련 영어 단어 힌트를 대괄호 안에 1~3개 포함 (예: [revision, amendment])\n\nJSON으로만 응답:\n{"items":[{"ko":"전달할 한국어 내용 (힌트: [단어1, 단어2])"},{"ko":"..."},{"ko":"..."}]}'
-      }]
-    })
-  }).then(function(r){return r.json();}).then(function(data){
+      }], null).then(function(r){return r.json();}).then(function(data){
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
     var q;
     try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}
@@ -1543,11 +1559,7 @@ function bizSubmitItem(timeUp){
   var prompt='비즈니스 영어 평가자입니다.\n\n전달해야 할 한국어 내용: "'+ko+'"\n학습자가 입력한 영어: "'+(answer||'(미응답)')+(timeUp&&answer?' [시간초과]':timeUp?' [시간초과]':'')+
     '"\n\n평가 기준:\n- 한국어 내용의 의미가 영어로 명확히 전달됐는가\n- 제조업/전기 분야 비즈니스 상황에 적합한 격식체인가\n- 너무 informal하거나 의미가 불명확하면 불합격\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장","min":"합격 기준 최소 표현 (영어)","min_ko":"합격기준 한국어","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어"}';
 
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:prompt}]})
-  }).then(function(r){return r.json();}).then(function(data){
+  openAICompatRequest(400, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
     $('bizLoading').style.display='none';
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
     var res;try{res=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){res={pass:false,feedback:'평가 오류',min:'',min_ko:'',ideal:'',ideal_ko:''};}
@@ -1714,11 +1726,7 @@ function aiRecheckAnswer(userAns, correctEn, koreanKo){
 
   var prompt='영어 표현 평가자입니다.\n\n한국어 문장: "'+koreanKo+'"\n정답 표현: "'+correctEn+'"\n학습자 입력: "'+userAns+'"\n\n학습자 입력이 정답 표현과 의미상 동일하거나 충분히 유사한 표현인가요?\n- 단어가 달라도 의미가 같으면 정답\n- 격식체/비격식체 차이는 오답\n- 의미가 애매하거나 다르면 오답\n\nJSON으로만 응답: {"pass":true/false,"reason":"한국어로 한 줄 이유"}';
 
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:prompt}]})
-  }).then(function(r){return r.json();}).then(function(data){
+  openAICompatRequest(150, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
     $('answerInput').disabled=false;
     $('checkBtn').disabled=false;
     $('checkBtn').textContent='확인';
@@ -1978,7 +1986,7 @@ $('restoreFile').addEventListener('change',function(e){
 on('apiKeySaveBtn','click',function(){
   var val=$('apiKeyInput').value.trim();
   if(!val||!val.startsWith('sk-')){
-    $('apiKeyStatus').textContent='올바른 API 키를 입력해주세요 (sk-ant-... 형식)';
+    $('apiKeyStatus').textContent='올바른 OpenAI API 키를 입력해주세요 (sk-... 형식)';
     $('apiKeyStatus').style.color='var(--danger-text)';return;
   }
   apiKey=val;
@@ -2071,11 +2079,7 @@ on('askSendBtn','click',function(){
   var msgs=askConversation.slice();
   msgs.push({role:'user',content:q});
 
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,system:systemPrompt,messages:msgs})
-  }).then(function(r){return r.json();}).then(function(data){
+  openAICompatRequest(800, msgs, systemPrompt).then(function(r){return r.json();}).then(function(data){
     $('askLoading').style.display='none';
     $('askSendBtn').disabled=false;
     if(data.error){
@@ -2116,11 +2120,7 @@ on('askSaveBtn','click',function(){
   lastA=lastA?lastA.content:'';
 
   var summaryPrompt='다음 대화를 원인-질문요약-결론 세 가지로 각각 한 문장씩 한국어로 요약해줘. JSON 형식으로만: {"cause":"...","question":"...","conclusion":"..."}';
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:300,messages:[{role:'user',content:summaryPrompt+'\n\n'+fullText}]})
-  }).then(function(r){return r.json();}).then(function(data){
+  openAICompatRequest(300, [{role:'user',content:summaryPrompt+'\n\n'+fullText}], null).then(function(r){return r.json();}).then(function(data){
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
     var summary={cause:'',question:firstQ.length>30?firstQ.substring(0,30)+'...':firstQ,conclusion:''};
     try{var p=JSON.parse(raw.replace(/```json|```/g,'').trim());if(p)summary=p;}catch(e){}
@@ -2299,11 +2299,7 @@ on('bizWeaknessRunBtn','click',function(){
 
   var prompt='비즈니스 영어 코치입니다. 아래는 학습자의 실전 테스트 결과입니다.\n\n전체 통계: '+overallStats+'\n\n오답 사례:\n'+failedSteps.slice(0,20).join('\n---\n')+'\n\n분석 요청:\n1. 학습자의 약한 부분을 구체적으로 3~5가지 리스트로 정리해주세요\n2. 각 약점에 대한 실용적인 대처법을 1~2문장으로 붙여주세요\n3. 앞으로 테스트에서 특히 신경써야 할 포인트를 요약해주세요\n\n한국어로 답변해주세요.';
 
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1200,messages:[{role:'user',content:prompt}]})
-  }).then(function(r){return r.json();}).then(function(data){
+  openAICompatRequest(1200, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
     $('bizWeaknessLoading').style.display='none';$('bizWeaknessRunBtn').disabled=false;
     var result=(data.content&&data.content[0]&&data.content[0].text)||'(결과 없음)';
     $('bizWeaknessResult').style.display='block';
@@ -2393,11 +2389,7 @@ on('trendRunBtn','click',function(){
   if(!allNotes.length){alert('아직 질문 이력이 없어요.');return;}
   $('trendLoading').style.display='block';$('trendResult').style.display='none';$('trendRunBtn').disabled=true;
   var prompt='다음은 영어 학습자의 질문 이력입니다. 이 학습자가 어떤 영역에서 어려움을 겪고 있는지, 어떤 패턴의 질문을 반복하는지 분석해서 한국어로 설명해주세요. 실용적인 학습 조언도 2-3가지 포함해주세요.\n\n'+allNotes.join('\n---\n');
-  fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})
-  }).then(function(r){return r.json();}).then(function(data){
+  openAICompatRequest(1000, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
     $('trendLoading').style.display='none';$('trendRunBtn').disabled=false;
     var result=(data.content&&data.content[0]&&data.content[0].text)||'(결과 없음)';
     var date=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
