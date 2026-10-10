@@ -7,7 +7,7 @@ var STAGE_DAYS=[1,3,7,15,30,60,120,240,360];
 var CARDS_KEY='srs_cards_v2',CHAPTERS_KEY='srs_chapters_v1',SETTINGS_KEY='srs_settings_v1';
 var NOTES_KEY='srs_notes_v1';    // {cardId: [{id,date,q,a,summary}]}
 var TRENDS_KEY='srs_trends_v1';  // [{date, result}]
-var APIKEY_KEY='srs_apikey_v1';
+var APIKEY_KEY='srs_apikey_v1'; // 구버전 백업 호환용; 실제 키는 서버에서 관리
 var BIZ_SESSIONS_KEY='srs_biz_sessions_v1'; // [{date,passRate,avgTime,totalSteps,steps:[{stepKo,userAnswer,pass,min,ideal}]}]
 
 var cards=[],chapters=[],settings={volume:100,newCardRatio:5};
@@ -32,30 +32,32 @@ var quizBmOnly=false;
 // QA 시스템
 var notes={};   // {cardId: [{id,date,q,a,summary}]}
 var trends=[];  // [{date,result}]
-var apiKey='';
+var apiKey='worker'; // AI는 Cloudflare Worker 경유
 
-// OpenAI Chat Completions API 어댑터.
-// 기존 AI 기능의 응답 처리 코드를 유지할 수 있도록 Anthropic 응답 형태로 정규화합니다.
+// Cloudflare Worker를 통해 OpenAI를 호출합니다. API 키는 브라우저에 저장하지 않습니다.
 function openAICompatRequest(maxTokens, messages, systemPrompt){
   var allMessages=[];
   if(systemPrompt) allMessages.push({role:'system',content:systemPrompt});
   allMessages=allMessages.concat(messages||[]);
-  return fetch('https://api.openai.com/v1/chat/completions',{
+  return fetch('https://lively-wave-a149.tsta32.workers.dev/',{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-    body:JSON.stringify({model:'gpt-4o-mini',messages:allMessages,max_tokens:maxTokens})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({messages:allMessages,max_tokens:maxTokens,model:'gpt-4o-mini'})
   }).then(function(response){
     return response.json().then(function(data){
       if(!response.ok){
-        var message=data&&data.error&&data.error.message?data.error.message:'OpenAI API 오류 ('+response.status+')';
-        throw new Error(message);
+        var message=data&&data.error?data.error:'Worker/OpenAI API 오류 ('+response.status+')';
+        throw new Error(typeof message==='string'?message:JSON.stringify(message));
       }
+      // 앱의 기존 AI 응답 처리 코드와 호환
+      if(data&&data.content&&data.content[0]&&typeof data.content[0].text==='string') return {json:function(){return Promise.resolve(data);}};
       var content=data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
-      if(typeof content!=='string') throw new Error('OpenAI API에서 답변을 받지 못했습니다.');
+      if(typeof content!=='string') throw new Error('Worker에서 답변을 받지 못했습니다.');
       return {json:function(){return Promise.resolve({content:[{text:content}]});}};
     });
   });
 }
+
 var quizMarkedIds={}; // 퀴즈 중 질문 표시한 카드 id
 var askTargetCardId=null; // 현재 질문 모달 대상 카드
 var selectedChapterIds={};
@@ -191,7 +193,8 @@ function loadAll(){
   }}}catch(e){}
   try{var nr=localStorage.getItem(NOTES_KEY);if(nr)notes=JSON.parse(nr)||{};}catch(e){}
   try{var tr=localStorage.getItem(TRENDS_KEY);if(tr)trends=JSON.parse(tr)||[];}catch(e){}
-  try{var ak=localStorage.getItem(APIKEY_KEY);if(ak)apiKey=ak;}catch(e){}
+  // API 키는 Worker Secret에만 보관합니다. 구버전 localStorage 키는 읽지 않습니다.
+  try{localStorage.removeItem(APIKEY_KEY);}catch(e){}
   try{var bs=localStorage.getItem(BIZ_SESSIONS_KEY);if(bs)bizSessions=JSON.parse(bs)||[];}catch(e){}
 }
 function saveNotes(){try{localStorage.setItem(NOTES_KEY,JSON.stringify(notes));}catch(e){}}
@@ -1921,9 +1924,9 @@ on('quizNotesBtn','click',function(){if(current)openNotesModal(current.id);});
 
 /* ---------- API 키 설정 ---------- */
 function loadApiKeyUI(){
-  if(apiKey) $('apiKeyInput').value='';  // 마스킹 - 실제값 표시 안 함
-  $('apiKeyStatus').textContent=apiKey?'✓ API 키가 저장되어 있어요':'API 키가 없어요. 입력 후 저장해주세요.';
-  $('apiKeyStatus').style.color=apiKey?'var(--success-text)':'var(--text-3)';
+  if($('apiKeyInput')) $('apiKeyInput').value='';
+  $('apiKeyStatus').textContent='✓ Cloudflare Worker를 통해 OpenAI에 연결합니다. API 키는 서버에서 관리됩니다.';
+  $('apiKeyStatus').style.color='var(--success-text)';
 }
 /* ---------- 데이터 백업 / 복원 ---------- */
 on('backupBtn','click',function(){
@@ -1933,7 +1936,6 @@ on('backupBtn','click',function(){
     settings: localStorage.getItem(SETTINGS_KEY),
     notes:    localStorage.getItem(NOTES_KEY),
     trends:   localStorage.getItem(TRENDS_KEY),
-    apikey:   localStorage.getItem(APIKEY_KEY),
     exported: new Date().toLocaleString('ko-KR')
   };
   var json=JSON.stringify(data, null, 2);
@@ -1971,7 +1973,7 @@ $('restoreFile').addEventListener('change',function(e){
       if(data.settings) localStorage.setItem(SETTINGS_KEY, data.settings);
       if(data.notes)    localStorage.setItem(NOTES_KEY,    data.notes);
       if(data.trends)   localStorage.setItem(TRENDS_KEY,   data.trends);
-      if(data.apikey)   localStorage.setItem(APIKEY_KEY,   data.apikey);
+      localStorage.removeItem(APIKEY_KEY);
       $('backupStatus').textContent='✓ 복원 완료! 앱을 다시 시작합니다...';
       $('backupStatus').style.color='var(--success-text)';
       setTimeout(function(){window.location.reload();},1200);
@@ -1984,19 +1986,11 @@ $('restoreFile').addEventListener('change',function(e){
 });
 
 on('apiKeySaveBtn','click',function(){
-  var val=$('apiKeyInput').value.trim();
-  if(!val||!val.startsWith('sk-')){
-    $('apiKeyStatus').textContent='올바른 OpenAI API 키를 입력해주세요 (sk-... 형식)';
-    $('apiKeyStatus').style.color='var(--danger-text)';return;
-  }
-  apiKey=val;
-  try{localStorage.setItem(APIKEY_KEY,apiKey);}catch(e){}
   $('apiKeyInput').value='';
-  loadApiKeyUI();
+  $('apiKeyStatus').textContent='API 키는 여기에 입력하지 마세요. Cloudflare의 OPENAI_API_KEY Secret에서 관리합니다.';
+  $('apiKeyStatus').style.color='var(--text-3)';
 });
 on('apiKeyClearBtn','click',function(){
-  if(!confirm('저장된 API 키를 삭제할까요?'))return;
-  apiKey='';
   try{localStorage.removeItem(APIKEY_KEY);}catch(e){}
   $('apiKeyInput').value='';
   loadApiKeyUI();
