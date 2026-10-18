@@ -208,7 +208,12 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
         <!-- 2. 시작 버튼 크게 -->
         <button id="startBtn" style="width:100%;font-weight:800;font-size:18px;padding:16px;margin-bottom:8px;">▶ 시작하기</button>
         <button id="practiceBtn" style="width:100%;font-weight:700;margin-bottom:8px;font-size:13px;color:var(--text-2);padding:10px;">🎯 연습 모드 (스케줄 영향 없음)</button>
-        <button id="bizStartBtn" style="width:100%;font-weight:700;margin-bottom:14px;font-size:13px;padding:10px;border-color:var(--warning);color:var(--warning);">💼 실전 비즈니스 테스트 (AI 평가)</button>
+        <button id="bizStartBtn" style="width:100%;font-weight:700;margin-bottom:8px;font-size:13px;padding:10px;border-color:var(--warning);color:var(--warning);">💼 실전 테스트 (AI 평가)</button>
+        <details style="margin-bottom:14px;background:var(--surface-2);border:1.5px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;">
+          <summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text-2);">☑ 참조 챕터 설정</summary>
+          <div id="bizChapterSelectList" class="chapter-select-list" style="margin:10px 0 6px;max-height:150px;"></div>
+          <p class="muted" id="bizChapterHint" style="margin:0;"></p>
+        </details>
 
         <!-- 3. 챕터 선택 -->
         <div style="font-size:12px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">챕터 선택 <span style="font-weight:600;text-transform:none;letter-spacing:0;">(복수 선택 가능)</span></div>
@@ -471,7 +476,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
   <div id="bizScreen" style="display:none;">
     <div class="quiz-top">
       <button type="button" class="cancel-link" id="bizBackBtn">← 홈으로</button>
-      <div style="font-size:12px;font-weight:700;color:var(--text-3);">💼 실전 비즈니스 테스트</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-3);">💼 실전 테스트</div>
       <button type="button" id="bizEndBtn" style="font-size:12px;padding:6px 10px;border-color:var(--danger);color:var(--danger-text);font-weight:700;">테스트 종료</button>
     </div>
     <!-- 타이머 -->
