@@ -1,4 +1,7 @@
-var CACHE_NAME = 'srs-app-v65';
+
+/* Update-safe service worker */
+var CACHE_NAME = 'srs-app-v66';
+
 var ASSETS = [
   './index.html',
   './app.js',
@@ -7,49 +10,82 @@ var ASSETS = [
   './icons/icon-512.png'
 ];
 
-self.addEventListener('install', function(event){
+self.addEventListener('install', function(event) {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache){
+    caches.open(CACHE_NAME).then(function(cache) {
       return cache.addAll(ASSETS);
-    }).then(function(){
-      // 새 버전 설치 완료 후 waiting 상태로 대기 (자동 skipWaiting 안 함)
-      // 앱에서 명시적으로 skipWaiting 요청해야 활성화됨
     })
   );
 });
 
-self.addEventListener('activate', function(event){
+self.addEventListener('activate', function(event) {
   event.waitUntil(
-    caches.keys().then(function(keys){
+    caches.keys().then(function(keys) {
       return Promise.all(
-        keys.filter(function(k){ return k !== CACHE_NAME; })
-            .map(function(k){ return caches.delete(k); })
+        keys.filter(function(key) {
+          return key !== CACHE_NAME;
+        }).map(function(key) {
+          return caches.delete(key);
+        })
       );
-    }).then(function(){
+    }).then(function() {
       return self.clients.claim();
     })
   );
 });
 
-self.addEventListener('fetch', function(event){
-  if(event.request.method !== 'GET') return;
+self.addEventListener('fetch', function(event) {
+  if (event.request.method !== 'GET') return;
+
+  var url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  var isAppFile =
+    url.pathname.endsWith('/index.html') ||
+    url.pathname.endsWith('/app.js') ||
+    url.pathname.endsWith('/manifest.json') ||
+    url.pathname.endsWith('/');
+
+  if (isAppFile) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .then(function(response) {
+          if (response && response.status === 200) {
+            var copy = response.clone();
+            caches.open(CACHE_NAME).then(function(cache) {
+              cache.put(event.request, copy);
+            });
+          }
+          return response;
+        })
+        .catch(function() {
+          return caches.match(event.request).then(function(cached) {
+            return cached || caches.match('./index.html');
+          });
+        })
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then(function(cached){
-      var network = fetch(event.request).then(function(response){
-        if(response && response.status === 200){
-          var clone = response.clone();
-          caches.open(CACHE_NAME).then(function(cache){ cache.put(event.request, clone); });
+    caches.match(event.request).then(function(cached) {
+      if (cached) return cached;
+
+      return fetch(event.request).then(function(response) {
+        if (response && response.status === 200) {
+          var copy = response.clone();
+          caches.open(CACHE_NAME).then(function(cache) {
+            cache.put(event.request, copy);
+          });
         }
         return response;
-      }).catch(function(){ return cached; });
-      return cached || network;
+      });
     })
   );
 });
 
-// 앱에서 'skipWaiting' 메시지 받으면 즉시 활성화
-self.addEventListener('message', function(event){
-  if(event.data && event.data.type === 'SKIP_WAITING'){
+self.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
