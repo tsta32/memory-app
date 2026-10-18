@@ -966,7 +966,7 @@ on('bulkAddBtn','click',function(){
   addBtn.parentNode.insertBefore(btn,addBtn.nextSibling);
   var help=document.createElement('div');
   help.id='replaceAllCardsHelp';
-  help.textContent='선택된 챕터의 카드만 교체합니다. 한국어[TAB]영어 형식의 문장 전체를 위 입력창에 붙여넣으세요. 다른 챕터의 카드와 학습 기록은 유지됩니다.';
+  help.textContent='선택한 챕터의 카드만 교체합니다. 다른 챕터의 카드와 학습 기록은 유지됩니다.';
   help.style.cssText='font-size:12px;color:var(--text-3);margin-top:6px;line-height:1.5;';
   btn.parentNode.insertBefore(help,btn.nextSibling);
   btn.addEventListener('click',function(){
@@ -980,17 +980,18 @@ on('bulkAddBtn','click',function(){
     });
     if(!parsed.length){$('bulkResult').textContent='교체할 문장을 찾지 못했어요. 한국어와 영어 사이가 탭으로 구분되어 있는지 확인해 주세요.';$('bulkResult').style.color='var(--danger-text)';return;}
     var chId=parseChId('bulkChapterSelect');
-    if(chId===null){$('bulkResult').textContent='교체할 챕터를 먼저 선택해 주세요.';$('bulkResult').style.color='var(--danger-text)';return;}
-    var oldChapterCards=cards.filter(function(c){return c.chapterId===chId;});
-    var chapterName=(chapters.find(function(ch){return ch.id===chId;})||{}).name||'선택한 챕터';
-    if(!confirm('챕터「'+chapterName+'」의 카드 '+oldChapterCards.length+'개를 새 문장 '+parsed.length+'개로 교체할까요?\n\n선택한 챕터의 복습 단계, 북마크, 오답 횟수 및 카드별 질문 기록은 초기화됩니다. 다른 챕터의 카드는 유지됩니다.')) return;
-    var oldIds={};
-    oldChapterCards.forEach(function(c){oldIds[c.id]=true;});
+    var targetCards=cards.filter(function(c){return c.chapterId===chId;});
+    var chapterName='선택한 챕터';
+    var selectedOption=$('bulkChapterSelect').options[$('bulkChapterSelect').selectedIndex];
+    if(selectedOption && selectedOption.textContent) chapterName=selectedOption.textContent.trim();
+    if(!confirm('챕터「'+chapterName+'」의 카드 '+targetCards.length+'개를 새 문장 '+parsed.length+'개로 교체할까요?\n\n다른 챕터의 카드는 유지됩니다. 선택한 챕터에서 삭제되는 카드의 복습 단계, 북마크, 오답 횟수 및 카드별 질문 기록은 초기화됩니다.')) return;
+    var removedIds={};
+    targetCards.forEach(function(c){removedIds[c.id]=true;});
     cards=cards.filter(function(c){return c.chapterId!==chId;});
-    Object.keys(oldIds).forEach(function(id){delete notes[id];});
     parsed.forEach(function(item){cards.push({id:nextCardId++,ko:item.ko,en:item.en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0});});
+    Object.keys(removedIds).forEach(function(id){delete notes[id];});
     saveNotes(); saveCards(); $('bulkInput').value='';
-    $('bulkResult').textContent='완료: 챕터「'+chapterName+'」의 카드를 '+parsed.length+'개로 교체했습니다.'+(skipped?' (형식이 맞지 않아 건너뛴 줄 '+skipped+'개)':'');
+    $('bulkResult').textContent='완료: '+chapterName+' 챕터를 '+parsed.length+'개 카드로 교체했습니다. 다른 챕터는 유지되었습니다.'+(skipped?' (형식이 맞지 않아 건너뛴 줄 '+skipped+'개)':'');
     $('bulkResult').style.color='var(--success-text)';
     acCheckedIds={}; refreshSetupInfo(); renderAllCards(); renderDoneCardList(false);
   });
