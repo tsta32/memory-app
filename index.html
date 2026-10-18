@@ -472,6 +472,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     <div class="quiz-top">
       <button type="button" class="cancel-link" id="bizBackBtn">← 홈으로</button>
       <div style="font-size:12px;font-weight:700;color:var(--text-3);">💼 실전 비즈니스 테스트</div>
+      <button type="button" id="bizEndBtn" style="font-size:12px;padding:6px 10px;border-color:var(--danger);color:var(--danger-text);font-weight:700;">테스트 종료</button>
     </div>
     <!-- 타이머 -->
     <div style="margin-bottom:12px;">
@@ -608,6 +609,18 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     <div id="testStatusContent" style="display:flex;flex-direction:column;gap:14px;max-height:540px;overflow-y:auto;"></div>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button type="button" id="testStatusFailAll" style="flex:1;color:var(--warning);border-color:var(--warning);font-weight:700;">완료만 반영하고 종료</button>
+    </div>
+  </div>
+</div>
+
+<!-- business test end confirmation -->
+<div class="modal-overlay" id="bizEndModal" role="dialog" aria-modal="true" aria-labelledby="bizEndTitle">
+  <div class="modal-box" style="max-width:360px;">
+    <h3 id="bizEndTitle" style="margin-bottom:8px;">테스트를 종료할까요?</h3>
+    <p id="bizEndConfirmText" class="muted" style="line-height:1.6;margin-bottom:16px;"></p>
+    <div style="display:flex;gap:8px;">
+      <button type="button" id="bizEndCancelBtn" style="flex:1;">계속 풀기</button>
+      <button type="button" id="bizEndConfirmBtn" style="flex:1;border-color:var(--danger);color:var(--danger-text);font-weight:700;">결과 저장 후 종료</button>
     </div>
   </div>
 </div>
