@@ -1307,7 +1307,7 @@ function finishSession(){
   mw.style.display=unique.length?'block':'none';
   unique.forEach(function(c){
     var row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-md);margin-bottom:6px;';
-    var sentenceBox=document.createElement('div');sentenceBox.style.cssText='flex:1;min-width:0;';appendAskableText(sentenceBox,'',c.ko,'font-size:13px;font-weight:500;');appendAskableText(sentenceBox,'',c.en,'font-size:12px;color:var(--text-2);');
+    var sentenceBox=document.createElement('div');sentenceBox.style.cssText='flex:1;min-width:0;';appendAskableText(sentenceBox,'',c.ko,'font-size:13px;font-weight:500;',c.id,'ask');appendAskableText(sentenceBox,'',c.en,'font-size:12px;color:var(--text-2);',c.id,'history');
     var bm=document.createElement('button');bm.type='button';bm.innerHTML=c.bookmarked?'★':'☆';bm.style.cssText='font-size:16px;padding:4px 10px;'+(c.bookmarked?'color:var(--warning);':'');
     bm.addEventListener('click',function(){c.bookmarked=!c.bookmarked;saveCards();bm.innerHTML=c.bookmarked?'★':'☆';bm.style.color=c.bookmarked?'var(--warning)':'';});
     row.insertBefore(sentenceBox,row.firstChild);row.appendChild(bm);ml.appendChild(row);
@@ -1326,7 +1326,7 @@ function finishSession(){
         var row=document.createElement('div');
         row.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:8px 12px;display:flex;align-items:center;gap:8px;';
         var txt=document.createElement('div');txt.style.flex='1';
-        txt.innerHTML='';appendAskableText(txt,'',c.ko,'font-size:13px;font-weight:700;');appendAskableText(txt,'',c.en,'font-size:12px;color:var(--text-2);');
+        txt.innerHTML='';appendAskableText(txt,'',c.ko,'font-size:13px;font-weight:700;',c.id,'ask');appendAskableText(txt,'',c.en,'font-size:12px;color:var(--text-2);',c.id,'history');
         // 북마크
         var bm=document.createElement('button');bm.type='button';
         bm.style.cssText='font-size:18px;padding:2px 5px;background:transparent;border:none;cursor:pointer;flex-shrink:0;';
@@ -1376,7 +1376,7 @@ function renderDoneCardList(editMode){
         cb.addEventListener('change',function(){if(cb.checked)doneCheckedIds[c.id]=true;else delete doneCheckedIds[c.id];});
       })(c,cb);
       var content_=document.createElement('div');content_.style.flex='1';
-      content_.innerHTML='';appendAskableText(content_,'',c.ko,'font-size:14px;font-weight:700;margin-bottom:2px;');appendAskableText(content_,'',c.en,'font-size:13px;color:var(--text-2);');
+      content_.innerHTML='';appendAskableText(content_,'',c.ko,'font-size:14px;font-weight:700;margin-bottom:2px;',c.id,'ask');appendAskableText(content_,'',c.en,'font-size:13px;color:var(--text-2);',c.id,'history');
       var bmBtn=document.createElement('button');bmBtn.type='button';
       bmBtn.style.cssText='font-size:20px;padding:2px 6px;background:transparent;border:none;flex-shrink:0;cursor:pointer;line-height:1;';
       bmBtn.textContent=c.bookmarked?'★':'☆';
@@ -2076,17 +2076,28 @@ function openAskModal(cardId,sentenceOverride){
   setTimeout(function(){$('askInput').focus();},100);
 }
 
-function appendAskableText(container,label,text,bodyStyle){
+function appendAskableText(container,label,text,bodyStyle,cardId,action){
   if(!text)return;
   var parts=String(text).match(/[^.!?。！？]+[.!?。！？]?/g)||[String(text)];
   parts.forEach(function(part){
     var sentence=part.trim();if(!sentence)return;
     var row=document.createElement('div');row.style.cssText='display:flex;align-items:flex-start;gap:6px;margin-top:4px;';
     var body=document.createElement('span');body.style.cssText='flex:1;min-width:0;'+(bodyStyle||'');body.textContent=(label?label+': ':'')+sentence;
-    var ask=document.createElement('button');ask.type='button';ask.style.cssText='font-size:11px;padding:3px 7px;color:var(--accent-text);border-color:var(--accent);flex-shrink:0;';ask.textContent='AI에게 질문';
-    ask.addEventListener('click',function(){openAskModal(null,sentence);});
-    row.appendChild(body);row.appendChild(ask);container.appendChild(row);
+    row.appendChild(body);row.appendChild(makeSentenceActionButton(cardId,action||'ask',sentence));container.appendChild(row);
   });
+}
+
+function makeSentenceActionButton(cardId,action,sentence){
+  var btn=document.createElement('button');btn.type='button';btn.style.cssText='font-size:11px;padding:4px 9px;flex-shrink:0;';
+  if(action==='history'&&cardId){
+    btn.style.cssText+='color:var(--text-2);';btn.textContent='📋 이력';btn.title='질문 이력';
+    if(notes[cardId]&&notes[cardId].length)btn.style.color='var(--accent-text)';
+    btn.addEventListener('click',function(){openNotesModal(cardId);});
+  }else{
+    btn.style.cssText+='color:var(--accent-text);border-color:var(--accent);';btn.textContent='💬 질문';btn.title='질문하기';
+    btn.addEventListener('click',function(){if(cardId)openAskModal(cardId);else openAskModal(null,sentence);});
+  }
+  return btn;
 }
 
 function renderConversation(){
@@ -2249,13 +2260,8 @@ on('notesModalClose','click',function(){$('notesModal').classList.remove('show')
 /* ---------- 암기 모드에서 질문 버튼 (renderMemCards에서 호출) ---------- */
 function makeMemAskBtns(cardId){
   var wrap=document.createElement('div');wrap.style.cssText='display:flex;gap:6px;margin-top:8px;';
-  var ab=document.createElement('button');ab.type='button';
-  ab.style.cssText='font-size:11px;padding:4px 9px;color:var(--accent-text);border-color:var(--accent);';
-  ab.textContent='💬 질문';ab.addEventListener('click',function(){openAskModal(cardId);});
-  var nb=document.createElement('button');nb.type='button';
-  nb.style.cssText='font-size:11px;padding:4px 9px;color:var(--text-2);';
-  nb.textContent='📋 이력';nb.addEventListener('click',function(){openNotesModal(cardId);});
-  if(notes[cardId]&&notes[cardId].length) nb.style.color='var(--accent-text)';
+  var ab=makeSentenceActionButton(cardId,'ask');
+  var nb=makeSentenceActionButton(cardId,'history');
   wrap.appendChild(ab);wrap.appendChild(nb);
   return wrap;
 }
