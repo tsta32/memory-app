@@ -7,7 +7,7 @@ var STAGE_DAYS=[1,3,7,15,30,60,120,240,360];
 var CARDS_KEY='srs_cards_v2',CHAPTERS_KEY='srs_chapters_v1',SETTINGS_KEY='srs_settings_v1';
 var NOTES_KEY='srs_notes_v1';    // {cardId: [{id,date,q,a,summary}]}
 var TRENDS_KEY='srs_trends_v1';  // [{date, result}]
-var APIKEY_KEY='srs_apikey_v1';
+var APIKEY_KEY='srs_apikey_v1'; // 구버전 백업 호환용; 실제 키는 서버에서 관리
 var BIZ_SESSIONS_KEY='srs_biz_sessions_v1'; // [{date,passRate,avgTime,totalSteps,steps:[{stepKo,userAnswer,pass,min,ideal}]}]
 
 var cards=[],chapters=[],settings={volume:100,newCardRatio:5};
@@ -32,30 +32,32 @@ var quizBmOnly=false;
 // QA 시스템
 var notes={};   // {cardId: [{id,date,q,a,summary}]}
 var trends=[];  // [{date,result}]
-var apiKey='';
+var apiKey='worker'; // AI는 Cloudflare Worker 경유
 
-// OpenAI Chat Completions API 어댑터.
-// 기존 AI 기능의 응답 처리 코드를 유지할 수 있도록 Anthropic 응답 형태로 정규화합니다.
+// Cloudflare Worker를 통해 OpenAI를 호출합니다. API 키는 브라우저에 저장하지 않습니다.
 function openAICompatRequest(maxTokens, messages, systemPrompt){
   var allMessages=[];
   if(systemPrompt) allMessages.push({role:'system',content:systemPrompt});
   allMessages=allMessages.concat(messages||[]);
-  return fetch('https://api.openai.com/v1/chat/completions',{
+  return fetch('https://lively-wave-a149.tsta32.workers.dev/',{
     method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-    body:JSON.stringify({model:'gpt-4o-mini',messages:allMessages,max_tokens:maxTokens})
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({messages:allMessages,max_tokens:maxTokens,model:'gpt-4o-mini'})
   }).then(function(response){
     return response.json().then(function(data){
       if(!response.ok){
-        var message=data&&data.error&&data.error.message?data.error.message:'OpenAI API 오류 ('+response.status+')';
-        throw new Error(message);
+        var message=data&&data.error?data.error:'Worker/OpenAI API 오류 ('+response.status+')';
+        throw new Error(typeof message==='string'?message:JSON.stringify(message));
       }
+      // 앱의 기존 AI 응답 처리 코드와 호환
+      if(data&&data.content&&data.content[0]&&typeof data.content[0].text==='string') return {json:function(){return Promise.resolve(data);}};
       var content=data&&data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content;
-      if(typeof content!=='string') throw new Error('OpenAI API에서 답변을 받지 못했습니다.');
+      if(typeof content!=='string') throw new Error('Worker에서 답변을 받지 못했습니다.');
       return {json:function(){return Promise.resolve({content:[{text:content}]});}};
     });
   });
 }
+
 var quizMarkedIds={}; // 퀴즈 중 질문 표시한 카드 id
 var askTargetCardId=null; // 현재 질문 모달 대상 카드
 var selectedChapterIds={};
@@ -191,7 +193,8 @@ function loadAll(){
   }}}catch(e){}
   try{var nr=localStorage.getItem(NOTES_KEY);if(nr)notes=JSON.parse(nr)||{};}catch(e){}
   try{var tr=localStorage.getItem(TRENDS_KEY);if(tr)trends=JSON.parse(tr)||[];}catch(e){}
-  try{var ak=localStorage.getItem(APIKEY_KEY);if(ak)apiKey=ak;}catch(e){}
+  // API 키는 Worker Secret에만 보관합니다. 구버전 localStorage 키는 읽지 않습니다.
+  try{localStorage.removeItem(APIKEY_KEY);}catch(e){}
   try{var bs=localStorage.getItem(BIZ_SESSIONS_KEY);if(bs)bizSessions=JSON.parse(bs)||[];}catch(e){}
 }
 function saveNotes(){try{localStorage.setItem(NOTES_KEY,JSON.stringify(notes));}catch(e){}}
@@ -952,6 +955,40 @@ on('bulkAddBtn','click',function(){
   fb.textContent=added+'개 추가'+(skipped?' (건너뜀 '+skipped+'줄)':'');fb.style.color='var(--success-text)';refreshSetupInfo();
 });
 
+// 전체 카드 교체: 한국어<TAB>영어 형식의 문장 묶음을 붙여넣어 기존 카드를 교체합니다.
+(function addReplaceAllButton(){
+  var addBtn=$('bulkAddBtn');
+  if(!addBtn || $('replaceAllCardsBtn')) return;
+  var btn=document.createElement('button');
+  btn.id='replaceAllCardsBtn'; btn.type='button'; btn.className=addBtn.className;
+  btn.textContent='전체 카드 교체';
+  btn.style.marginTop='8px'; btn.style.background='var(--danger)'; btn.style.color='#fff';
+  addBtn.parentNode.insertBefore(btn,addBtn.nextSibling);
+  var help=document.createElement('div');
+  help.id='replaceAllCardsHelp';
+  help.textContent='한국어[TAB]영어 형식의 문장 전체를 위 입력창에 붙여넣고 누르세요. 기존 카드와 학습 기록은 교체됩니다.';
+  help.style.cssText='font-size:12px;color:var(--text-3);margin-top:6px;line-height:1.5;';
+  btn.parentNode.insertBefore(help,btn.nextSibling);
+  btn.addEventListener('click',function(){
+    var raw=$('bulkInput').value, parsed=[], skipped=0;
+    raw.split(/\r\n|\r|\n/).forEach(function(line){
+      if(!line.trim()) return;
+      var parts=line.indexOf('\t')!==-1 ? line.split('\t') : line.split(/\s*\|\s*/);
+      var ko=(parts[0]||'').trim(), en=(parts[1]||'').trim();
+      if(!ko||!en){skipped++;return;}
+      parsed.push({ko:ko,en:en});
+    });
+    if(!parsed.length){$('bulkResult').textContent='교체할 문장을 찾지 못했어요. 한국어와 영어 사이가 탭으로 구분되어 있는지 확인해 주세요.';$('bulkResult').style.color='var(--danger-text)';return;}
+    if(!confirm(parsed.length+'개 문장으로 기존 카드 '+cards.length+'개를 모두 교체할까요?\n\n기존 카드의 복습 단계, 북마크, 오답 횟수 및 카드별 질문 기록은 초기화됩니다.')) return;
+    var chId=parseChId('bulkChapterSelect');
+    cards=parsed.map(function(item){return {id:nextCardId++,ko:item.ko,en:item.en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0};});
+    notes={}; saveNotes(); saveCards(); $('bulkInput').value='';
+    $('bulkResult').textContent='완료: '+parsed.length+'개 카드로 전체 교체했습니다.'+(skipped?' (형식이 맞지 않아 건너뛴 줄 '+skipped+'개)':'');
+    $('bulkResult').style.color='var(--success-text)';
+    acCheckedIds={}; refreshSetupInfo(); renderAllCards(); renderDoneCardList(false);
+  });
+})();
+
 on('exportToggle','click',function(){
   var p=$('exportPane'),ch=$('exportChevron'),open=p.style.display==='block';
   p.style.display=open?'none':'block';ch.classList.toggle('open',!open);
@@ -1490,12 +1527,12 @@ function bizLoadNext(){
   var sampleText=sample.map(function(c){return '- '+c.ko+' / '+c.en;}).join('\n');
 
   openAICompatRequest(500, [{role:'user',content:
-        '당신은 영어 초중급 학습자를 위한 일반 직장 영어 코치입니다.\n\n아래 학습 카드의 영어 표현을 참고해, 일상적인 회사 생활에서 실제로 쓸 법한 한국어 상황 문제를 3개 만들어주세요. 전문적인 기술 지식을 시험하지 말고, 평범한 업무 상황에 현실적인 세부사항을 조금 더해 자연스럽게 말하는 연습을 시켜주세요.\n\n참고 표현:\n'+sampleText+'\n\n문제 상황 예시: 회의 시간 변경 요청, 진행 상황 공유, 일정 지연 사과, 자료나 파일 요청, 담당자에게 확인하기, 업무 우선순위 조율, 회의 내용 정리, 동료에게 도움 요청, 고객에게 일정 안내, 실수 정정, 휴가/부재 공유, 다음 단계 제안.\n\n규칙:\n- 일반적인 회사 생활에서 흔한 상황으로 구성\n- 누구에게 무엇을 왜 전달하는지 한두 가지 세부사항을 포함\n- 전기·전자·회로·PCB 등 전문 기술 지식이 필요한 문제는 만들지 않기\n- 실제 회사에서 쓰는 자연스럽고 공손한 영어를 연습하도록 하기\n- 문제는 한국어로 제시하고, 필요한 영어 단어 힌트 1~3개만 대괄호로 표시\n- 각 문제는 한두 문장으로 간결하게\n\nJSON으로만 응답:\n{"items":[{"ko":"상황을 구체적으로 설명한 한국어 지시문 (힌트: [단어1, 단어2])"},{"ko":"..."},{"ko":"..."}]}'
+        '당신은 일반적인 회사 업무 영어 트레이너입니다.\n\n아래 영어 표현들을 참고해 실제 직장에서 영어로 말하거나 메일로 전달할 한국어 상황을 2~4개 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n규칙:\n- 원격 회의, 회의 일정 조율, 화면 공유, 질문과 확인, 진행 상황 보고, 이메일, 자료 요청, 첨부파일, 회신, 일정 지연, 사과, 승인, 담당자 확인, 업무 우선순위 등 일반적인 업무 상황만 사용\n- 전자회로, 회로설계, PCB, 인버터, 전자부품, 전기적 특성, 측정값, 기술적 트러블슈팅 등 전문 지식이 있어야 풀 수 있는 상황은 절대 출제하지 말 것\n- 제조업 엔지니어의 직장에서도 실제로 있을 수 있는 일반적인 업무 상황은 가능하지만, 기술적 지식이나 전문 용어를 몰라도 답할 수 있어야 함\n- IT/소프트웨어 개발 전용 상황도 피할 것\n- 한국어 지시문은 짧고 자연스럽게, 실제로 말할 내용을 구체적으로 제시\n- 관련 영어 단어 힌트를 대괄호 안에 1~3개 포함하되, 기본적인 업무 어휘만 사용 (예: [schedule, confirm])\n- 기존 카드의 핵심 표현을 재사용할 수 있는 상황을 우선하고, 어려운 동의어를 억지로 쓰지 말 것\n\nJSON으로만 응답:\n{"items":[{"ko":"전달할 한국어 내용 (힌트: [단어1, 단어2])"},{"ko":"..."},{"ko":"..."}]}'
       }], null).then(function(r){return r.json();}).then(function(data){
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
     var q;
     try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}
-    catch(e){q={items:[{ko:'납기가 1주일 지연될 것 같다고 전달하세요 (힌트: [delay, lead time])'},{ko:'수정된 회로도를 내일까지 보내겠다고 말하세요 (힌트: [schematic, revised])'}]};}
+    catch(e){q={items:[{ko:'회의 일정이 어려워 다른 시간을 요청하세요 (힌트: [schedule, available])'},{ko:'자료를 검토한 뒤 내일까지 보내겠다고 말하세요 (힌트: [review, send])'}]};}
     if(!q.items||!q.items.length)q.items=[{ko:'죄송하다고 사과하고 최대한 빨리 처리하겠다고 하세요 (힌트: [apologize, handle])'}];
 
     // 첫 문제 표시
@@ -1556,8 +1593,8 @@ function bizSubmitItem(timeUp){
   var ko=bizCurrentKo;
   var elapsed=timeUp?BIZ_TIME:Math.round((Date.now()-bizStepStartTime)/1000);
 
-  var prompt='당신은 일반적인 직장 영어 코치입니다.\n\n전달해야 할 한국어 내용: "'+ko+'"\n학습자가 입력한 영어: "'+(answer||'(미응답)')+(timeUp&&answer?' [시간초과]':timeUp?' [시간초과]':'')+
-    '"\n\n평가 기준:\n- 핵심 의미와 필요한 세부사항이 전달되었는지 평가\n- 전문용어보다 실제 회사에서 자연스럽게 쓰는 공손하고 명확한 표현인지 평가\n- 원어민처럼 완벽하지 않아도 의미가 통하고 상황에 적절하면 합격 처리\n- 사소한 문법 오류만으로 불합격 처리하지 말고, 개선점은 한국어로 간단히 설명\n- 합격 기준 표현은 짧고 쉬운 실용적인 영어로, 이상적인 표현은 자연스럽지만 지나치게 격식 차리지 않게 작성\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장","min":"합격 기준 최소 표현 (영어)","min_ko":"합격기준 한국어","ideal":"자연스러운 이상적 표현 (영어)","ideal_ko":"이상적인 한국어"}';
+  var prompt='비즈니스 영어 평가자입니다.\n\n전달해야 할 한국어 내용: "'+ko+'"\n학습자가 입력한 영어: "'+(answer||'(미응답)')+(timeUp&&answer?' [시간초과]':timeUp?' [시간초과]':'')+
+    '"\n\n평가 기준:\n- 한국어 내용의 의미가 영어로 명확히 전달됐는가\n- 제조업/전기 분야 비즈니스 상황에 적합한 격식체인가\n- 너무 informal하거나 의미가 불명확하면 불합격\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장","min":"합격 기준 최소 표현 (영어)","min_ko":"합격기준 한국어","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어"}';
 
   openAICompatRequest(400, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
     $('bizLoading').style.display='none';
@@ -1921,9 +1958,9 @@ on('quizNotesBtn','click',function(){if(current)openNotesModal(current.id);});
 
 /* ---------- API 키 설정 ---------- */
 function loadApiKeyUI(){
-  if(apiKey) $('apiKeyInput').value='';  // 마스킹 - 실제값 표시 안 함
-  $('apiKeyStatus').textContent=apiKey?'✓ API 키가 저장되어 있어요':'API 키가 없어요. 입력 후 저장해주세요.';
-  $('apiKeyStatus').style.color=apiKey?'var(--success-text)':'var(--text-3)';
+  if($('apiKeyInput')) $('apiKeyInput').value='';
+  $('apiKeyStatus').textContent='✓ Cloudflare Worker를 통해 OpenAI에 연결합니다. API 키는 서버에서 관리됩니다.';
+  $('apiKeyStatus').style.color='var(--success-text)';
 }
 /* ---------- 데이터 백업 / 복원 ---------- */
 on('backupBtn','click',function(){
@@ -1933,7 +1970,6 @@ on('backupBtn','click',function(){
     settings: localStorage.getItem(SETTINGS_KEY),
     notes:    localStorage.getItem(NOTES_KEY),
     trends:   localStorage.getItem(TRENDS_KEY),
-    apikey:   localStorage.getItem(APIKEY_KEY),
     exported: new Date().toLocaleString('ko-KR')
   };
   var json=JSON.stringify(data, null, 2);
@@ -1971,7 +2007,7 @@ $('restoreFile').addEventListener('change',function(e){
       if(data.settings) localStorage.setItem(SETTINGS_KEY, data.settings);
       if(data.notes)    localStorage.setItem(NOTES_KEY,    data.notes);
       if(data.trends)   localStorage.setItem(TRENDS_KEY,   data.trends);
-      if(data.apikey)   localStorage.setItem(APIKEY_KEY,   data.apikey);
+      localStorage.removeItem(APIKEY_KEY);
       $('backupStatus').textContent='✓ 복원 완료! 앱을 다시 시작합니다...';
       $('backupStatus').style.color='var(--success-text)';
       setTimeout(function(){window.location.reload();},1200);
@@ -1984,19 +2020,11 @@ $('restoreFile').addEventListener('change',function(e){
 });
 
 on('apiKeySaveBtn','click',function(){
-  var val=$('apiKeyInput').value.trim();
-  if(!val||!val.startsWith('sk-')){
-    $('apiKeyStatus').textContent='올바른 OpenAI API 키를 입력해주세요 (sk-... 형식)';
-    $('apiKeyStatus').style.color='var(--danger-text)';return;
-  }
-  apiKey=val;
-  try{localStorage.setItem(APIKEY_KEY,apiKey);}catch(e){}
   $('apiKeyInput').value='';
-  loadApiKeyUI();
+  $('apiKeyStatus').textContent='API 키는 여기에 입력하지 마세요. Cloudflare의 OPENAI_API_KEY Secret에서 관리합니다.';
+  $('apiKeyStatus').style.color='var(--text-3)';
 });
 on('apiKeyClearBtn','click',function(){
-  if(!confirm('저장된 API 키를 삭제할까요?'))return;
-  apiKey='';
   try{localStorage.removeItem(APIKEY_KEY);}catch(e){}
   $('apiKeyInput').value='';
   loadApiKeyUI();
