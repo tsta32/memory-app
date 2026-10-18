@@ -1307,10 +1307,10 @@ function finishSession(){
   mw.style.display=unique.length?'block':'none';
   unique.forEach(function(c){
     var row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-md);margin-bottom:6px;';
-    row.innerHTML='<div style="font-size:13px;"><div style="font-weight:500;">'+esc(c.ko)+'</div><div style="color:var(--text-2);font-size:12px;">'+esc(c.en)+'</div></div>';
+    var sentenceBox=document.createElement('div');sentenceBox.style.cssText='flex:1;min-width:0;';appendAskableText(sentenceBox,'',c.ko,'font-size:13px;font-weight:500;');appendAskableText(sentenceBox,'',c.en,'font-size:12px;color:var(--text-2);');
     var bm=document.createElement('button');bm.type='button';bm.innerHTML=c.bookmarked?'★':'☆';bm.style.cssText='font-size:16px;padding:4px 10px;'+(c.bookmarked?'color:var(--warning);':'');
     bm.addEventListener('click',function(){c.bookmarked=!c.bookmarked;saveCards();bm.innerHTML=c.bookmarked?'★':'☆';bm.style.color=c.bookmarked?'var(--warning)':'';});
-    row.appendChild(bm);ml.appendChild(row);
+    row.insertBefore(sentenceBox,row.firstChild);row.appendChild(bm);ml.appendChild(row);
   });
 
   // 퀴즈 중 질문 표시한 카드가 있으면 종료 화면에 표시
@@ -1326,17 +1326,13 @@ function finishSession(){
         var row=document.createElement('div');
         row.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:8px 12px;display:flex;align-items:center;gap:8px;';
         var txt=document.createElement('div');txt.style.flex='1';
-        txt.innerHTML='<div style="font-size:13px;font-weight:700;">'+esc(c.ko)+'</div><div style="font-size:12px;color:var(--text-2);">'+esc(c.en)+'</div>';
+        txt.innerHTML='';appendAskableText(txt,'',c.ko,'font-size:13px;font-weight:700;');appendAskableText(txt,'',c.en,'font-size:12px;color:var(--text-2);');
         // 북마크
         var bm=document.createElement('button');bm.type='button';
         bm.style.cssText='font-size:18px;padding:2px 5px;background:transparent;border:none;cursor:pointer;flex-shrink:0;';
         bm.textContent=c.bookmarked?'★':'☆';bm.style.color=c.bookmarked?'var(--warning)':'var(--text-3)';
         (function(c,btn){btn.addEventListener('click',function(){c.bookmarked=!c.bookmarked;saveCards();btn.textContent=c.bookmarked?'★':'☆';btn.style.color=c.bookmarked?'var(--warning)':'var(--text-3)';});})(c,bm);
-        // 질문
-        var ab=document.createElement('button');ab.type='button';
-        ab.style.cssText='font-size:11px;padding:4px 8px;color:var(--accent-text);border-color:var(--accent);flex-shrink:0;';
-        ab.textContent='💬';(function(cid){ab.addEventListener('click',function(){openAskModal(cid);});})(id);
-        row.appendChild(txt);row.appendChild(bm);row.appendChild(ab);
+        row.appendChild(txt);row.appendChild(bm);
         markedList.appendChild(row);
       });
     } else {
@@ -1380,9 +1376,7 @@ function renderDoneCardList(editMode){
         cb.addEventListener('change',function(){if(cb.checked)doneCheckedIds[c.id]=true;else delete doneCheckedIds[c.id];});
       })(c,cb);
       var content_=document.createElement('div');content_.style.flex='1';
-      content_.innerHTML=
-        '<div style="font-size:14px;font-weight:700;margin-bottom:2px;">'+esc(c.ko)+'</div>'+
-        '<div style="font-size:13px;color:var(--text-2);">'+esc(c.en)+'</div>';
+      content_.innerHTML='';appendAskableText(content_,'',c.ko,'font-size:14px;font-weight:700;margin-bottom:2px;');appendAskableText(content_,'',c.en,'font-size:13px;color:var(--text-2);');
       var bmBtn=document.createElement('button');bmBtn.type='button';
       bmBtn.style.cssText='font-size:20px;padding:2px 6px;background:transparent;border:none;flex-shrink:0;cursor:pointer;line-height:1;';
       bmBtn.textContent=c.bookmarked?'★':'☆';
@@ -1482,6 +1476,7 @@ on('restartBtn','click',function(){$('doneScreen').style.display='none';$('setup
 
 /* ========== 실전 비즈니스 게임 ========== */
 var bizTimer=null;
+var bizResumeTimer=false;
 var bizTimeLeft=40;
 var BIZ_TIME=40;
 var bizStepResults=[]; // 현재 문제 결과
@@ -1504,21 +1499,31 @@ function getOrCreatePracticeChapter(){
 
 on('bizStartBtn','click',function(){
   if(!apiKey){alert('설정 탭에서 API 키를 먼저 입력해주세요.');return;}
-  bizAllResults=[];bizStepResults=[];bizFinalized=false;
-  $('bizDoneBtn').style.display='block';
+  bizAllResults=[];bizStepResults=[];bizFinalized=false;bizResumeTimer=false;
+  $('bizDoneBtn').style.display='block';$('bizEndBtn').style.display='block';
   $('setupScreen').style.display='none';
   $('bizScreen').style.display='block';
   bizLoadNext();
 });
-on('bizBackBtn','click',function(){
-  clearInterval(bizTimer);
-  $('bizScreen').style.display='none';
+function bizReturnHome(){
+  clearInterval(bizTimer);bizTimer=null;bizResumeTimer=false;$('bizEndModal').classList.remove('show');
+  $('bizScreen').style.display='none';$('bizEndBtn').style.display='none';$('bizResultCard').style.display='none';$('bizQuestionCard').style.display='block';
   $('setupScreen').style.display='block';refreshSetupInfo();
-});
-on('bizDoneBtn','click',function(){bizFinishTest();});
+}
+on('bizBackBtn','click',function(){bizFinalized=true;bizReturnHome();});
+on('bizDoneBtn','click',function(){if(bizFinalized)bizReturnHome();else bizRequestFinish();});
+on('bizEndBtn','click',function(){bizRequestFinish();});
+on('bizEndCancelBtn','click',function(){$('bizEndModal').classList.remove('show');if(bizResumeTimer&&!bizFinalized&&$('bizAnswer').disabled===false){bizResumeTimer=false;bizStartTimer(false);}});
+on('bizEndConfirmBtn','click',function(){bizFinishTest();});
+function bizRequestFinish(){
+  bizResumeTimer=!!bizTimer&&$('bizAnswer').disabled===false;
+  clearInterval(bizTimer);bizTimer=null;
+  $('bizEndConfirmText').textContent='채점된 '+bizAllResults.length+'문제의 결과만 저장하고 테스트를 종료할까요? 제출하지 않은 답변은 저장되지 않습니다.';
+  $('bizEndModal').classList.add('show');
+}
 
 function bizLoadNext(){
-  clearInterval(bizTimer);
+  clearInterval(bizTimer);bizTimer=null;
   $('bizResultCard').style.display='none';
   $('bizQuestionCard').style.display='block';
   $('bizAnswer').value='';$('bizAnswer').disabled=true;
@@ -1531,14 +1536,16 @@ function bizLoadNext(){
   var sample=shuffleArray(pool.slice()).slice(0,Math.min(8,pool.length));
   var sampleText=sample.map(function(c){return '- '+c.ko+' / '+c.en;}).join('\n');
   openAICompatRequest(450,[{role:'user',content:
-    '당신은 일반적인 회사 업무 영어 트레이너입니다. 참고 표현을 활용해 실제 직장에서 말하거나 이메일로 전달할 한국어 상황을 딱 1개 만드세요.\n\n참고 표현:\n'+sampleText+
-    '\n\n규칙: 회의 일정 조율, 진행 보고, 질문과 확인, 이메일, 자료 요청, 회신, 일정 지연, 사과, 승인, 담당자 확인, 우선순위 등 일반 업무만 출제. 전자회로, PCB, 인버터 등 전문 기술 지식이나 IT 개발 지식은 필요 없어야 함. 짧고 구체적인 한국어 지시문에 쉬운 업무 영어 힌트를 [schedule, confirm]처럼 1~3개 포함. 참고 표현을 우선 재사용.\nJSON만 응답: {"ko":"전달할 한국어 내용 (힌트 포함)"}'}],null).then(function(r){return r.json();}).then(function(data){
+    '당신은 일반 회사 업무 영어 트레이너입니다. 참고 표현의 쉬운 어휘와 표현을 우선 활용해 직장에서 자주 쓰는 실용적인 상황을 1개 만드세요.\n\n참고 표현:\n'+sampleText+
+    '\n\n규칙: 회의 일정 조율, 진행 상황 보고, 확인, 자료 요청, 회신, 일정 변경, 사과, 승인 요청처럼 일반 업무만 출제합니다. 참고 표현은 어휘와 말투만 참고하고 전문 분야 내용은 출제하지 않습니다. 문제는 하나의 의사소통 목적만 담은 짧은 한국어 한 문장으로 씁니다. 긴 배경 설명이나 복수 요청은 금지합니다. 영어 힌트는 핵심 단어 1~2개만 [schedule, confirm] 형식으로 덧붙입니다. 전자회로, PCB, 인버터 등 전문 지식은 요구하지 않습니다.\nJSON만 응답: {"ko":"짧은 한국어 한 문장 (힌트: [핵심 단어 1~2개])"}'}],null).then(function(r){return r.json();}).then(function(data){
+    if(bizFinalized)return;
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}',q;
-    try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){q={ko:'회의 일정을 확인하고 가능한 다른 시간을 제안하세요 (힌트: [schedule, available])'};}
-    var item={ko:q.ko||'자료를 검토한 뒤 내일까지 보내겠다고 말하세요 (힌트: [review, send])'};
+    try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){q={ko:'회의 시간을 확인해 주세요 (힌트: [confirm, time])'};}
+    var item={ko:q.ko||'자료를 검토해 주세요 (힌트: [review, material])'};
     bizStepResults=[null];window._bizItems=[item];window._bizItemIdx=0;
     bizShowItem(item, bizAllResults.length, bizAllResults.length+1);
   }).catch(function(){
+    if(bizFinalized)return;
     $('bizLoading').style.display='none';$('bizBadge').textContent='오류';$('bizSituation').textContent='네트워크 오류가 발생했어요. 다시 시도해주세요.';
     $('bizAnswer').disabled=false;
   });
@@ -1558,13 +1565,14 @@ function bizShowItem(item,idx,total){
   setTimeout(function(){$('bizAnswer').focus();},100);
 }
 
-function bizStartTimer(){
-  bizTimeLeft=BIZ_TIME;
-  $('bizTimerFill').style.width='100%';
-  $('bizTimerFill').style.background='#34A96E';
-  $('bizTimerText').textContent=BIZ_TIME+'초';
-  $('bizTimerText').style.color='var(--text-3)';
-  clearInterval(bizTimer);
+function bizStartTimer(reset){
+  clearInterval(bizTimer);bizTimer=null;
+  if(reset!==false)bizTimeLeft=BIZ_TIME;
+  var initialElapsed=BIZ_TIME-bizTimeLeft;
+  $('bizTimerFill').style.width=Math.max(0,(bizTimeLeft/BIZ_TIME)*100)+'%';
+  $('bizTimerFill').style.background=initialElapsed<=20?'#34A96E':initialElapsed<=30?'#D97706':'#E05555';
+  $('bizTimerText').textContent=bizTimeLeft+'초';
+  $('bizTimerText').style.color=initialElapsed<=20?'var(--text-3)':initialElapsed<=30?'#D97706':'#E05555';
   bizTimer=setInterval(function(){
     bizTimeLeft--;
     var elapsed=BIZ_TIME-bizTimeLeft;
@@ -1583,7 +1591,7 @@ on('bizAnswer','keydown',function(e){
 });
 
 function bizSubmitItem(timeUp){
-  clearInterval(bizTimer);
+  clearInterval(bizTimer);bizTimer=null;
   var answer=($('bizAnswer').value||'').trim();
   $('bizAnswer').disabled=true;$('bizSubmitBtn').style.display='none';
   $('bizLoading').style.display='block';
@@ -1592,9 +1600,10 @@ function bizSubmitItem(timeUp){
   var elapsed=timeUp?BIZ_TIME:Math.round((Date.now()-bizStepStartTime)/1000);
 
   var prompt='비즈니스 영어 평가자입니다.\n\n전달해야 할 한국어 내용: "'+ko+'"\n학습자가 입력한 영어: "'+(answer||'(미응답)')+(timeUp&&answer?' [시간초과]':timeUp?' [시간초과]':'')+
-    '"\n\n평가 기준:\n- 한국어 내용의 의미가 영어로 명확히 전달됐는가\n- 제조업/전기 분야 비즈니스 상황에 적합한 격식체인가\n- 너무 informal하거나 의미가 불명확하면 불합격\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장","min":"합격 기준 최소 표현 (영어)","min_ko":"합격기준 한국어","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어"}';
+    '"\n\n평가 기준:\n- 한국어 요청의 핵심 목적이 영어로 명확히 전달됐는가\n- 일반적인 회사 업무에 자연스럽고 정중한 표현인가\n- 너무 informal하거나 의미가 불명확하면 불합격\n\nJSON으로만 응답:\n{"pass":true/false,"feedback":"한국어 1~2문장","min":"합격 기준 최소 표현 (영어)","min_ko":"합격기준 한국어","ideal":"이상적인 표현 (영어)","ideal_ko":"이상적인 한국어"}';
 
   openAICompatRequest(400, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
+    if(bizFinalized)return;
     $('bizLoading').style.display='none';
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
     var res;try{res=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){res={pass:false,feedback:'평가 오류',min:'',min_ko:'',ideal:'',ideal_ko:''};}
@@ -1614,12 +1623,14 @@ function bizSubmitItem(timeUp){
 
     // 문제 하나를 기록하고 다음 문제를 계속 출제한다. 완료는 사용자가 누른다.
     bizAllResults.push(res);
+    if($('bizEndModal').classList.contains('show'))$('bizEndConfirmText').textContent='채점된 '+bizAllResults.length+'문제의 결과만 저장하고 테스트를 종료할까요? 제출하지 않은 답변은 저장되지 않습니다.';
     var nb=document.createElement('button');nb.type='button';
     nb.style.cssText='width:100%;margin-top:10px;font-weight:700;border-color:var(--accent);color:var(--accent-text);';
     nb.textContent='다음 문제 →';
     nb.onclick=function(){bizLoadNext();};
     $('bizStepInfo').appendChild(nb);
   }).catch(function(){
+    if(bizFinalized)return;
     $('bizLoading').style.display='none';
     $('bizSubmitBtn').style.display='block';$('bizAnswer').disabled=false;
     alert('네트워크 오류. 다시 시도해주세요.');
@@ -1628,16 +1639,18 @@ function bizSubmitItem(timeUp){
 
 function bizFinishTest(){
   if(bizFinalized)return;
-  clearInterval(bizTimer);
-  if(!bizAllResults.length){$('bizScreen').style.display='none';$('setupScreen').style.display='block';refreshSetupInfo();return;}
+  bizResumeTimer=false;clearInterval(bizTimer);bizTimer=null;
   bizFinalized=true;
+  $('bizEndModal').classList.remove('show');
+  if(!bizAllResults.length){bizReturnHome();return;}
   bizShowFinalResult();
 }
 
 function bizShowFinalResult(){
-  clearInterval(bizTimer);
+  clearInterval(bizTimer);bizTimer=null;
   $('bizScreen').style.display='block';
   $('bizQuestionCard').style.display='none';
+  $('bizEndBtn').style.display='none';
   $('bizResultCard').style.display='block';
   $('setupScreen').style.display='none';
   var results=bizAllResults.slice();
@@ -1655,15 +1668,17 @@ function bizShowFinalResult(){
     var top=document.createElement('div');top.style.cssText='display:flex;align-items:flex-start;gap:8px;';
     var cb=document.createElement('input');cb.type='checkbox';cb.className='bizTemplateCheck';cb.style.cssText='margin-top:4px;flex-shrink:0;';cb.dataset.idx=String(i);
     var head=document.createElement('div');head.style.cssText='flex:1;min-width:0;';
-    head.innerHTML='<div style="font-size:12px;font-weight:800;color:var(--text-3);margin-bottom:4px;">'+(i+1)+'. '+esc(res.ko||'')+'</div>';
+    head.innerHTML='';var number=document.createElement('div');number.style.cssText='font-size:12px;font-weight:800;color:var(--text-3);margin-bottom:4px;';number.textContent=(i+1)+'.';head.appendChild(number);appendAskableText(head,'',res.ko||'');
     var tools=document.createElement('div');tools.style.cssText='display:flex;gap:4px;flex-shrink:0;';
     var star=document.createElement('button');star.type='button';star.className='icon-btn';star.textContent=res.bookmarked?'★':'☆';star.title='별표';star.style.color=res.bookmarked?'var(--warning)':'var(--text-3)';
     star.onclick=function(){res.bookmarked=!res.bookmarked;star.textContent=res.bookmarked?'★':'☆';star.style.color=res.bookmarked?'var(--warning)':'var(--text-3)';session.steps[i].bookmarked=res.bookmarked;saveBizSessions();};
-    var ask=document.createElement('button');ask.type='button';ask.className='icon-btn';ask.textContent='💬';ask.title='AI 질문';
-    ask.onclick=function(){var ch=getOrCreatePracticeChapter();var nc=cards.find(function(c){return c.ko===res.ko&&c.en===(res.ideal||res.min);});if(!nc){nc={id:nextCardId++,ko:res.ko,en:res.ideal||res.min||res.userAnswer||'',chapterId:ch,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0,lastTestedAt:0};cards.push(nc);saveCards();}openAskModal(nc.id);};
-    tools.appendChild(star);tools.appendChild(ask);top.appendChild(cb);top.appendChild(head);top.appendChild(tools);block.appendChild(top);
+    tools.appendChild(star);top.appendChild(cb);top.appendChild(head);top.appendChild(tools);block.appendChild(top);
     var details=document.createElement('div');details.style.cssText='font-size:12px;line-height:1.55;margin-top:6px;';
-    details.innerHTML='<div style="color:'+(res.pass&&!res.timeUp?'var(--success-text)':'var(--danger-text)')+';font-weight:800;">'+(res.pass&&!res.timeUp?'합격':'불합격')+'</div><div style="color:var(--text-2);">내 답변: '+esc(res.userAnswer||'(미응답)')+'</div><div style="margin-top:4px;color:var(--text-3);">피드백: '+esc(res.feedback||'')+'</div><div style="margin-top:4px;">합격 기준: '+esc(res.min||'')+'</div><div style="margin-top:2px;">이상적 표현: '+esc(res.ideal||'')+'</div>';
+    details.innerHTML='<div style="color:'+(res.pass&&!res.timeUp?'var(--success-text)':'var(--danger-text)')+';font-weight:800;margin-bottom:5px;">'+(res.pass&&!res.timeUp?'합격':'불합격')+'</div>';
+    appendAskableText(details,'내 답변',res.userAnswer||'(미응답)');
+    appendAskableText(details,'피드백',res.feedback||'');
+    appendAskableText(details,'합격 기준',res.min||'');
+    appendAskableText(details,'이상적 표현',res.ideal||'');
     block.appendChild(details);cont.appendChild(block);
   });
   var old=$('bizTemplateAddBtn');if(old)old.remove();
@@ -1674,7 +1689,7 @@ function bizShowFinalResult(){
   $('bizDoneBtn').style.display='none';
 }
 
-on('bizNextBtn','click',function(){bizAllResults=[];bizStepResults=[];bizFinalized=false;$('bizDoneBtn').style.display='block';$('bizResultCard').style.display='none';$('bizScreen').style.display='block';bizLoadNext();});
+on('bizNextBtn','click',function(){bizAllResults=[];bizStepResults=[];bizFinalized=false;$('bizDoneBtn').style.display='block';$('bizEndBtn').style.display='block';$('bizResultCard').style.display='none';$('bizScreen').style.display='block';bizLoadNext();});
 
 
 
@@ -2031,16 +2046,18 @@ var QUICK_PROMPTS=[
 ];
 
 var lastAskCardId=null;
+var askContextOverride=null;
 var askConversation=[]; // [{role:'user',content:''},{role:'assistant',content:''}]
 var askSavedCount=0;    // 이미 저장한 턴 수 (갱신 저장용)
 
-function openAskModal(cardId){
-  var c=findCard(cardId);if(!c)return;
-  if(!apiKey){alert('먼저 설정 탭에서 API 키를 입력해주세요.');setTab('tabSettings');return;}
-  askTargetCardId=cardId;
+function openAskModal(cardId,sentenceOverride){
+  var c=sentenceOverride?{ko:String(sentenceOverride),en:String(sentenceOverride)}:findCard(cardId);if(!c)return;
+  if(!apiKey){alert('AI 질문을 사용할 수 없습니다. 연결 설정을 확인해주세요.');return;}
+  askTargetCardId=sentenceOverride?null:cardId;
+  askContextOverride=sentenceOverride?String(sentenceOverride):null;
   askConversation=[];
   askSavedCount=0;
-  $('askCardPreview').innerHTML='<strong>'+esc(c.ko)+'</strong><br><span style="color:var(--text-3);">'+esc(c.en)+'</span>';
+  $('askCardPreview').innerHTML=sentenceOverride?'<strong>'+esc(sentenceOverride)+'</strong>':'<strong>'+esc(c.ko)+'</strong><br><span style="color:var(--text-3);">'+esc(c.en)+'</span>';
   $('askInput').value='';
   $('askAnswer').style.display='none';$('askAnswer').innerHTML='';
   $('askLoading').style.display='none';
@@ -2057,6 +2074,19 @@ function openAskModal(cardId){
   });
   $('askModal').classList.add('show');
   setTimeout(function(){$('askInput').focus();},100);
+}
+
+function appendAskableText(container,label,text,bodyStyle){
+  if(!text)return;
+  var parts=String(text).match(/[^.!?。！？]+[.!?。！？]?/g)||[String(text)];
+  parts.forEach(function(part){
+    var sentence=part.trim();if(!sentence)return;
+    var row=document.createElement('div');row.style.cssText='display:flex;align-items:flex-start;gap:6px;margin-top:4px;';
+    var body=document.createElement('span');body.style.cssText='flex:1;min-width:0;'+(bodyStyle||'');body.textContent=(label?label+': ':'')+sentence;
+    var ask=document.createElement('button');ask.type='button';ask.style.cssText='font-size:11px;padding:3px 7px;color:var(--accent-text);border-color:var(--accent);flex-shrink:0;';ask.textContent='AI에게 질문';
+    ask.addEventListener('click',function(){openAskModal(null,sentence);});
+    row.appendChild(body);row.appendChild(ask);container.appendChild(row);
+  });
 }
 
 function renderConversation(){
@@ -2079,7 +2109,7 @@ function renderConversation(){
 
 function closeAskModal(){
   $('askModal').classList.remove('show');
-  askTargetCardId=null;askConversation=[];askSavedCount=0;
+  askTargetCardId=null;askContextOverride=null;askConversation=[];askSavedCount=0;
 }
 on('askModalClose','click',closeAskModal);
 on('askModalClose2','click',closeAskModal);
@@ -2087,12 +2117,12 @@ on('askModalClose2','click',closeAskModal);
 on('askSendBtn','click',function(){
   var q=$('askInput').value.trim();
   if(!q)return;
-  var c=findCard(askTargetCardId);if(!c)return;
+  var c=askContextOverride?null:findCard(askTargetCardId);if(!c&&!askContextOverride)return;
   $('askLoading').style.display='block';
   $('askSendBtn').disabled=true;
 
   // 대화 메시지 구성 (카드 컨텍스트는 system에)
-  var systemPrompt='당신은 영어 학습을 돕는 선생님입니다. 사용자는 다음 영어 표현을 외우고 있습니다.\n한국어: '+c.ko+'\n영어: '+c.en+'\n\n질문에 한국어로 명확하고 친절하게 답해주세요. 답변은 3-5문장 이내로 간결하게.';
+  var systemPrompt=askContextOverride?'당신은 영어 학습을 돕는 선생님입니다. 사용자가 화면에서 선택한 대상 문장에 대해 질문합니다.\n대상 문장: '+askContextOverride+'\n\n질문에서 이 문장을 대상으로 삼아 한국어로 친절하게 답해주세요. 답변은 3-5문장 이내로 간결하게.':'당신은 영어 학습을 돕는 선생님입니다. 사용자는 다음 영어 표현을 외우고 있습니다.\n한국어: '+c.ko+'\n영어: '+c.en+'\n\n질문에 한국어로 명확하고 친절하게 답해주세요. 답변은 3-5문장 이내로 간결하게.';
 
   // 이전 대화 + 새 질문 추가
   var msgs=askConversation.slice();
@@ -2114,7 +2144,7 @@ on('askSendBtn','click',function(){
     askConversation.push({role:'assistant',content:answer});
     $('askInput').value='';
     renderConversation();
-    $('askSaveBtn').style.display='block';
+    $('askSaveBtn').style.display=askTargetCardId?'block':'none';
     $('askSaveBtn').textContent=askSavedCount>0?'💾 저장 갱신':'💾 저장';
     $('askSendBtn').textContent='추가 질문하기';
     setTimeout(function(){$('askInput').focus();},100);
@@ -2175,7 +2205,7 @@ function saveNoteEntry(c,firstQ,fullText,summary){
 // 세션 ID: 모달 열릴 때마다 새 ID
 var askSessionId=0;
 var _origOpenAsk=openAskModal;
-openAskModal=function(cardId){askSessionId=Date.now();_origOpenAsk(cardId);};
+openAskModal=function(cardId,sentenceOverride){askSessionId=Date.now();_origOpenAsk(cardId,sentenceOverride);};
 
 /* ---------- 질문 이력 모달 ---------- */
 function openNotesModal(cardId){
