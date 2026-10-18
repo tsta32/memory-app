@@ -1484,7 +1484,9 @@ on('restartBtn','click',function(){$('doneScreen').style.display='none';$('setup
 var bizTimer=null;
 var bizTimeLeft=40;
 var BIZ_TIME=40;
-var bizStepResults=[];
+var bizStepResults=[]; // 현재 문제 결과
+var bizAllResults=[]; // 이번 테스트 전체 결과
+var bizFinalized=false;
 var bizStepStartTime=0;
 var bizSessions=[];
 var bizCurrentKo=''; // 현재 한국어 지시문
@@ -1502,6 +1504,8 @@ function getOrCreatePracticeChapter(){
 
 on('bizStartBtn','click',function(){
   if(!apiKey){alert('설정 탭에서 API 키를 먼저 입력해주세요.');return;}
+  bizAllResults=[];bizStepResults=[];bizFinalized=false;
+  $('bizDoneBtn').style.display='block';
   $('setupScreen').style.display='none';
   $('bizScreen').style.display='block';
   bizLoadNext();
@@ -1511,52 +1515,38 @@ on('bizBackBtn','click',function(){
   $('bizScreen').style.display='none';
   $('setupScreen').style.display='block';refreshSetupInfo();
 });
-on('bizDoneBtn','click',function(){
-  clearInterval(bizTimer);
-  $('bizScreen').style.display='none';
-  $('setupScreen').style.display='block';refreshSetupInfo();
-});
+on('bizDoneBtn','click',function(){bizFinishTest();});
 
 function bizLoadNext(){
   clearInterval(bizTimer);
-  bizStepResults=[];
   $('bizResultCard').style.display='none';
   $('bizQuestionCard').style.display='block';
-  $('bizAnswer').value='';$('bizAnswer').disabled=false;
-  $('bizSubmitBtn').style.display='block';$('bizLoading').style.display='none';
+  $('bizAnswer').value='';$('bizAnswer').disabled=true;
+  $('bizSubmitBtn').style.display='none';$('bizLoading').style.display='block';
   $('bizStepInfo').textContent='';
   $('bizBadge').textContent='문제 생성 중...';
   $('bizSituation').textContent='';
-
-  // 카드에서 샘플 뽑기
   var pool=cards.filter(function(c){return c.en&&c.ko;});
-  if(!pool.length){alert('카드가 없어요.');return;}
-  var sample=shuffleArray(pool.slice()).slice(0,Math.min(10,pool.length));
+  if(!pool.length){$('bizLoading').style.display='none';alert('참고할 카드가 없어요. 먼저 문장을 추가해주세요.');return;}
+  var sample=shuffleArray(pool.slice()).slice(0,Math.min(8,pool.length));
   var sampleText=sample.map(function(c){return '- '+c.ko+' / '+c.en;}).join('\n');
-
-  openAICompatRequest(500, [{role:'user',content:
-        '당신은 일반적인 회사 업무 영어 트레이너입니다.\n\n아래 영어 표현들을 참고해 실제 직장에서 영어로 말하거나 메일로 전달할 한국어 상황을 2~4개 만들어주세요.\n\n참고 표현:\n'+sampleText+'\n\n규칙:\n- 원격 회의, 회의 일정 조율, 화면 공유, 질문과 확인, 진행 상황 보고, 이메일, 자료 요청, 첨부파일, 회신, 일정 지연, 사과, 승인, 담당자 확인, 업무 우선순위 등 일반적인 업무 상황만 사용\n- 전자회로, 회로설계, PCB, 인버터, 전자부품, 전기적 특성, 측정값, 기술적 트러블슈팅 등 전문 지식이 있어야 풀 수 있는 상황은 절대 출제하지 말 것\n- 제조업 엔지니어의 직장에서도 실제로 있을 수 있는 일반적인 업무 상황은 가능하지만, 기술적 지식이나 전문 용어를 몰라도 답할 수 있어야 함\n- IT/소프트웨어 개발 전용 상황도 피할 것\n- 한국어 지시문은 짧고 자연스럽게, 실제로 말할 내용을 구체적으로 제시\n- 관련 영어 단어 힌트를 대괄호 안에 1~3개 포함하되, 기본적인 업무 어휘만 사용 (예: [schedule, confirm])\n- 기존 카드의 핵심 표현을 재사용할 수 있는 상황을 우선하고, 어려운 동의어를 억지로 쓰지 말 것\n\nJSON으로만 응답:\n{"items":[{"ko":"전달할 한국어 내용 (힌트: [단어1, 단어2])"},{"ko":"..."},{"ko":"..."}]}'
-      }], null).then(function(r){return r.json();}).then(function(data){
-    var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}';
-    var q;
-    try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}
-    catch(e){q={items:[{ko:'회의 일정이 어려워 다른 시간을 요청하세요 (힌트: [schedule, available])'},{ko:'자료를 검토한 뒤 내일까지 보내겠다고 말하세요 (힌트: [review, send])'}]};}
-    if(!q.items||!q.items.length)q.items=[{ko:'죄송하다고 사과하고 최대한 빨리 처리하겠다고 하세요 (힌트: [apologize, handle])'}];
-
-    // 첫 문제 표시
-    bizStepResults=q.items.map(function(){return null;});
-    window._bizItems=q.items;
-    window._bizItemIdx=0;
-    bizShowItem(q.items[0],0,q.items.length);
+  openAICompatRequest(450,[{role:'user',content:
+    '당신은 일반적인 회사 업무 영어 트레이너입니다. 참고 표현을 활용해 실제 직장에서 말하거나 이메일로 전달할 한국어 상황을 딱 1개 만드세요.\n\n참고 표현:\n'+sampleText+
+    '\n\n규칙: 회의 일정 조율, 진행 보고, 질문과 확인, 이메일, 자료 요청, 회신, 일정 지연, 사과, 승인, 담당자 확인, 우선순위 등 일반 업무만 출제. 전자회로, PCB, 인버터 등 전문 기술 지식이나 IT 개발 지식은 필요 없어야 함. 짧고 구체적인 한국어 지시문에 쉬운 업무 영어 힌트를 [schedule, confirm]처럼 1~3개 포함. 참고 표현을 우선 재사용.\nJSON만 응답: {"ko":"전달할 한국어 내용 (힌트 포함)"}'}],null).then(function(r){return r.json();}).then(function(data){
+    var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}',q;
+    try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){q={ko:'회의 일정을 확인하고 가능한 다른 시간을 제안하세요 (힌트: [schedule, available])'};}
+    var item={ko:q.ko||'자료를 검토한 뒤 내일까지 보내겠다고 말하세요 (힌트: [review, send])'};
+    bizStepResults=[null];window._bizItems=[item];window._bizItemIdx=0;
+    bizShowItem(item, bizAllResults.length, bizAllResults.length+1);
   }).catch(function(){
-    $('bizBadge').textContent='오류';
-    $('bizSituation').textContent='네트워크 오류가 발생했어요. 다시 시도해주세요.';
+    $('bizLoading').style.display='none';$('bizBadge').textContent='오류';$('bizSituation').textContent='네트워크 오류가 발생했어요. 다시 시도해주세요.';
+    $('bizAnswer').disabled=false;
   });
 }
 
 function bizShowItem(item,idx,total){
   bizCurrentKo=item.ko;
-  $('bizBadge').textContent=total>1?(idx+1)+'/'+total+' 문장':'문제';
+  $('bizBadge').textContent='누적 '+(idx+1)+'번째 문제';
   $('bizSituation').innerHTML='<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">영어로 표현하세요</div>'+
     '<div style="font-size:18px;font-weight:700;color:var(--text);line-height:1.6;">'+esc(item.ko)+'</div>';
   $('bizAnswer').value='';$('bizAnswer').disabled=false;
@@ -1622,19 +1612,13 @@ function bizSubmitItem(timeUp){
       '</div>';
     $('bizStepInfo').innerHTML=resultHtml;
 
-    var items=window._bizItems||[];
-    var nextIdx=idx+1;
-    if(nextIdx<items.length){
-      // 다음 문장 버튼
-      var nb=document.createElement('button');nb.type='button';
-      nb.style.cssText='width:100%;margin-top:10px;font-weight:700;border-color:var(--accent);color:var(--accent-text);';
-      nb.textContent='다음 문장 →';
-      nb.onclick=function(){window._bizItemIdx=nextIdx;bizShowItem(items[nextIdx],nextIdx,items.length);};
-      $('bizStepInfo').appendChild(nb);
-    } else {
-      // 전체 완료
-      setTimeout(function(){bizShowFinalResult();},1000);
-    }
+    // 문제 하나를 기록하고 다음 문제를 계속 출제한다. 완료는 사용자가 누른다.
+    bizAllResults.push(res);
+    var nb=document.createElement('button');nb.type='button';
+    nb.style.cssText='width:100%;margin-top:10px;font-weight:700;border-color:var(--accent);color:var(--accent-text);';
+    nb.textContent='다음 문제 →';
+    nb.onclick=function(){bizLoadNext();};
+    $('bizStepInfo').appendChild(nb);
   }).catch(function(){
     $('bizLoading').style.display='none';
     $('bizSubmitBtn').style.display='block';$('bizAnswer').disabled=false;
@@ -1642,58 +1626,57 @@ function bizSubmitItem(timeUp){
   });
 }
 
+function bizFinishTest(){
+  if(bizFinalized)return;
+  clearInterval(bizTimer);
+  if(!bizAllResults.length){$('bizScreen').style.display='none';$('setupScreen').style.display='block';refreshSetupInfo();return;}
+  bizFinalized=true;
+  bizShowFinalResult();
+}
+
 function bizShowFinalResult(){
+  clearInterval(bizTimer);
+  $('bizScreen').style.display='block';
   $('bizQuestionCard').style.display='none';
   $('bizResultCard').style.display='block';
-
-  var results=bizStepResults.filter(function(r){return r;});
+  $('setupScreen').style.display='none';
+  var results=bizAllResults.slice();
   var passCount=results.filter(function(r){return r.pass&&!r.timeUp;}).length;
   var total=results.length;
   var avgTime=total?Math.round(results.reduce(function(s,r){return s+(r.elapsed||0);},0)/total):0;
-
-  // 세션 저장
-  var session={
-    date:new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),
-    passRate:total?Math.round(passCount/total*100):0,
-    avgTime:avgTime,totalSteps:total,
-    steps:results.map(function(r){return {stepKo:r.ko,userAnswer:r.userAnswer,pass:r.pass,elapsed:r.elapsed,min:r.min,min_ko:r.min_ko,ideal:r.ideal,ideal_ko:r.ideal_ko,feedback:r.feedback};})
-  };
-  bizSessions.unshift(session);
-  if(bizSessions.length>100)bizSessions=bizSessions.slice(0,100);
-  saveBizSessions();
-
+  var session={date:new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),passRate:total?Math.round(passCount/total*100):0,avgTime:avgTime,totalSteps:total,situation:'사용자가 테스트 완료를 눌러 종료',steps:results.map(function(r){return {stepKo:r.ko,userAnswer:r.userAnswer,pass:!!(r.pass&&!r.timeUp),elapsed:r.elapsed,min:r.min,min_ko:r.min_ko,ideal:r.ideal,ideal_ko:r.ideal_ko,feedback:r.feedback,timeUp:r.timeUp,bookmarked:!!r.bookmarked};})};
+  bizSessions.unshift(session);if(bizSessions.length>100)bizSessions=bizSessions.slice(0,100);saveBizSessions();
   $('bizVerdict').textContent=passCount+'/'+total+' 합격';
   $('bizVerdict').style.color=passCount===total?'var(--success-text)':'var(--warning)';
-  $('bizFeedback').textContent='평균 입력 시간: '+avgTime+'초';
-
+  $('bizFeedback').textContent='평균 입력 시간: '+avgTime+'초 · 총 '+total+'문장';
   var cont=$('bizStepResultList');cont.innerHTML='';
   results.forEach(function(res,i){
-    var block=document.createElement('div');
-    block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px;';
-    block.innerHTML='<div style="font-size:12px;font-weight:800;color:var(--text-3);margin-bottom:4px;">'+(i+1)+'. '+esc(res.ko||'')+'</div>';
-    function makeRow(label,en,ko_){
-      var row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;margin-top:4px;';
-      var txt=document.createElement('div');txt.style.flex='1';
-      txt.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--text-3);">'+label+'</div>'+
-        '<div style="font-size:13px;font-weight:600;">'+esc(en||'')+'</div>'+
-        (ko_?'<div style="font-size:11px;color:var(--text-3);">'+esc(ko_)+'</div>':'');
-      var ref={id:null};
-      var addBtn=document.createElement('button');addBtn.type='button';
-      addBtn.style.cssText='font-size:18px;padding:2px 8px;background:transparent;border:1.5px solid var(--border);border-radius:999px;flex-shrink:0;color:var(--success-text);cursor:pointer;';
-      addBtn.textContent='＋';
-      (function(en,ko_,ref,btn){btn.onclick=function(){
-        if(ref.id){cards=cards.filter(function(c){return c.id!==ref.id;});saveCards();ref.id=null;btn.textContent='＋';btn.style.color='var(--success-text)';}
-        else{var chId=getOrCreatePracticeChapter();var nc={id:nextCardId++,ko:ko_||en,en:en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0,lastTestedAt:0};cards.push(nc);saveCards();ref.id=nc.id;btn.textContent='✓';btn.style.color='var(--accent-text)';}
-      };})(en,ko_,ref,addBtn);
-      row.appendChild(txt);row.appendChild(addBtn);return row;
-    }
-    block.appendChild(makeRow('합격기준',res.min,res.min_ko));
-    block.appendChild(makeRow('이상적',res.ideal,res.ideal_ko));
-    cont.appendChild(block);
+    var block=document.createElement('div');block.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px;';
+    var top=document.createElement('div');top.style.cssText='display:flex;align-items:flex-start;gap:8px;';
+    var cb=document.createElement('input');cb.type='checkbox';cb.className='bizTemplateCheck';cb.style.cssText='margin-top:4px;flex-shrink:0;';cb.dataset.idx=String(i);
+    var head=document.createElement('div');head.style.cssText='flex:1;min-width:0;';
+    head.innerHTML='<div style="font-size:12px;font-weight:800;color:var(--text-3);margin-bottom:4px;">'+(i+1)+'. '+esc(res.ko||'')+'</div>';
+    var tools=document.createElement('div');tools.style.cssText='display:flex;gap:4px;flex-shrink:0;';
+    var star=document.createElement('button');star.type='button';star.className='icon-btn';star.textContent=res.bookmarked?'★':'☆';star.title='별표';star.style.color=res.bookmarked?'var(--warning)':'var(--text-3)';
+    star.onclick=function(){res.bookmarked=!res.bookmarked;star.textContent=res.bookmarked?'★':'☆';star.style.color=res.bookmarked?'var(--warning)':'var(--text-3)';session.steps[i].bookmarked=res.bookmarked;saveBizSessions();};
+    var ask=document.createElement('button');ask.type='button';ask.className='icon-btn';ask.textContent='💬';ask.title='AI 질문';
+    ask.onclick=function(){var ch=getOrCreatePracticeChapter();var nc=cards.find(function(c){return c.ko===res.ko&&c.en===(res.ideal||res.min);});if(!nc){nc={id:nextCardId++,ko:res.ko,en:res.ideal||res.min||res.userAnswer||'',chapterId:ch,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0,lastTestedAt:0};cards.push(nc);saveCards();}openAskModal(nc.id);};
+    tools.appendChild(star);tools.appendChild(ask);top.appendChild(cb);top.appendChild(head);top.appendChild(tools);block.appendChild(top);
+    var details=document.createElement('div');details.style.cssText='font-size:12px;line-height:1.55;margin-top:6px;';
+    details.innerHTML='<div style="color:'+(res.pass&&!res.timeUp?'var(--success-text)':'var(--danger-text)')+';font-weight:800;">'+(res.pass&&!res.timeUp?'합격':'불합격')+'</div><div style="color:var(--text-2);">내 답변: '+esc(res.userAnswer||'(미응답)')+'</div><div style="margin-top:4px;color:var(--text-3);">피드백: '+esc(res.feedback||'')+'</div><div style="margin-top:4px;">합격 기준: '+esc(res.min||'')+'</div><div style="margin-top:2px;">이상적 표현: '+esc(res.ideal||'')+'</div>';
+    block.appendChild(details);cont.appendChild(block);
   });
+  var old=$('bizTemplateAddBtn');if(old)old.remove();
+  var add=document.createElement('button');add.id='bizTemplateAddBtn';add.type='button';add.className=$('bizDoneBtn').className;add.style.cssText='width:100%;margin:10px 0;font-weight:800;';add.textContent='☑ 체크한 문장을 미분류 템플릿 카드로 추가';
+  add.onclick=function(){var checks=Array.from(cont.querySelectorAll('.bizTemplateCheck:checked'));if(!checks.length){alert('추가할 문장을 체크해주세요.');return;}var added=0;checks.forEach(function(cb){var r=results[Number(cb.dataset.idx)];var en=r.ideal||r.min||r.userAnswer;if(!r.ko||!en)return;cards.push({id:nextCardId++,ko:r.ko,en:en,chapterId:0,stage:0,dueAt:now(),bookmarked:!!r.bookmarked,everAnswered:false,ngCount:0,lastTestedAt:0});added++;});saveCards();alert(added+'개 문장을 미분류 템플릿 카드로 추가했어요.');};
+  cont.parentNode.insertBefore(add,cont);
+  $('bizResultCard').style.display='block';
+  $('bizDoneBtn').style.display='none';
 }
 
-on('bizNextBtn','click',function(){bizLoadNext();});
+on('bizNextBtn','click',function(){bizAllResults=[];bizStepResults=[];bizFinalized=false;$('bizDoneBtn').style.display='block';$('bizResultCard').style.display='none';$('bizScreen').style.display='block';bizLoadNext();});
+
+
 
 
 
