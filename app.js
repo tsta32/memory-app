@@ -1585,11 +1585,12 @@ function bizLoadNext(){
   var sampleText=sample.map(function(c){return '- '+c.ko+' / '+c.en;}).join('\n');
   openAICompatRequest(450,[{role:'user',content:
     '당신은 일반 회사 업무 영어 트레이너입니다. 아래 출제 템플릿과 참고 표현을 바탕으로 실무 영어 문제를 1개 만드세요.\n\n이번 출제 템플릿: '+template.title+' — '+template.guide+'\n최근에 사용한 템플릿: '+(bizRecentTemplateKeys.slice(0,-1).join(', ')||'없음')+'\n\n참고 표현:\n'+sampleText+
-    '\n\n규칙: 이번 템플릿의 의도만 출제하고, 최근 문제의 의미를 단어만 바꿔 반복하지 마세요. 참고 표현은 어휘와 말투만 참고합니다. 전문 분야 지식은 요구하지 않습니다. 문제는 하나의 의사소통 목적만 담은 짧은 한국어 한 문장으로 씁니다. 긴 배경 설명·복수 요청은 금지합니다. 영어 힌트는 핵심 단어 1~2개만 [schedule, confirm] 형식으로 덧붙입니다.\nJSON만 응답: {"ko":"짧은 한국어 한 문장 (힌트: [핵심 단어 1~2개])"}'}],null).then(function(r){return r.json();}).then(function(data){
+    '\n\n규칙: 이번 템플릿의 의도만 출제하고, 최근 문제의 의미를 단어만 바꿔 반복하지 마세요. 참고 표현은 어휘와 말투만 참고합니다. 전문 분야 지식은 요구하지 않습니다. 문제는 하나의 의사소통 목적만 담은 짧은 한국어 한 문장으로 씁니다. 긴 배경 설명·복수 요청·영어 힌트·괄호 설명은 금지합니다.\nJSON만 응답: {"ko":"짧은 한국어 한 문장"}'}],null).then(function(r){return r.json();}).then(function(data){
     if(bizFinalized)return;
     var raw=(data.content&&data.content[0]&&data.content[0].text)||'{}',q;
-    try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){q={ko:'회의 시간을 확인해 주세요 (힌트: [confirm, time])'};}
-    var item={ko:q.ko||'자료를 검토해 주세요 (힌트: [review, material])',sourceCardId:sample[0].id,templateKey:template.key};
+    try{q=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch(e){q={ko:'회의 시간을 확인해 주세요'};}
+    var questionText=(q.ko||'자료를 검토해 주세요').replace(/\s*\((?:힌트|hint)\s*:\s*\[[^\]]*\]\)\s*$/i,'').trim();
+    var item={ko:questionText,sourceCardId:sample[0].id,templateKey:template.key};
     bizStepResults=[null];window._bizItems=[item];window._bizItemIdx=0;
     bizShowItem(item, bizAllResults.length, bizAllResults.length+1);
   }).catch(function(){
