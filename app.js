@@ -1817,7 +1817,7 @@ function aiRecheckAnswer(userAns, correctEn, koreanKo){
   $('checkBtn').disabled=true;
   $('checkBtn').textContent='확인 중...';
 
-  var prompt='영어 표현 평가자입니다.\n\n한국어 문장: "'+koreanKo+'"\n정답 표현: "'+correctEn+'"\n학습자 입력: "'+userAns+'"\n\n학습자 입력이 정답 표현과 의미상 동일하거나 충분히 유사한 표현인가요?\n- 단어가 달라도 의미가 같으면 정답\n- 격식체/비격식체 차이는 오답\n- 의미가 애매하거나 다르면 오답\n\nJSON으로만 응답: {"pass":true/false,"reason":"한국어로 한 줄 이유"}';
+  var prompt='당신은 비즈니스 영어 회화 연습 앱의 관대한 의미 중심 채점자입니다. 문법 시험처럼 채점하지 말고, 실제 업무 상황에서 의사소통이 되는지를 평가하세요.\n\n한국어 원문 의도: "'+koreanKo+'"\n예시 정답: "'+correctEn+'"\n학습자 답변: "'+userAns+'"\n\n채점 기준(반드시 준수):\n1. 학습자 답변이 한국어 원문의 핵심 의도/정보를 전달하고 이해 가능하면 pass=true로 판정하세요. 예시 정답과 단어·표현이 달라도 같은 의도면 정답입니다.\n2. 단수/복수, 관사(a/the), 사소한 전치사, 시제, 어순, 문법, 철자 또는 구두점의 작은 오류만으로 오답 처리하지 마세요. 그런 오류가 있어도 뜻이 분명하면 정답입니다. 예: "Please feel free to ask question."은 "Please feel free to ask questions."와 핵심 의미가 같으므로 정답입니다.\n3. 격식체/비격식체 차이, 동의어, 자연스러움의 차이는 오답 사유가 아닙니다.\n4. 핵심 의미가 바뀌거나, 중요한 정보가 빠지거나 잘못 전달되거나, 의도를 이해하기 어려운 경우에만 pass=false로 판정하세요. 단순히 예시 정답과 다르다는 이유로 오답 처리하지 마세요.\n5. reason에는 한국어로 짧게 판정 이유를 쓰세요. 정답인 경우에도 더 자연스러운 표현이 있다면 선택적으로 제안할 수 있지만, 자연스러움/문법 피드백과 정답 여부를 분리하고 오류를 이유로 pass를 false로 바꾸지 마세요.\n\nJSON 객체만 응답하세요(마크다운 코드블록 없이): {"pass":true/false,"reason":"한국어로 짧은 판정 이유. 필요하면 더 자연스러운 표현도 제안"}';
 
   openAICompatRequest(150, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
     $('answerInput').disabled=false;
