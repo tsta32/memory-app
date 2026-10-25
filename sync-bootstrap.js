@@ -18,13 +18,39 @@ function request(action,data){
 }
 function pushLocal(){
   if(applyingRemote||!syncCode)return;
-  clearTimeout(pushTimer);localDirty=true;
+  clearTimeout(pushTimer);
+  localDirty=true;
   pushTimer=setTimeout(function(){
     var d=snapshot();
-    request('set',d).then(function(){lastSnapshot=signature(d);localDirty=false;})
-      .catch(function(e){console.warn('[Memory sync] Save failed; local data remains safe.',e);});
-  },1200);
+    request('set',d).then(function(){
+      lastSnapshot=signature(d);
+      localDirty=false;
+    }).catch(function(e){
+      console.warn('[Memory sync] Save failed; local data remains safe.',e);
+    });
+  },250);
 }
+
+// 백업 복원처럼 즉시 재시작해야 하는 작업을 위한 강제 저장
+window.memorySyncFlush=function(){
+  clearTimeout(pushTimer);
+
+  if(!syncCode){
+    return Promise.resolve({ok:true,localOnly:true});
+  }
+
+  localDirty=true;
+  var d=snapshot();
+
+  return request('set',d).then(function(){
+    lastSnapshot=signature(d);
+    localDirty=false;
+    return {ok:true};
+  }).catch(function(e){
+    console.warn('[Memory sync] Explicit save failed.',e);
+    return {ok:false,error:e};
+  });
+};
 function installStorageHooks(){
   var oldSet=Storage.prototype.setItem;
   Storage.prototype.setItem=function(k,v){oldSet.call(this,k,v);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal();};
