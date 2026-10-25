@@ -264,14 +264,34 @@ function renderChapterSelector(){
   var allCb=document.createElement('input');allCb.type='checkbox';allCb.checked=allSel;
   allCb.addEventListener('change',function(){selectedChapterIds={};renderChapterSelector();refreshSetupInfo();});
   allRow.appendChild(allCb);
-  allRow.innerHTML+='<span class="ch-name">전체</span><span class="ch-count">지금 풀 수 있는 카드 '+totalAvail+'개</span>';
+
+var allName=document.createElement('span');
+allName.className='ch-name';
+allName.textContent='전체';
+
+var allCount=document.createElement('span');
+allCount.className='ch-count';
+allCount.textContent='지금 풀 수 있는 카드 '+totalAvail+'개';
+
+allRow.appendChild(allName);
+allRow.appendChild(allCount);
   el.appendChild(allRow);
   chapters.forEach(function(ch){
     var row=document.createElement('label');row.className='chapter-select-row';
     var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!selectedChapterIds[ch.id];
     cb.addEventListener('change',function(){if(cb.checked)selectedChapterIds[ch.id]=true;else delete selectedChapterIds[ch.id];renderChapterSelector();refreshSetupInfo();});
     row.appendChild(cb);
-    row.innerHTML+='<span class="ch-name">'+esc(ch.name)+'</span><span class="ch-count">지금 '+availCount(ch.id)+'개 / 전체 '+chapterCardCount(ch.id)+'개</span>';
+
+var name=document.createElement('span');
+name.className='ch-name';
+name.textContent=ch.name;
+
+var count=document.createElement('span');
+count.className='ch-count';
+count.textContent='지금 '+availCount(ch.id)+'개 / 전체 '+chapterCardCount(ch.id)+'개';
+
+row.appendChild(name);
+row.appendChild(count);
     el.appendChild(row);
   });
 }
