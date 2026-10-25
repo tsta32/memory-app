@@ -2064,9 +2064,29 @@ $('restoreFile').addEventListener('change',function(e){
       if(data.notes)    localStorage.setItem(NOTES_KEY,    data.notes);
       if(data.trends)   localStorage.setItem(TRENDS_KEY,   data.trends);
       localStorage.removeItem(APIKEY_KEY);
-      $('backupStatus').textContent='✓ 복원 완료! 앱을 다시 시작합니다...';
-      $('backupStatus').style.color='var(--success-text)';
-      setTimeout(function(){window.location.reload();},1200);
+      
+$('backupStatus').textContent='バックアップデータを保存しています...';
+$('backupStatus').style.color='var(--success-text)';
+
+var flush = (typeof window.memorySyncFlush === 'function')
+  ? window.memorySyncFlush()
+  : Promise.resolve({ok:true});
+
+Promise.resolve(flush).then(function(result){
+  if(result && result.ok === false){
+    $('backupStatus').textContent='❌ 백업은 기기에 복원됐지만 클라우드 저장에 실패했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요. 이 화면을 닫거나 새로고침하지 마세요.';
+    $('backupStatus').style.color='var(--danger-text)';
+    return;
+  }
+
+  $('backupStatus').textContent='✓ 복원 완료! 앱을 다시 시작합니다...';
+  setTimeout(function(){
+    window.location.reload();
+  },500);
+}).catch(function(err){
+  $('backupStatus').textContent='❌ 클라우드 저장 오류: '+err.message+' (이 화면을 새로고침하지 마세요)';
+  $('backupStatus').style.color='var(--danger-text)';
+});
     }catch(err){
       $('backupStatus').textContent='❌ 파일 읽기 오류: '+err.message;
       $('backupStatus').style.color='var(--danger-text)';
