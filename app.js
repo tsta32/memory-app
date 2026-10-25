@@ -942,8 +942,60 @@ on('moveCardApplyBtn','click',function(){
 
 
 
+// 입력 모드: 엑셀 일괄 붙여넣기 / 한국어·영어 직접 입력
+(function setupBulkInputModes(){
+  var ta=$('bulkInput'), addBtn=$('bulkAddBtn');
+  if(!ta || !addBtn || $('bulkInputModeSwitch')) return;
+  var pasteHint=ta.previousElementSibling;
+  if(pasteHint && /엑셀|두 열을 복사/.test(pasteHint.textContent||'')) pasteHint.dataset.bulkPasteHint='1';
+  var wrap=document.createElement('div');
+  wrap.id='bulkInputModeSwitch';
+  wrap.style.cssText='display:flex;gap:8px;margin:10px 0 12px;';
+  function makeModeButton(id,label){
+    var b=document.createElement('button'); b.type='button'; b.id=id; b.textContent=label;
+    b.style.cssText='flex:1;min-height:42px;border:1px solid var(--border);border-radius:12px;padding:8px 10px;background:var(--surface-2);color:var(--text-2);font-weight:700;';
+    wrap.appendChild(b); return b;
+  }
+  var bulkBtn=makeModeButton('bulkModeBtn','엑셀 붙여넣기');
+  var manualBtn=makeModeButton('manualModeBtn','직접 입력');
+  ta.parentNode.insertBefore(wrap,ta);
+  var manual=document.createElement('div'); manual.id='manualCardFields';
+  manual.style.cssText='display:none;margin:0 0 12px;';
+  manual.innerHTML='<label for="manualKoInput" style="display:block;margin:8px 0 6px;font-weight:700;">한국어</label><input id="manualKoInput" type="text" placeholder="한국어 단어 또는 문장" style="box-sizing:border-box;width:100%;min-height:46px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text-2);font:inherit;"><label for="manualEnInput" style="display:block;margin:12px 0 6px;font-weight:700;">영어</label><input id="manualEnInput" type="text" placeholder="English word or sentence" style="box-sizing:border-box;width:100%;min-height:46px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text-2);font:inherit;">';
+  ta.parentNode.insertBefore(manual,ta);
+  var originalPlaceholder=ta.placeholder;
+  function setMode(mode){
+    var isManual=mode==='manual';
+    ta.style.display=isManual?'none':'';
+    manual.style.display=isManual?'block':'none';
+    if(pasteHint && pasteHint.dataset.bulkPasteHint==='1') pasteHint.style.display=isManual?'none':'';
+    bulkBtn.style.background=isManual?'var(--surface-2)':'var(--accent)';
+    bulkBtn.style.color=isManual?'var(--text-2)':'#fff';
+    manualBtn.style.background=isManual?'var(--accent)':'var(--surface-2)';
+    manualBtn.style.color=isManual?'#fff':'var(--text-2)';
+    var replace=$('replaceAllCardsBtn'), help=$('replaceAllCardsHelp');
+    if(replace)replace.style.display=isManual?'none':'';
+    if(help)help.style.display=isManual?'none':'';
+    addBtn.textContent=isManual?'단어 추가하기':'추가하기';
+    addBtn.dataset.inputMode=mode;
+  }
+  bulkBtn.addEventListener('click',function(){setMode('bulk');});
+  manualBtn.addEventListener('click',function(){setMode('manual');$('manualKoInput').focus();});
+  $('manualEnInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();addBtn.click();}});
+  $('manualKoInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();$('manualEnInput').focus();}});
+  setMode('bulk');
+})();
+
 on('bulkAddBtn','click',function(){
-  var raw=$('bulkInput').value,fb=$('bulkResult'),chId=parseChId('bulkChapterSelect'),added=0,skipped=0;
+  var fb=$('bulkResult'),chId=parseChId('bulkChapterSelect');
+  if($('bulkAddBtn').dataset.inputMode==='manual'){
+    var ko=$('manualKoInput').value.trim(), en=$('manualEnInput').value.trim();
+    if(!ko||!en){fb.textContent='한국어와 영어를 모두 입력해주세요.';fb.style.color='var(--danger-text)';return;}
+    cards.push({id:nextCardId++,ko:ko,en:en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0});
+    saveCards();$('manualKoInput').value='';$('manualEnInput').value='';
+    fb.textContent='✓ 1개 추가';fb.style.color='var(--success-text)';refreshSetupInfo();$('manualKoInput').focus();return;
+  }
+  var raw=$('bulkInput').value,added=0,skipped=0;
   raw.split(/\r\n|\r|\n/).forEach(function(line){
     if(!line.trim())return;
     var parts=line.indexOf('\t')!==-1?line.split('\t'):line.split(/,\s*|  +/);
