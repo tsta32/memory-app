@@ -394,6 +394,12 @@ function startSessionWith(isPractice){
   var chosen;
   if(useNg){
     chosen=buildNgSession(minNg,chosenCount);
+    if(selIds.length) {
+      chosen=chosen.filter(function(c){
+        return selIds.indexOf(c.chapterId)!==-1;
+      });
+    }
+    chosen=chosen.slice(0,chosenCount);
   } else {
     chosen=buildSession(chosenCount,selIds.length?selIds:null);
   }
@@ -1112,7 +1118,7 @@ function renderSettingsPane(){
 }
 on('volumeSlider','input',function(e){settings.volume=parseInt(e.target.value,10)||0;$('volumeValue').textContent=settings.volume+'%';saveSettings();});
 on('volumeSlider','change',function(){playCorrectSound(false);});
-on('ratioMinus','click',function(){settings.newCardRatio=Math.max(2,settings.newCardRatio-1);$('ratioValue').textContent=settings.newCardRatio+'문제당 1개';saveSettings();refreshSetupInfo();});
+on('ratioMinus','click',function(){settings.newCardRatio=Math.max(1,settings.newCardRatio-1);$('ratioValue').textContent=settings.newCardRatio+'문제당 1개';saveSettings();refreshSetupInfo();});
 on('ratioPlus','click',function(){settings.newCardRatio=Math.min(50,settings.newCardRatio+1);$('ratioValue').textContent=settings.newCardRatio+'문제당 1개';saveSettings();refreshSetupInfo();});
 
 /* ---------- audio ---------- */
