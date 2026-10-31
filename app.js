@@ -9,9 +9,13 @@ var NOTES_KEY='srs_notes_v1';    // {cardId: [{id,date,q,a,summary}]}
 var TRENDS_KEY='srs_trends_v1';  // [{date, result}]
 var APIKEY_KEY='srs_apikey_v1'; // 구버전 백업 호환용; 실제 키는 서버에서 관리
 var BIZ_SESSIONS_KEY='srs_biz_sessions_v1'; // [{date,passRate,avgTime,totalSteps,steps:[{stepKo,userAnswer,pass,min,ideal}]}]
+var ERROR_HISTORY_KEY='srs_error_history_v1';
+var GRAMMAR_OPTION_DEFAULTS={tense:true,number:true,modal:true,article:true,preposition:true};
+var GRAMMAR_OPTION_LABELS={tense:'시제',number:'단수·복수 및 수 일치',modal:'조동사',article:'관사',preposition:'전치사',spelling:'철자',meaning:'의미·문맥'};
 
-var cards=[],chapters=[],settings={volume:100,newCardRatio:5};
+var cards=[],chapters=[],settings={volume:100,newCardRatio:5,grammarOptions:Object.assign({},GRAMMAR_OPTION_DEFAULTS)};
 var nextCardId=1,nextChapterId=1;
+var errorHistory=[],errorHistoryWritable=true;
 
 var sessionQueue=[],sessionUniqueIds=[],sessionDoneCount=0,streak=0;
 var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0;
@@ -181,7 +185,89 @@ function diffHL(y,a){
 /* ---------- persistence ---------- */
 function saveCards(){try{localStorage.setItem(CARDS_KEY,JSON.stringify({cards:cards,nextId:nextCardId}));}catch(e){}}
 function saveChapters(){try{localStorage.setItem(CHAPTERS_KEY,JSON.stringify({chapters:chapters,nextId:nextChapterId}));}catch(e){}}
-function saveSettings(){try{localStorage.setItem(SETTINGS_KEY,JSON.stringify({volume:settings.volume,newCardRatio:settings.newCardRatio,acSort:acSort,quizOrder:quizOrder,bizChapterIds:Object.keys(bizChapterIds).map(Number)}));}catch(e){}}
+function normalizeGrammarOptions(saved){
+  var out=Object.assign({},GRAMMAR_OPTION_DEFAULTS,saved&&typeof saved==='object'?saved:{});
+  Object.keys(GRAMMAR_OPTION_DEFAULTS).forEach(function(k){if(typeof out[k]!=='boolean')out[k]=GRAMMAR_OPTION_DEFAULTS[k];});
+  return out;
+}
+function buildSettingsObject(raw){
+  var saved={};
+  if(raw){try{saved=JSON.parse(raw);if(!saved||typeof saved!=='object'||Array.isArray(saved))return null;}catch(e){return null;}}
+  saved.volume=settings.volume;saved.newCardRatio=settings.newCardRatio;
+  saved.acSort=acSort;saved.quizOrder=quizOrder;
+  saved.bizChapterIds=Object.keys(bizChapterIds).map(Number);
+  saved.grammarOptions=normalizeGrammarOptions(settings.grammarOptions);
+  return saved;
+}
+function saveSettings(){
+  try{
+    var saved=buildSettingsObject(localStorage.getItem(SETTINGS_KEY));if(!saved)return;
+    settings.grammarOptions=saved.grammarOptions;
+    localStorage.setItem(SETTINGS_KEY,JSON.stringify(saved));
+  }catch(e){}
+}
+function mergeRestoredSettings(backupRaw,currentRaw){
+  var backup,current;
+  try{backup=JSON.parse(backupRaw);if(!backup||typeof backup!=='object'||Array.isArray(backup))return currentRaw;}catch(e){return currentRaw;}
+  try{current=currentRaw?JSON.parse(currentRaw):{};if(!current||typeof current!=='object'||Array.isArray(current))current={};}catch(e){return currentRaw;}
+  var merged=Object.assign({},current,backup);
+  merged.grammarOptions=normalizeGrammarOptions(Object.assign({},current.grammarOptions||{},backup.grammarOptions||{}));
+  return JSON.stringify(merged);
+}
+function mergeErrorHistoryData(a,b){
+  function recordsOf(value){
+    if(!value)return [];
+    try{var p=typeof value==='string'?JSON.parse(value):value;return Array.isArray(p)?p:(p&&Array.isArray(p.records)?p.records:[]);}catch(e){return null;}
+  }
+  var ar=recordsOf(a),br=recordsOf(b);
+  if(ar===null)return b||a||null;
+  if(br===null)return a||b||null;
+  var map={};
+  ar.concat(br).forEach(function(r){
+    if(!r||r.cardId==null||!r.errorType)return;
+    var id=r.id||JSON.stringify([r.cardId,r.errorType]);
+    if(!map[id])map[id]={id:id,cardId:r.cardId,errorType:r.errorType,referenceAnswer:r.referenceAnswer||'',actualAnswer:r.actualAnswer||'',count:0,firstAt:r.firstAt||0,lastAt:r.lastAt||0,occurrences:[]};
+    var target=map[id],seen={};
+    function eventKey(x){return x&&x.id?'id:'+x.id:'anon:'+JSON.stringify([x&&x.at,x&&x.referenceAnswer,x&&x.actualAnswer,x&&x.reason]);}
+    target.occurrences.forEach(function(x){seen[eventKey(x)]=true;});
+    (Array.isArray(r.occurrences)?r.occurrences:[]).forEach(function(x){if(x){var key=eventKey(x);if(!seen[key]){seen[key]=true;target.occurrences.push(x);}}});
+    if(!target.referenceAnswer||(r.firstAt&&r.firstAt<target.firstAt)){target.referenceAnswer=r.referenceAnswer||target.referenceAnswer;}
+    if((r.lastAt||0)>=(target.lastAt||0)){target.actualAnswer=r.actualAnswer||target.actualAnswer;target.lastAt=r.lastAt||target.lastAt;}
+    if(r.firstAt&&(!target.firstAt||r.firstAt<target.firstAt))target.firstAt=r.firstAt;
+    if(r.lastAt&&r.lastAt>target.lastAt)target.lastAt=r.lastAt;
+    target.count=Math.max(target.count||0,r.count||0);
+  });
+  var records=Object.keys(map).map(function(id){
+    var r=map[id];r.occurrences.sort(function(x,y){return(x.at||0)-(y.at||0);});
+    if(r.occurrences.length){r.count=Math.max(r.count||0,r.occurrences.length);r.firstAt=r.occurrences[0].at||r.firstAt;r.lastAt=r.occurrences[r.occurrences.length-1].at||r.lastAt;r.referenceAnswer=r.occurrences[0].referenceAnswer||r.referenceAnswer;r.actualAnswer=r.occurrences[r.occurrences.length-1].actualAnswer||r.actualAnswer;}
+    return r;
+  });
+  return JSON.stringify({version:1,records:records});
+}
+function saveErrorHistory(records){
+  if(!errorHistoryWritable)return false;
+  try{localStorage.setItem(ERROR_HISTORY_KEY,JSON.stringify({version:1,records:records||errorHistory}));return true;}catch(e){return false;}
+}
+function recordAnswerErrors(cardId,referenceAnswer,actualAnswer,errors){
+  if(!errorHistoryWritable||cardId==null)return false;
+  var nextHistory;
+  try{nextHistory=JSON.parse(JSON.stringify(errorHistory));}catch(e){return false;}
+  var seen={};
+  (errors||[]).forEach(function(error){
+    var type=error&&error.type;
+    if(!Object.prototype.hasOwnProperty.call(GRAMMAR_OPTION_LABELS,type)||seen[type])return;
+    seen[type]=true;
+    var id=JSON.stringify([cardId,type]),record=nextHistory.find(function(r){return r.id===id;});
+    if(!record){record={id:id,cardId:cardId,errorType:type,referenceAnswer:referenceAnswer,actualAnswer:actualAnswer,count:0,firstAt:0,lastAt:0,occurrences:[]};nextHistory.push(record);}
+    var at=Date.now(),event={id:(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():(at+'-'+Math.random().toString(36).slice(2)),at:at,referenceAnswer:referenceAnswer,actualAnswer:actualAnswer,reason:error.reason||''};
+    record.occurrences=Array.isArray(record.occurrences)?record.occurrences:[];
+    record.occurrences.push(event);record.count=record.occurrences.length;
+    if(!record.firstAt)record.firstAt=at;record.lastAt=at;
+    record.actualAnswer=actualAnswer;
+  });
+  if(!saveErrorHistory(nextHistory))return false;
+  errorHistory=nextHistory;renderGrammarErrorStats();return true;
+}
 function loadAll(){
   try{var cr=localStorage.getItem(CHAPTERS_KEY);if(cr){var cp=JSON.parse(cr);if(cp&&Array.isArray(cp.chapters)){chapters=cp.chapters;nextChapterId=cp.nextId||(chapters.reduce(function(m,c){return Math.max(m,c.id);},0)+1);}}}catch(e){}
   try{var raw=localStorage.getItem(CARDS_KEY);if(raw){var p=JSON.parse(raw);if(p&&Array.isArray(p.cards)){cards=p.cards;cards.forEach(function(c){if(typeof c.everAnswered!=='boolean')c.everAnswered=(c.stage||0)>0;if(typeof c.ngCount!=='number')c.ngCount=0;if(typeof c.chapterId==='undefined')c.chapterId=null;if(typeof c.lastTestedAt==='undefined')c.lastTestedAt=0;});nextCardId=p.nextId||(cards.reduce(function(m,c){return Math.max(m,c.id);},0)+1);}}}catch(e){}
@@ -190,6 +276,7 @@ function loadAll(){
     if(typeof sp.newCardRatio==='number')settings.newCardRatio=sp.newCardRatio;
     if(typeof sp.acSort==='string')acSort=sp.acSort;
     if(typeof sp.quizOrder==='string')quizOrder=sp.quizOrder;
+    settings.grammarOptions=normalizeGrammarOptions(sp.grammarOptions);
     if(Array.isArray(sp.bizChapterIds))sp.bizChapterIds.forEach(function(id){bizChapterIds[id]=true;});
   }}}catch(e){}
   try{var nr=localStorage.getItem(NOTES_KEY);if(nr)notes=JSON.parse(nr)||{};}catch(e){}
@@ -197,6 +284,7 @@ function loadAll(){
   // API 키는 Worker Secret에만 보관합니다. 구버전 localStorage 키는 읽지 않습니다.
   try{localStorage.removeItem(APIKEY_KEY);}catch(e){}
   try{var bs=localStorage.getItem(BIZ_SESSIONS_KEY);if(bs)bizSessions=JSON.parse(bs)||[];}catch(e){}
+  try{var eh=localStorage.getItem(ERROR_HISTORY_KEY);if(eh){var ep=JSON.parse(eh);errorHistory=Array.isArray(ep)?ep:(ep&&Array.isArray(ep.records)?ep.records:[]);if(!Array.isArray(ep)&&(!ep||!Array.isArray(ep.records)))errorHistoryWritable=false;}}catch(e){errorHistoryWritable=false;}
 }
 function saveNotes(){try{localStorage.setItem(NOTES_KEY,JSON.stringify(notes));}catch(e){}}
 function saveTrends(){try{localStorage.setItem(TRENDS_KEY,JSON.stringify(trends));}catch(e){}}
@@ -1134,7 +1222,45 @@ function deleteChapter(ch){
 function renderSettingsPane(){
   $('volumeSlider').value=settings.volume;$('volumeValue').textContent=settings.volume+'%';
   $('ratioValue').textContent=settings.newCardRatio+'문제당 1개';renderChapterManager();
+  renderGrammarOptions();renderGrammarErrorStats();
   loadApiKeyUI();
+}
+function renderGrammarOptions(){
+  settings.grammarOptions=normalizeGrammarOptions(settings.grammarOptions);
+  document.querySelectorAll('[data-grammar-option]').forEach(function(input){
+    var key=input.getAttribute('data-grammar-option');input.checked=!!settings.grammarOptions[key];
+  });
+}
+document.querySelectorAll('[data-grammar-option]').forEach(function(input){
+  input.addEventListener('change',function(){
+    var key=input.getAttribute('data-grammar-option');
+    if(!Object.prototype.hasOwnProperty.call(GRAMMAR_OPTION_DEFAULTS,key))return;
+    settings.grammarOptions[key]=input.checked;saveSettings();
+  });
+});
+function renderGrammarErrorStats(){
+  var root=$('grammarErrorStats');if(!root)return;
+  root.textContent='';
+  if(!errorHistoryWritable){var warning=document.createElement('p');warning.className='muted';warning.textContent='오류 이력 저장소를 읽을 수 없어 기존 내용을 보존하고 새 기록을 저장하지 않았습니다.';root.appendChild(warning);return;}
+  var totals={};Object.keys(GRAMMAR_OPTION_LABELS).forEach(function(k){totals[k]=0;});
+  errorHistory.forEach(function(r){if(Object.prototype.hasOwnProperty.call(totals,r.errorType))totals[r.errorType]+=r.count||0;});
+  Object.keys(GRAMMAR_OPTION_LABELS).forEach(function(k){
+    var row=document.createElement('div');row.className='muted';row.style.cssText='display:flex;justify-content:space-between;padding:3px 0;';
+    var name=document.createElement('span');name.textContent=GRAMMAR_OPTION_LABELS[k];
+    var count=document.createElement('strong');count.textContent=String(totals[k]||0)+'회';row.appendChild(name);row.appendChild(count);root.appendChild(row);
+  });
+  if(!errorHistory.length){var empty=document.createElement('p');empty.className='muted';empty.style.marginTop='6px';empty.textContent='저장된 오류 이력이 없습니다.';root.appendChild(empty);return;}
+  var recent=errorHistory.slice().sort(function(a,b){return(b.lastAt||0)-(a.lastAt||0);}).slice(0,20);
+  recent.forEach(function(r){
+    var item=document.createElement('details');item.style.cssText='border-top:1px solid var(--border);padding:7px 0;';
+    var summary=document.createElement('summary');summary.style.cssText='cursor:pointer;font-size:12px;';
+    summary.textContent=(GRAMMAR_OPTION_LABELS[r.errorType]||r.errorType)+' · 카드 '+r.cardId+' · '+(r.count||0)+'회';item.appendChild(summary);
+    var body=document.createElement('div');body.style.cssText='font-size:12px;line-height:1.6;margin-top:6px;';
+    var reference=document.createElement('div');reference.textContent='모범 답안: '+(r.referenceAnswer||'');
+    var actual=document.createElement('div');actual.textContent='최근 입력: '+(r.actualAnswer||'');
+    var dates=document.createElement('div');dates.className='muted';dates.textContent='최초: '+(r.firstAt?new Date(r.firstAt).toLocaleString('ko-KR'):'-')+' · 최근: '+(r.lastAt?new Date(r.lastAt).toLocaleString('ko-KR'):'-');
+    body.appendChild(reference);body.appendChild(actual);body.appendChild(dates);item.appendChild(body);root.appendChild(item);
+  });
 }
 on('volumeSlider','input',function(e){settings.volume=parseInt(e.target.value,10)||0;$('volumeValue').textContent=settings.volume+'%';saveSettings();});
 on('volumeSlider','change',function(){playCorrectSound(false);});
@@ -1876,53 +2002,69 @@ function checkAnswer(){
   if(val===ans){finalizeCorrect();return;}
   // 2) 축약형 정규화 후 일치
   if(valE===ansE){finalizeCorrect();return;}
-  // 3) 오타 1글자 차이 → 판정 패널
-  if(lev(val,ans)===1||anagram(val,ans)){showDiff(raw,current.en);return;}
-  // 4) 축약형 정규화 후 오타 1글자
-  if(lev(valE,ansE)===1||anagram(valE,ansE)){showDiff(raw,current.en);return;}
-  // 5) 위 모두 불일치 → API 키 있으면 AI 재검토, 없으면 바로 오답
+  // 3) 의미·활성 문법 옵션·철자 허용을 함께 재검토
   if(apiKey){
     aiRecheckAnswer(raw, current.en, current.ko);
-  } else {
-    escalateWrong();
+    return;
   }
+  // AI 사용 불가 시 기존 수동 오타 확인 흐름을 유지
+  if(lev(val,ans)===1||anagram(val,ans)||lev(valE,ansE)===1||anagram(valE,ansE)){showDiff(raw,current.en);return;}
+  escalateWrong();
 }
 
-// AI 재검토: 예시 정답과 직접 비교하고 문법 형태 차이만 허용
+// AI 재검토: 원문 의도와 영어 답변의 의미 및 의사소통 목적을 종합 판단
 function aiRecheckAnswer(userAns, correctEn, koreanKo){
-  // 입력창 비활성화하고 로딩 표시
   $('answerInput').disabled=true;
   $('checkBtn').disabled=true;
   $('checkBtn').textContent='확인 중...';
 
-  var prompt='당신은 엄격하지만 문법 변화와 어휘 교체를 구분하는 영어 답안 채점자입니다. 반드시 예시 정답과 학습자 답변을 직접 비교하세요. 한국어 원문은 문맥과 의사소통 목적을 판단하는 참고 자료로 사용하되, 한국어 의미가 비슷하다는 이유만으로 핵심 어휘 교체를 정답 처리하지 마세요.\n\n한국어 원문(참고): "'+koreanKo+'"\n예시 정답: "'+correctEn+'"\n학습자 답변: "'+userAns+'"\n\n채점 기준(반드시 준수):\n1. 먼저 두 문장의 문법적 역할을 정확히 식별하세요. "Can"과 "Could"는 조동사(modal auxiliary verbs)이고 주어는 "you"입니다. 조동사 변경을 주어 변경이라고 설명하지 마세요.\n2. 시제, 명사의 단수·복수, 주어와 동사의 수일치, 관사, 전치사 등 문법적 형태나 기능어 차이는 문맥과 핵심 의미가 유지되면 정답(pass=true)입니다. 축약형과 완전한 형태도 같은 문법 형태로 취급하세요.\n3. 조동사의 변화도 문맥상 의사소통 목적과 핵심 의미가 같으면 반드시 정답(pass=true)입니다. 정중함의 차이 또는 같은 요청/질문 의도에서의 가능성 표현 차이를 의미 변경으로 취급하지 마세요. 예: "Can you see my screen?" / "Could you see my screen?" → 반드시 정답, "Can you help me?" / "Could you help me?" → 반드시 정답. 이 경우 reason에는 "Can에서 Could로 바뀐 조동사 변화로, 의사소통 목적이 같아 정답입니다."처럼 문법적으로 허용되는 조동사 변화임을 한국어로 설명하세요. 이를 오답으로 판정하거나 "주어가 Can에서 Could로 바뀌었다"고 설명하면 안 됩니다.\n4. 같은 핵심 단어가 문법적 형태만 달라진 경우와 핵심 어휘 자체를 다른 단어로 교체한 경우를 구분하세요. 핵심 어휘를 동의어·유의어·유사 표현으로 바꾸면 의미가 비슷해도 원칙적으로 오답(pass=false)입니다. 예: "check" → "review", "see" → "watch", "contact" → "call"은 오답입니다.\n5. 단순히 문자열이 다르다는 이유만으로 오답 처리하지 마세요. 반대로 한국어 의도나 전체 의미가 비슷하다는 이유로 핵심 어휘 교체를 허용하지 마세요. 문법적 차이와 어휘 교체를 명확히 구분하고, 문맥상 실제 의사소통 목적이 동일한지 판단하세요. 조동사의 정중함이나 같은 의도에 대한 가능성 표현 차이는 의미 변경이 아닙니다.\n6. 문법 차이인지 핵심 어휘 교체인지 확실하지 않으면 오답으로 판정하세요. 오답이면 reason에 달라진 단어나 표현을 한국어로 짧게 설명하세요. 조동사 변화로 정답이면 위 기준에 따라 한국어 사유를 쓰고, 그 외 정답이면 reason은 빈 문자열로 하세요.\n\nJSON 객체만 응답하세요(마크다운 코드블록 없이): {"pass":true/false,"reason":"오답이면 달라진 단어나 표현을 한국어로 짧게 설명; Can/Could 조동사 변화가 정답이면 허용되는 문법 변화라고 한국어로 설명; 그 외 정답이면 빈 문자열"}';
+  var requestGrammarOptions=Object.assign({},settings.grammarOptions);
+  var activeChecks=Object.keys(GRAMMAR_OPTION_DEFAULTS).filter(function(k){return requestGrammarOptions[k];}).map(function(k){return GRAMMAR_OPTION_LABELS[k];});
+  var prompt='당신은 TOEIC 영어 답변을 평가하는 원어민 수준의 채점자입니다. 한국어 원문, 모범 답안, 학습자 답변을 모두 고려하세요.\n\n한국어 원문: "'+koreanKo+'"\n모범 영어 답안: "'+correctEn+'"\n학습자 답변: "'+userAns+'"\n\n독립 문법 검사 ON: '+(activeChecks.length?activeChecks.join(', '):'없음')+'\n\n채점 규칙:\n1. 한국어 원문과 문맥에서 실제로 전달할 핵심 정보와 의사소통 목적을 먼저 파악하세요. 표현이나 단어가 달라도 영어 원어민이 같은 의미와 목적으로 이해하면 정답입니다. 행위, 대상, 실제 시간 의미, 조건, 긍정/부정 또는 중요한 뉘앙스가 달라지면 오답입니다. 문맥이 부족해 같은 의미인지 확인할 수 없으면 보수적으로 오답 처리하세요.\n2. meaningPass는 문법 옵션과 무관하게 의미·문맥만 별도로 평가합니다. 의미, 행위, 대상, 시간, 조건, 부정 여부 또는 의사소통 목적이 다르면 반드시 meaningPass=false 및 meaning 오류를 반환하세요. 의미가 실질적으로 같으면 meaningPass=true입니다. 이 필드는 OFF 문법 옵션 때문에 절대 true로 바뀌면 안 됩니다.\n3. 위에 ON으로 표시된 문법 항목만 독립 검사하고 오답 유형으로 기록하세요. OFF인 문법 항목 차이만 있고 meaningPass=true이면 그 차이는 무시합니다. 한 답변에 여러 활성 오류 유형이 있으면 각각 errors 항목으로 보고하세요. 문맥상 허용되는 형태 차이는 ON이어도 오류가 아닙니다.\n4. 시제, 단수·복수 및 수 일치, 조동사, 관사, 전치사를 각각 구분하세요. 시제는 현재와 과거의 실제 시간 정보가 달라지는지, 단복수는 대상 수나 지시 대상이 달라지는지 문맥에서 판단하세요. "Can you see my screen?" / "Could you see my screen?"은 화면 공유 중 현재 화면을 확인하는 같은 요청이므로 정답이며, Could는 조동사이고 주어는 you입니다.\n5. 철자 검사는 옵션과 무관하게 항상 적용하세요. 앱의 기존 허용 기준처럼 문장 전체 정규화 기준 한 글자 차이 또는 한 단어 안의 글자 순서 전도이며 의도한 단어가 분명하면 의미가 유지되는 철자 실수로 허용하세요. 철자 때문에 다른 단어/의미가 되거나 의도를 확정할 수 없으면 spelling 오류로 오답 처리하세요.\n6. 동의어·자연스러운 의역은 같은 의미와 목적이면 허용하세요. 예: 같은 문서 확인 요청의 check/review, 같은 자료를 가리키는 material/materials, 연락 약속의 contact/get in touch는 정답일 수 있습니다. see/watch, contact/call, works/worked도 단어 형태만으로 결정하지 말고 문맥상 행위와 시간 의미를 비교하세요.\n7. 오답이면 errors 배열에 확인된 오류를 각각 넣으세요. type은 tense, number, modal, article, preposition, spelling, meaning 중 하나의 고정 ID로 하세요. 비활성 문법 오류는 errors에 넣지 마세요. 의미 차이는 meaning, 허용되지 않는 철자 오류는 spelling으로 기록하세요. reference는 모범 답안의 해당 부분, answer는 학습자 답의 해당 부분, reason은 한국어 설명입니다. 동일 오류 유형이 여러 군데 있어도 유형별로 1개 항목을 반환하고, 서로 다른 오류 유형은 모두 반환하세요.\n8. 최종 pass는 meaningPass가 true이고, 항상 적용되는 spelling 오류와 활성 문법 오류가 없을 때만 true입니다. OFF 항목만 다른데 의미가 같으면 pass=true입니다. reason은 한국어로 간결히 설명하세요.\n\nJSON 객체만 응답하세요(마크다운 없이): {"pass":true/false,"meaningPass":true/false,"reason":"한국어 판정 이유","errors":[{"type":"tense|number|modal|article|preposition|spelling|meaning","reference":"모범 답안 부분","answer":"학습자 답변 부분","reason":"한국어로 오류 설명"}]}';
 
-  openAICompatRequest(150, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
+  openAICompatRequest(350, [{role:'user',content:prompt}], null).then(function(r){return r.json();}).then(function(data){
     $('answerInput').disabled=false;
     $('checkBtn').disabled=false;
     $('checkBtn').textContent='확인';
     var raw2=(data.content&&data.content[0]&&data.content[0].text)||'{}';
-    var res;try{res=JSON.parse(raw2.replace(/```json|```/g,'').trim());}catch(e){res={pass:false};}
-    if(res.pass){
-      // AI가 정답으로 판단 → 정답 처리
+    var res;try{res=JSON.parse(raw2.replace(/```json|```/g,'').trim());}catch(e){throw new Error('AI 응답 JSON을 해석하지 못했습니다.');}
+    if(!res||typeof res.pass!=='boolean'||typeof res.meaningPass!=='boolean'||!Array.isArray(res.errors))throw new Error('AI 응답 형식이 올바르지 않습니다.');
+    var reported=Array.isArray(res.errors)?res.errors:[];
+    var categorized=reported.map(function(e){
+      var type=e&&e.type;
+      if(type==='verb_tense')type='tense';
+      else if(type==='singular_plural'||type==='subject_verb')type='number';
+      else if(type==='auxiliary'||type==='modal_verb')type='modal';
+      else if(type==='article_error')type='article';
+      else if(type==='preposition_error')type='preposition';
+      else if(type==='spelling_error')type='spelling';
+      if(!Object.prototype.hasOwnProperty.call(GRAMMAR_OPTION_LABELS,type))type='meaning';
+      return{type:type,reason:(e&&e.reason)||res.reason||''};
+    });
+    var activeErrors=categorized.filter(function(e){
+      return e.type==='meaning'||e.type==='spelling'||(Object.prototype.hasOwnProperty.call(GRAMMAR_OPTION_DEFAULTS,e.type)&&requestGrammarOptions[e.type]);
+    });
+    var onlyDisabledGrammarErrors=categorized.length>0&&categorized.every(function(e){return Object.prototype.hasOwnProperty.call(GRAMMAR_OPTION_DEFAULTS,e.type)&&!requestGrammarOptions[e.type];});
+    var isCorrect=!!res.meaningPass&&(!!res.pass||onlyDisabledGrammarErrors);
+    if(!res.meaningPass)activeErrors.push({type:'meaning',reason:res.reason||'답변의 의미가 모범 답안과 다릅니다.'});
+    if(activeErrors.length)isCorrect=false;
+    if(!isCorrect&&!activeErrors.length)activeErrors=[{type:'meaning',reason:res.reason||'답변의 의미가 모범 답안과 다릅니다.'}];
+    if(isCorrect){
       finalizeCorrect();
     } else {
-      // AI도 오답 → 이유 살짝 보여주고 오답 처리
+      var historySaved=recordAnswerErrors(current&&current.id,correctEn,userAns,activeErrors);
       escalateWrong();
-      // 이유 힌트 표시 (선택적)
-      if(res.reason){
-        var hint=$('footerHint');
-        if(hint){hint.textContent='AI 판정: '+res.reason;hint.style.color='var(--danger-text)';}
-      }
+      var reason=res.reason||(activeErrors[0]&&activeErrors[0].reason);
+      var hint=$('footerHint');if(hint){hint.textContent=(reason?'AI 판정: '+reason:'오답으로 판정했습니다.')+(historySaved?'':' · 오답 이력 저장에 실패했습니다.');hint.style.color='var(--danger-text)';}
     }
   }).catch(function(){
-    // 네트워크 오류 시 기존 방식대로 오답 처리
     $('answerInput').disabled=false;
     $('checkBtn').disabled=false;
     $('checkBtn').textContent='확인';
-    escalateWrong();
+    var hint=$('footerHint');if(hint){hint.textContent='채점에 실패했습니다. 답변은 오답으로 처리하지 않았습니다. 다시 확인을 눌러 재시도해 주세요.';hint.style.color='var(--danger-text)';}
   });
 }
+
 on('checkBtn','click',checkAnswer);on('nextBtn','click',loadNext);
 on('markCorrectBtn','click',finalizeCorrect);on('markWrongBtn','click',escalateWrong);
 on('cancelSessionBtn','click',function(){$('cancelModal').classList.add('show');});
@@ -2098,12 +2240,16 @@ function loadApiKeyUI(){
 }
 /* ---------- 데이터 백업 / 복원 ---------- */
 on('backupBtn','click',function(){
+  var currentSettingsRaw=localStorage.getItem(SETTINGS_KEY);
+  var settingsForBackup=buildSettingsObject(currentSettingsRaw);
   var data={
     cards:    localStorage.getItem(CARDS_KEY),
     chapters: localStorage.getItem(CHAPTERS_KEY),
-    settings: localStorage.getItem(SETTINGS_KEY),
+    settings: settingsForBackup?JSON.stringify(settingsForBackup):currentSettingsRaw,
     notes:    localStorage.getItem(NOTES_KEY),
     trends:   localStorage.getItem(TRENDS_KEY),
+    bizSessions: localStorage.getItem(BIZ_SESSIONS_KEY),
+    errorHistory: localStorage.getItem(ERROR_HISTORY_KEY),
     exported: new Date().toLocaleString('ko-KR')
   };
   var json=JSON.stringify(data, null, 2);
@@ -2138,9 +2284,14 @@ $('restoreFile').addEventListener('change',function(e){
       if(!confirm('현재 데이터가 백업 파일로 교체됩니다. 계속할까요?'))return;
       if(data.cards)    localStorage.setItem(CARDS_KEY,    data.cards);
       if(data.chapters) localStorage.setItem(CHAPTERS_KEY, data.chapters);
-      if(data.settings) localStorage.setItem(SETTINGS_KEY, data.settings);
+      if(data.settings) localStorage.setItem(SETTINGS_KEY, mergeRestoredSettings(data.settings,localStorage.getItem(SETTINGS_KEY))||data.settings);
       if(data.notes)    localStorage.setItem(NOTES_KEY,    data.notes);
       if(data.trends)   localStorage.setItem(TRENDS_KEY,   data.trends);
+      if(data.bizSessions) localStorage.setItem(BIZ_SESSIONS_KEY,data.bizSessions);
+      if(data.errorHistory&&errorHistoryWritable){
+        var mergedHistory=mergeErrorHistoryData(localStorage.getItem(ERROR_HISTORY_KEY),data.errorHistory);
+        if(mergedHistory){localStorage.setItem(ERROR_HISTORY_KEY,mergedHistory);try{var restoredHistory=JSON.parse(mergedHistory);errorHistory=restoredHistory.records||[];}catch(e){}}
+      }
       localStorage.removeItem(APIKEY_KEY);
       
 $('backupStatus').textContent='バックアップデータを保存しています...';

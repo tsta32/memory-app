@@ -340,7 +340,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     <div class="pane" id="settingsPane">
       <div class="card" style="margin-bottom:12px;">
         <h2 style="font-size:15px;margin-bottom:10px;">💾 데이터 백업 / 복원</h2>
-        <p class="muted" style="margin-bottom:12px;">앱 재설치 전에 반드시 백업하세요. 카드·복습스케줄·북마크·질문이력·설정이 전부 저장돼요.</p>
+        <p class="muted" style="margin-bottom:12px;">앱 재설치 전에 반드시 백업하세요. 카드·복습 스케줄·질문 이력·설정·실전 테스트·오류 유형별 이력이 저장됩니다.</p>
         <div style="display:flex;gap:8px;margin-bottom:10px;">
           <button type="button" id="backupBtn" style="flex:1;font-weight:700;border-color:var(--success);color:var(--success-text);">⬇ 백업 다운로드</button>
           <button type="button" id="restoreBtn" style="flex:1;font-weight:700;border-color:var(--accent);color:var(--accent-text);">⬆ 백업 복원</button>
@@ -382,6 +382,18 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
             <button type="button" id="ratioPlus">+</button>
           </div>
         </div>
+      </div>
+
+      <div class="card" style="margin-bottom:12px;">
+        <h2 style="font-size:15px;margin-bottom:6px;">🧩 문법별 오답 검사</h2>
+        <p class="muted" style="margin-bottom:8px;">켜진 항목만 문법 오류로 채점합니다. 의미·문맥과 철자 규칙은 항상 적용됩니다.</p>
+        <label class="srow"><span><span class="slbl">시제</span></span><input type="checkbox" data-grammar-option="tense" /></label>
+        <label class="srow"><span><span class="slbl">단수·복수 및 수 일치</span></span><input type="checkbox" data-grammar-option="number" /></label>
+        <label class="srow"><span><span class="slbl">조동사</span></span><input type="checkbox" data-grammar-option="modal" /></label>
+        <label class="srow"><span><span class="slbl">관사</span></span><input type="checkbox" data-grammar-option="article" /></label>
+        <label class="srow"><span><span class="slbl">전치사</span></span><input type="checkbox" data-grammar-option="preposition" /></label>
+        <h3 style="font-size:13px;margin:12px 0 6px;">오류 유형별 누적 횟수</h3>
+        <div id="grammarErrorStats" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
 
       <div class="card">
