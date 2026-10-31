@@ -184,14 +184,15 @@ var IRREGULAR_PAST_FORMS={be:['was','were','been'],have:['had'],do:['did','done'
 var IRREGULAR_NOUNS={child:'children',man:'men',woman:'women',person:'people',mouse:'mice',goose:'geese',foot:'feet',tooth:'teeth'};
 function answerTokens(s){
   s=String(s||'').toLowerCase();
-  var contractions={"won't":'will not',"can't":'cannot',"cannot":'cannot',"don't":'do not',"doesn't":'does not',"didn't":'did not',"isn't":'is not',"aren't":'are not',"wasn't":'was not',"weren't":'were not',"wouldn't":'would not',"couldn't":'could not',"shouldn't":'should not',"haven't":'have not',"hasn't":'has not',"hadn't":'had not',"mustn't":'must not',"mightn't":'might not',"i'm":'i am',"you're":'you are',"we're":'we are',"they're":'they are',"he's":'he is',"she's":'she is',"it's":'it is',"that's":'that is',"there's":'there is',"i'll":'i will',"you'll":'you will',"he'll":'he will',"she'll":'she will',"we'll":'we will',"they'll":'they will',"i've":'i have',"you've":'you have',"we've":'we have',"they've":'they have'};
-  Object.keys(contractions).forEach(function(k){s=s.replace(new RegExp('\\b'+k.replace("'","\\'")+'\\b','g'),contractions[k]);});
-  // Resolve ambiguous contractions from the following verb form.
-  var participles='been done gone gotten made taken seen said told given found thought bought brought written spoken left met sent kept felt run eaten drunk known chosen begun become held paid stood sat won taught built arisen awoken beaten bent bitten bled blown bred clung crept dealt dug fed fled forbidden ground hung laid led lent lain lit meant sought sewn shrunk sunk slid smelt spelt spilt spun spat split spread sprung swept torn woven wept withdrawn withstood'.split(' ');
+  // Expand ambiguous contractions before the regular table so that meaning
+  // and tense are preserved (I'd finished = I had finished; I'd like = I would like).
+  var participles='been done gone gotten made taken seen said told given found thought bought brought written spoken left met sent kept felt run eaten drunk known chosen begun become held paid stood sat won taught built arisen awoken beaten bent bitten bled blown bred clung crept dealt dug fed fled forbidden ground hung had laid led lent lain lit meant read sought sewn shrunk sunk slid smelt spelt spilt spun spat split spread sprung swept torn woven wept withdrawn withstood'.split(' ');
   function looksParticiple(word){return /(?:ed|en)$/.test(word)||participles.indexOf(word)!==-1;}
   s=s.replace(/\b(i|you|he|she|it|we|they|that)'d\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'had':'would')+' '+next;});
   s=s.replace(/\b(it)'s\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'has':'is')+' '+next;});
   s=s.replace(/\b(i|you|he|she|we|they|that)'d\b/g,'$1 would');
+  var contractions={"won't":'will not',"can't":'cannot',"don't":'do not',"doesn't":'does not',"didn't":'did not',"isn't":'is not',"aren't":'are not',"wasn't":'was not',"weren't":'were not',"wouldn't":'would not',"couldn't":'could not',"shouldn't":'should not',"haven't":'have not',"hasn't":'has not',"hadn't":'had not',"mustn't":'must not',"mightn't":'might not',"i'm":'i am',"you're":'you are',"we're":'we are',"they're":'they are',"he's":'he is',"she's":'she is',"it's":'it is',"that's":'that is',"there's":'there is',"i'll":'i will',"you'll":'you will',"he'll":'he will',"she'll":'she will',"we'll":'we will',"they'll":'they will',"i've":'i have',"you've":'you have',"we've":'we have',"they've":'they have'};
+  Object.keys(contractions).forEach(function(k){s=s.replace(new RegExp('\\b'+k+'\\b','g'),contractions[k]);});
   return s.replace(/[.,!?;:'"()[\]{}\-—–…]/g,' ').replace(/[^a-z0-9\s]/g,' ').trim().split(/\s+/).filter(Boolean);
 }
 function morphologyCategory(a,b){
