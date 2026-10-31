@@ -1,0 +1,1207 @@
+{
+  "category": "영어업무(일반)",
+  "count": 200,
+  "matching_rule": "앱 카드의 en 필드와 정확히 일치하는 항목을 찾아 ko 필드만 ko_after로 변경. ID, en, category, 학습 기록 및 기타 필드는 변경하지 말 것.",
+  "items": [
+    {
+      "source_line": 1,
+      "en": "Are you available to talk now?",
+      "ko_before": "지금 대화(통화) 가능하신가요?",
+      "ko_after": "지금 이야기할 수 있으신가요?"
+    },
+    {
+      "source_line": 2,
+      "en": "Can you see my screen?",
+      "ko_before": "지금 화면 보이시나요?",
+      "ko_after": "제 화면을 볼 수 있으신가요?"
+    },
+    {
+      "source_line": 3,
+      "en": "Can you see the materials?",
+      "ko_before": "자료가 잘 보이시나요?",
+      "ko_after": "자료를 볼 수 있으신가요?"
+    },
+    {
+      "source_line": 4,
+      "en": "Can you hear me?",
+      "ko_before": "제 목소리 들리시나요?",
+      "ko_after": "제 말을 들을 수 있으신가요?"
+    },
+    {
+      "source_line": 5,
+      "en": "I can't hear you well.",
+      "ko_before": "소리가 잘 안 들립니다.",
+      "ko_after": "당신의 말이 잘 들리지 않습니다."
+    },
+    {
+      "source_line": 6,
+      "en": "Your audio keeps cutting out.",
+      "ko_before": "목소리가 끊깁니다.",
+      "ko_after": "당신의 음성이 계속 끊깁니다."
+    },
+    {
+      "source_line": 7,
+      "en": "I think your microphone is muted.",
+      "ko_before": "음소거 상태이신 것 같습니다.",
+      "ko_after": "당신의 마이크가 음소거되어 있는 것 같습니다."
+    },
+    {
+      "source_line": 8,
+      "en": "Your camera is off.",
+      "ko_before": "카메라가 꺼져 있습니다.",
+      "ko_after": "당신의 카메라가 꺼져 있습니다."
+    },
+    {
+      "source_line": 9,
+      "en": "Please wait a moment.",
+      "ko_before": "잠시만 기다려 주세요.",
+      "ko_after": "잠시 기다려 주세요."
+    },
+    {
+      "source_line": 10,
+      "en": "I’ll reconnect.",
+      "ko_before": "다시 연결하겠습니다.",
+      "ko_after": "제가 다시 연결하겠습니다."
+    },
+    {
+      "source_line": 11,
+      "en": "Could you say that again?",
+      "ko_before": "다시 한번 말씀해 주시겠어요?",
+      "ko_after": "그것을 다시 말씀해 주시겠어요?"
+    },
+    {
+      "source_line": 12,
+      "en": "Could you speak a little more slowly?",
+      "ko_before": "조금 천천히 말씀해 주시겠어요?",
+      "ko_after": "조금 더 천천히 말씀해 주시겠어요?"
+    },
+    {
+      "source_line": 13,
+      "en": "Could you share your screen?",
+      "ko_before": "화면을 공유해 주시겠어요?",
+      "ko_after": "화면을 공유해 주시겠어요?"
+    },
+    {
+      "source_line": 14,
+      "en": "I'll share my screen.",
+      "ko_before": "제가 화면을 공유하겠습니다.",
+      "ko_after": "제가 제 화면을 공유하겠습니다."
+    },
+    {
+      "source_line": 15,
+      "en": "I'll send the link in the chat.",
+      "ko_before": "링크를 채팅에 보내겠습니다.",
+      "ko_after": "제가 채팅에 그 링크를 보내겠습니다."
+    },
+    {
+      "source_line": 16,
+      "en": "I left a message in the chat.",
+      "ko_before": "채팅에 메시지를 남겼습니다.",
+      "ko_after": "제가 채팅에 메시지를 남겼습니다."
+    },
+    {
+      "source_line": 17,
+      "en": "My connection is unstable.",
+      "ko_before": "잠시 연결이 불안정합니다.",
+      "ko_after": "제 연결 상태가 불안정합니다."
+    },
+    {
+      "source_line": 18,
+      "en": "Can I start?",
+      "ko_before": "제가 먼저 시작해도 될까요?",
+      "ko_after": "제가 시작해도 될까요?"
+    },
+    {
+      "source_line": 19,
+      "en": "Is everyone here?",
+      "ko_before": "참석자들이 모두 들어왔나요?",
+      "ko_after": "모두 여기 있나요?"
+    },
+    {
+      "source_line": 20,
+      "en": "Are we ready to start?",
+      "ko_before": "시작할 준비가 되셨나요?",
+      "ko_after": "우리는 시작할 준비가 되었나요?"
+    },
+    {
+      "source_line": 21,
+      "en": "Thank you for your time.",
+      "ko_before": "시간 내주셔서 감사합니다.",
+      "ko_after": "시간을 내주셔서 감사합니다."
+    },
+    {
+      "source_line": 22,
+      "en": "Let’s begin today’s meeting.",
+      "ko_before": "오늘 회의를 시작하겠습니다.",
+      "ko_after": "오늘의 회의를 시작합시다."
+    },
+    {
+      "source_line": 23,
+      "en": "Let’s review today’s agenda first.",
+      "ko_before": "오늘 안건을 먼저 확인하겠습니다.",
+      "ko_after": "먼저 오늘의 안건을 검토합시다."
+    },
+    {
+      "source_line": 24,
+      "en": "I'll share the progress first.",
+      "ko_before": "먼저 진행 상황을 공유하겠습니다.",
+      "ko_after": "제가 먼저 진행 상황을 공유하겠습니다."
+    },
+    {
+      "source_line": 25,
+      "en": "I'll briefly explain the background first.",
+      "ko_before": "먼저 배경을 간단히 설명하겠습니다.",
+      "ko_after": "제가 먼저 배경을 간단히 설명하겠습니다."
+    },
+    {
+      "source_line": 26,
+      "en": "There are two key points.",
+      "ko_before": "핵심은 두 가지입니다.",
+      "ko_after": "핵심적인 요점이 두 가지 있습니다."
+    },
+    {
+      "source_line": 27,
+      "en": "Let’s move to the next item.",
+      "ko_before": "다음 항목으로 넘어가겠습니다.",
+      "ko_after": "다음 항목으로 넘어갑시다."
+    },
+    {
+      "source_line": 28,
+      "en": "Let’s discuss this part later.",
+      "ko_before": "이 부분은 나중에 다시 논의하겠습니다.",
+      "ko_after": "이 부분은 나중에 논의합시다."
+    },
+    {
+      "source_line": 29,
+      "en": "Do you have any questions?",
+      "ko_before": "질문 있으신가요?",
+      "ko_after": "질문이 있으신가요?"
+    },
+    {
+      "source_line": 30,
+      "en": "Do you have any comments?",
+      "ko_before": "의견 있으신가요?",
+      "ko_after": "의견이 있으신가요?"
+    },
+    {
+      "source_line": 31,
+      "en": "What do you think?",
+      "ko_before": "어떻게 생각하세요?",
+      "ko_after": "어떻게 생각하시나요?"
+    },
+    {
+      "source_line": 32,
+      "en": "Can I add one thing?",
+      "ko_before": "제가 한 가지 덧붙여도 될까요?",
+      "ko_after": "제가 한 가지를 덧붙여도 될까요?"
+    },
+    {
+      "source_line": 33,
+      "en": "Sorry to interrupt.",
+      "ko_before": "말씀 중에 죄송합니다.",
+      "ko_after": "말을 끊어서 죄송합니다."
+    },
+    {
+      "source_line": 34,
+      "en": "May I interrupt for a moment?",
+      "ko_before": "잠시만 끼어들어도 될까요?",
+      "ko_after": "잠시 말을 끊어도 될까요?"
+    },
+    {
+      "source_line": 35,
+      "en": "I want to make sure I understood correctly.",
+      "ko_before": "제가 올바르게 이해했는지 확인하고 싶습니다.",
+      "ko_after": "제가 정확하게 이해했는지 확인하고 싶습니다."
+    },
+    {
+      "source_line": 36,
+      "en": "So, do you mean that...?",
+      "ko_before": "정리하면, 이 뜻인가요?",
+      "ko_after": "그러니까, ...라는 뜻인가요?"
+    },
+    {
+      "source_line": 37,
+      "en": "Did I miss anything?",
+      "ko_before": "제가 놓친 내용이 있나요?",
+      "ko_after": "제가 놓친 것이 있나요?"
+    },
+    {
+      "source_line": 38,
+      "en": "Could you explain that part a little more?",
+      "ko_before": "그 부분을 조금 더 설명해 주시겠어요?",
+      "ko_after": "그 부분을 조금 더 설명해 주시겠어요?"
+    },
+    {
+      "source_line": 39,
+      "en": "Could you give an example?",
+      "ko_before": "예를 하나 들어주시겠어요?",
+      "ko_after": "예를 하나 들어주시겠어요?"
+    },
+    {
+      "source_line": 40,
+      "en": "I'm not sure about that yet.",
+      "ko_before": "지금은 답을 확실히 모르겠습니다.",
+      "ko_after": "저는 아직 그것에 대해 확신하지 못합니다."
+    },
+    {
+      "source_line": 41,
+      "en": "I’ll check and reply.",
+      "ko_before": "확인하고 다시 말씀드리겠습니다.",
+      "ko_after": "제가 확인하고 답변하겠습니다."
+    },
+    {
+      "source_line": 42,
+      "en": "I agree with that.",
+      "ko_before": "그 의견에 동의합니다.",
+      "ko_after": "저는 그것에 동의합니다."
+    },
+    {
+      "source_line": 43,
+      "en": "I think that's a good idea.",
+      "ko_before": "좋은 생각이라고 생각합니다.",
+      "ko_after": "저는 그것이 좋은 생각이라고 생각합니다."
+    },
+    {
+      "source_line": 44,
+      "en": "We need to verify that point.",
+      "ko_before": "그 부분은 다시 확인할 필요가 있습니다.",
+      "ko_after": "우리는 그 점을 확인할 필요가 있습니다."
+    },
+    {
+      "source_line": 45,
+      "en": "We could consider another option.",
+      "ko_before": "다른 방법도 고려할 수 있습니다.",
+      "ko_after": "우리는 다른 선택지도 고려할 수 있습니다."
+    },
+    {
+      "source_line": 46,
+      "en": "It may be difficult to decide now.",
+      "ko_before": "지금 결정하기는 어려울 것 같습니다.",
+      "ko_after": "지금 결정하는 것은 어려울 수도 있습니다."
+    },
+    {
+      "source_line": 47,
+      "en": "We’re nearly out of time.",
+      "ko_before": "시간이 거의 다 됐습니다.",
+      "ko_after": "우리에게 남은 시간이 거의 없습니다."
+    },
+    {
+      "source_line": 48,
+      "en": "I'll take one last question.",
+      "ko_before": "마지막 질문 하나만 받겠습니다.",
+      "ko_after": "마지막 질문 하나를 받겠습니다."
+    },
+    {
+      "source_line": 49,
+      "en": "Let's stop here for today.",
+      "ko_before": "오늘은 여기까지 하겠습니다.",
+      "ko_after": "오늘은 여기서 멈춥시다."
+    },
+    {
+      "source_line": 50,
+      "en": "I’ll summarize the discussion and send it.",
+      "ko_before": "논의 내용을 정리해 보내겠습니다.",
+      "ko_after": "제가 논의 내용을 요약해서 보내겠습니다."
+    },
+    {
+      "source_line": 51,
+      "en": "I'll share the meeting notes.",
+      "ko_before": "회의록을 공유하겠습니다.",
+      "ko_after": "제가 회의 기록을 공유하겠습니다."
+    },
+    {
+      "source_line": 52,
+      "en": "Let's set the next meeting.",
+      "ko_before": "다음 회의 일정을 정하겠습니다.",
+      "ko_after": "다음 회의 일정을 정합시다."
+    },
+    {
+      "source_line": 53,
+      "en": "Thank you for joining.",
+      "ko_before": "참석해 주셔서 감사합니다.",
+      "ko_after": "참석해 주셔서 감사합니다."
+    },
+    {
+      "source_line": 54,
+      "en": "Let’s conclude the meeting.",
+      "ko_before": "그럼 회의를 마치겠습니다.",
+      "ko_after": "회의를 마무리합시다."
+    },
+    {
+      "source_line": 55,
+      "en": "I'll check this after the meeting.",
+      "ko_before": "이 내용은 회의 후에 확인하겠습니다.",
+      "ko_after": "제가 회의 후에 이것을 확인하겠습니다."
+    },
+    {
+      "source_line": 56,
+      "en": "I’ll clarify who is responsible and the deadline.",
+      "ko_before": "담당자와 기한을 정리하겠습니다.",
+      "ko_after": "누가 책임자인지와 마감일을 명확히 하겠습니다."
+    },
+    {
+      "source_line": 57,
+      "en": "Who is responsible for this?",
+      "ko_before": "누가 이 일을 담당하나요?",
+      "ko_after": "누가 이것을 담당하나요?"
+    },
+    {
+      "source_line": 58,
+      "en": "When do we need to finish this?",
+      "ko_before": "언제까지 완료하면 되나요?",
+      "ko_after": "우리는 이것을 언제까지 끝내야 하나요?"
+    },
+    {
+      "source_line": 59,
+      "en": "I'll check after the meeting.",
+      "ko_before": "제가 회의 후에 확인하겠습니다.",
+      "ko_after": "제가 회의 후에 확인하겠습니다."
+    },
+    {
+      "source_line": 60,
+      "en": "We'll discuss this separately.",
+      "ko_before": "이 부분은 별도로 논의하겠습니다.",
+      "ko_after": "우리는 이것을 별도로 논의하겠습니다."
+    },
+    {
+      "source_line": 61,
+      "en": "Any questions so far?",
+      "ko_before": "지금까지 질문 있으신가요?",
+      "ko_after": "지금까지 질문이 있나요?"
+    },
+    {
+      "source_line": 62,
+      "en": "Let’s move to the next slide.",
+      "ko_before": "다음 슬라이드를 보겠습니다.",
+      "ko_after": "다음 슬라이드로 넘어갑시다."
+    },
+    {
+      "source_line": 63,
+      "en": "You can see it in this document.",
+      "ko_before": "이 자료에서 확인할 수 있습니다.",
+      "ko_after": "이 문서에서 그것을 볼 수 있습니다."
+    },
+    {
+      "source_line": 64,
+      "en": "This is the key point for today.",
+      "ko_before": "이것이 오늘의 핵심 내용입니다.",
+      "ko_after": "이것이 오늘의 핵심 요점입니다."
+    },
+    {
+      "source_line": 65,
+      "en": "That concludes my presentation.",
+      "ko_before": "이상으로 발표를 마치겠습니다.",
+      "ko_after": "이것으로 제 발표를 마칩니다."
+    },
+    {
+      "source_line": 66,
+      "en": "Please feel free to ask questions.",
+      "ko_before": "질문은 편하게 해 주세요.",
+      "ko_after": "부담 갖지 말고 질문해 주세요."
+    },
+    {
+      "source_line": 67,
+      "en": "I'll share the presentation slides.",
+      "ko_before": "발표 자료를 공유하겠습니다.",
+      "ko_after": "제가 발표 슬라이드를 공유하겠습니다."
+    },
+    {
+      "source_line": 68,
+      "en": "I’ll explain this part again later.",
+      "ko_before": "이 부분은 조금 뒤에 다시 설명하겠습니다.",
+      "ko_after": "제가 이 부분을 나중에 다시 설명하겠습니다."
+    },
+    {
+      "source_line": 69,
+      "en": "I’ll pause the screen sharing for a moment.",
+      "ko_before": "잠시 화면을 멈추겠습니다.",
+      "ko_after": "제가 잠시 화면 공유를 멈추겠습니다."
+    },
+    {
+      "source_line": 70,
+      "en": "Please let me know if you can't see the screen.",
+      "ko_before": "화면이 보이지 않으면 말씀해 주세요.",
+      "ko_after": "화면이 보이지 않으면 저에게 알려주세요."
+    },
+    {
+      "source_line": 71,
+      "en": "Feel free to ask questions while I speak.",
+      "ko_before": "제가 말하는 동안 질문하셔도 됩니다.",
+      "ko_after": "제가 말하는 동안 편하게 질문해 주세요."
+    },
+    {
+      "source_line": 72,
+      "en": "Was that clear?",
+      "ko_before": "제 설명이 명확했나요?",
+      "ko_after": "그것은 명확했나요?"
+    },
+    {
+      "source_line": 73,
+      "en": "Is any part unclear?",
+      "ko_before": "불명헌 부분이 있나요?",
+      "ko_after": "어떤 부분이라도 불명확한가요?"
+    },
+    {
+      "source_line": 74,
+      "en": "We’re short on time, so let’s move on.",
+      "ko_before": "시간 관계상 다음으로 넘어가겠습니다.",
+      "ko_after": "시간이 부족하므로 다음으로 넘어갑시다."
+    },
+    {
+      "source_line": 75,
+      "en": "Let me briefly summarize this.",
+      "ko_before": "이 내용을 간단히 정리하겠습니다.",
+      "ko_after": "제가 이것을 간단히 요약하겠습니다."
+    },
+    {
+      "source_line": 76,
+      "en": "Here is my understanding.",
+      "ko_before": "제가 이해한 내용은 다음과 같습니다.",
+      "ko_after": "여기에 제가 이해한 내용이 있습니다."
+    },
+    {
+      "source_line": 77,
+      "en": "Please let me know if I misunderstood.",
+      "ko_before": "제가 잘못 이해했다면 알려주세요.",
+      "ko_after": "제가 잘못 이해했다면 저에게 알려주세요."
+    },
+    {
+      "source_line": 78,
+      "en": "I'll check that.",
+      "ko_before": "그 점은 확인해 보겠습니다.",
+      "ko_after": "제가 그것을 확인하겠습니다."
+    },
+    {
+      "source_line": 79,
+      "en": "I'll answer that after the meeting.",
+      "ko_before": "그 질문은 회의 후에 답변드리겠습니다.",
+      "ko_after": "제가 회의 후에 그것에 답변하겠습니다."
+    },
+    {
+      "source_line": 80,
+      "en": "Let’s end here for today.",
+      "ko_before": "오늘은 여기까지 하겠습니다.",
+      "ko_after": "오늘은 여기서 끝냅시다."
+    },
+    {
+      "source_line": 81,
+      "en": "Could we adjust the schedule?",
+      "ko_before": "일정을 조정할 수 있을까요?",
+      "ko_after": "우리가 일정을 조정할 수 있을까요?"
+    },
+    {
+      "source_line": 82,
+      "en": "That time works for me.",
+      "ko_before": "그 시간은 괜찮습니다.",
+      "ko_after": "그 시간은 저에게 괜찮습니다."
+    },
+    {
+      "source_line": 83,
+      "en": "That time doesn't work for me.",
+      "ko_before": "그 시간은 어렵습니다.",
+      "ko_after": "그 시간은 저에게 맞지 않습니다."
+    },
+    {
+      "source_line": 84,
+      "en": "How about another time?",
+      "ko_before": "다른 시간은 어떠신가요?",
+      "ko_after": "다른 시간은 어떠신가요?"
+    },
+    {
+      "source_line": 85,
+      "en": "Could we start a little later?",
+      "ko_before": "조금 늦게 시작해도 될까요?",
+      "ko_after": "우리가 조금 더 늦게 시작할 수 있을까요?"
+    },
+    {
+      "source_line": 86,
+      "en": "Could we postpone the meeting by 30 minutes?",
+      "ko_before": "회의를 30분 미뤄도 될까요?",
+      "ko_after": "우리가 회의를 30분 미룰 수 있을까요?"
+    },
+    {
+      "source_line": 87,
+      "en": "Could we move the meeting to an earlier time?",
+      "ko_before": "회의를 앞당길 수 있을까요?",
+      "ko_after": "우리가 회의를 더 이른 시간으로 옮길 수 있을까요?"
+    },
+    {
+      "source_line": 88,
+      "en": "We may need to revise the schedule.",
+      "ko_before": "일정을 변경해야 할 것 같습니다.",
+      "ko_after": "우리는 일정을 수정해야 할 수도 있습니다."
+    },
+    {
+      "source_line": 89,
+      "en": "I’ll send a meeting invitation.",
+      "ko_before": "회의 초대를 보내겠습니다.",
+      "ko_after": "제가 회의 초대장을 보내겠습니다."
+    },
+    {
+      "source_line": 90,
+      "en": "Please check the calendar invite.",
+      "ko_before": "캘린더 초대를 확인해 주세요.",
+      "ko_after": "캘린더 초대장을 확인해 주세요."
+    },
+    {
+      "source_line": 91,
+      "en": "I didn't receive the invite.",
+      "ko_before": "초대를 받지 못했습니다.",
+      "ko_after": "저는 초대장을 받지 못했습니다."
+    },
+    {
+      "source_line": 92,
+      "en": "Could you propose a new time?",
+      "ko_before": "새로운 시간을 제안해 주시겠어요?",
+      "ko_after": "새로운 시간을 제안해 주시겠어요?"
+    },
+    {
+      "source_line": 93,
+      "en": "How about the same time tomorrow?",
+      "ko_before": "내일 같은 시간은 어떠신가요?",
+      "ko_after": "내일 같은 시간은 어떠신가요?"
+    },
+    {
+      "source_line": 94,
+      "en": "Would you be available this week?",
+      "ko_before": "이번 주 안에 가능하신가요?",
+      "ko_after": "이번 주에 시간이 가능하신가요?"
+    },
+    {
+      "source_line": 95,
+      "en": "What time works best for you?",
+      "ko_before": "언제가 가장 편하신가요?",
+      "ko_after": "어떤 시간이 당신에게 가장 괜찮나요?"
+    },
+    {
+      "source_line": 96,
+      "en": "Please tell me which times work for you.",
+      "ko_before": "가능한 시간을 알려주세요.",
+      "ko_after": "어떤 시간들이 당신에게 괜찮은지 알려주세요."
+    },
+    {
+      "source_line": 97,
+      "en": "I’ll notify you once the schedule is confirmed.",
+      "ko_before": "일정이 확정되면 알려드리겠습니다.",
+      "ko_after": "일정이 확정되면 제가 당신에게 알리겠습니다."
+    },
+    {
+      "source_line": 98,
+      "en": "We may need to cancel the meeting.",
+      "ko_before": "회의를 취소해야 할 것 같습니다.",
+      "ko_after": "우리는 회의를 취소해야 할 수도 있습니다."
+    },
+    {
+      "source_line": 99,
+      "en": "Could we move the meeting to next week?",
+      "ko_before": "회의를 다음 주로 옮길 수 있을까요?",
+      "ko_after": "우리가 회의를 다음 주로 옮길 수 있을까요?"
+    },
+    {
+      "source_line": 100,
+      "en": "Please let me know if you can't attend.",
+      "ko_before": "참석이 어려우시면 알려주세요.",
+      "ko_after": "참석할 수 없다면 저에게 알려주세요."
+    },
+    {
+      "source_line": 101,
+      "en": "I'll attend instead.",
+      "ko_before": "제가 대신 참석하겠습니다.",
+      "ko_after": "제가 대신 참석하겠습니다."
+    },
+    {
+      "source_line": 102,
+      "en": "I’ll verify the meeting time.",
+      "ko_before": "회의 시간을 다시 확인하겠습니다.",
+      "ko_after": "제가 회의 시간을 확인하겠습니다."
+    },
+    {
+      "source_line": 103,
+      "en": "I've added the meeting link to the invite.",
+      "ko_before": "초대에 회의 링크를 추가했습니다.",
+      "ko_after": "제가 초대장에 회의 링크를 추가했습니다."
+    },
+    {
+      "source_line": 104,
+      "en": "The time has changed.",
+      "ko_before": "시간이 변경되었습니다.",
+      "ko_after": "시간이 변경되었습니다."
+    },
+    {
+      "source_line": 105,
+      "en": "I have a scheduling conflict.",
+      "ko_before": "일정이 겹칩니다.",
+      "ko_after": "저는 일정이 겹칩니다."
+    },
+    {
+      "source_line": 106,
+      "en": "I have another meeting at that time.",
+      "ko_before": "그 시간에는 다른 회의가 있습니다.",
+      "ko_after": "저는 그 시간에 다른 회의가 있습니다."
+    },
+    {
+      "source_line": 107,
+      "en": "I’ll check my schedule and reply.",
+      "ko_before": "일정 확인 후 답변드리겠습니다.",
+      "ko_after": "제가 일정을 확인하고 답변하겠습니다."
+    },
+    {
+      "source_line": 108,
+      "en": "I’ll reply as soon as possible.",
+      "ko_before": "가능한 한 빨리 회신하겠습니다.",
+      "ko_after": "제가 가능한 한 빨리 답변하겠습니다."
+    },
+    {
+      "source_line": 109,
+      "en": "I've sent you an email.",
+      "ko_before": "이메일을 보내드렸습니다.",
+      "ko_after": "제가 당신에게 이메일을 보냈습니다."
+    },
+    {
+      "source_line": 110,
+      "en": "Please check your email.",
+      "ko_before": "이메일 확인 부탁드립니다.",
+      "ko_after": "이메일을 확인해 주세요."
+    },
+    {
+      "source_line": 111,
+      "en": "Please check the attached file.",
+      "ko_before": "첨부파일을 확인해 주세요.",
+      "ko_after": "첨부된 파일을 확인해 주세요."
+    },
+    {
+      "source_line": 112,
+      "en": "I've attached the file.",
+      "ko_before": "자료를 첨부했습니다.",
+      "ko_after": "제가 그 파일을 첨부했습니다."
+    },
+    {
+      "source_line": 113,
+      "en": "I'll send the file again.",
+      "ko_before": "파일을 다시 보내드리겠습니다.",
+      "ko_after": "제가 그 파일을 다시 보내겠습니다."
+    },
+    {
+      "source_line": 114,
+      "en": "I can't open the file.",
+      "ko_before": "파일이 열리지 않습니다.",
+      "ko_after": "저는 그 파일을 열 수 없습니다."
+    },
+    {
+      "source_line": 115,
+      "en": "I didn’t receive the attachment.",
+      "ko_before": "첨부파일을 받지 못했습니다.",
+      "ko_after": "저는 첨부파일을 받지 못했습니다."
+    },
+    {
+      "source_line": 116,
+      "en": "Could you attach the file again?",
+      "ko_before": "파일을 다시 첨부해 주시겠어요?",
+      "ko_after": "그 파일을 다시 첨부해 주시겠어요?"
+    },
+    {
+      "source_line": 117,
+      "en": "Could you confirm that you received my email?",
+      "ko_before": "메일을 받으셨는지 확인 부탁드립니다.",
+      "ko_after": "당신이 제 이메일을 받았는지 확인해 주시겠어요?"
+    },
+    {
+      "source_line": 118,
+      "en": "Sorry for the late reply.",
+      "ko_before": "회신이 늦어 죄송합니다.",
+      "ko_after": "답변이 늦어서 죄송합니다."
+    },
+    {
+      "source_line": 119,
+      "en": "Thank you for your patience.",
+      "ko_before": "답변 기다려 주셔서 감사합니다.",
+      "ko_after": "기다려 주셔서 감사합니다."
+    },
+    {
+      "source_line": 120,
+      "en": "I’ll reply after I check.",
+      "ko_before": "확인 후 회신드리겠습니다.",
+      "ko_after": "제가 확인한 후 답변하겠습니다."
+    },
+    {
+      "source_line": 121,
+      "en": "Please reply when you can.",
+      "ko_before": "가능하실 때 회신 부탁드립니다.",
+      "ko_after": "가능할 때 답변해 주세요."
+    },
+    {
+      "source_line": 122,
+      "en": "Please review it and share your comments.",
+      "ko_before": "검토 후 의견을 알려주세요.",
+      "ko_after": "그것을 검토하고 의견을 공유해 주세요."
+    },
+    {
+      "source_line": 123,
+      "en": "I’m sending this for reference.",
+      "ko_before": "참고용으로 보내드립니다.",
+      "ko_after": "참고를 위해 이것을 보내드립니다."
+    },
+    {
+      "source_line": 124,
+      "en": "Could you forward this to the relevant people?",
+      "ko_before": "관련자에게 전달해 주시겠어요?",
+      "ko_after": "이것을 관련된 사람들에게 전달해 주시겠어요?"
+    },
+    {
+      "source_line": 125,
+      "en": "Please reply to this email.",
+      "ko_before": "이 메일에 회신해 주세요.",
+      "ko_after": "이 이메일에 답변해 주세요."
+    },
+    {
+      "source_line": 126,
+      "en": "I've updated the email subject.",
+      "ko_before": "메일 제목을 수정했습니다.",
+      "ko_after": "제가 이메일 제목을 수정했습니다."
+    },
+    {
+      "source_line": 127,
+      "en": "Please refer to my previous email.",
+      "ko_before": "이전 메일을 참고해 주세요.",
+      "ko_after": "제 이전 이메일을 참고해 주세요."
+    },
+    {
+      "source_line": 128,
+      "en": "Please review the details below.",
+      "ko_before": "아래 내용을 확인해 주세요.",
+      "ko_after": "아래의 세부 사항을 검토해 주세요."
+    },
+    {
+      "source_line": 129,
+      "en": "Please review the attached file for details.",
+      "ko_before": "자세한 내용은 첨부파일을 확인해 주세요.",
+      "ko_after": "세부 사항을 위해 첨부된 파일을 검토해 주세요."
+    },
+    {
+      "source_line": 130,
+      "en": "This is for internal review.",
+      "ko_before": "이 내용은 내부 검토용입니다.",
+      "ko_after": "이것은 내부 검토를 위한 것입니다."
+    },
+    {
+      "source_line": 131,
+      "en": "I'm sending the final version.",
+      "ko_before": "최종 버전을 보내드립니다.",
+      "ko_after": "제가 최종 버전을 보내드립니다."
+    },
+    {
+      "source_line": 132,
+      "en": "I’ve attached the revised file.",
+      "ko_before": "수정된 파일을 첨부했습니다.",
+      "ko_after": "제가 수정된 파일을 첨부했습니다."
+    },
+    {
+      "source_line": 133,
+      "en": "I’ve highlighted the changes.",
+      "ko_before": "변경 사항을 표시했습니다.",
+      "ko_after": "제가 변경 사항을 강조 표시했습니다."
+    },
+    {
+      "source_line": 134,
+      "en": "Please check the file name.",
+      "ko_before": "파일 이름을 확인해 주세요.",
+      "ko_after": "파일 이름을 확인해 주세요."
+    },
+    {
+      "source_line": 135,
+      "en": "Would you like me to send it in another format?",
+      "ko_before": "다른 형식으로 보내드릴까요?",
+      "ko_after": "제가 그것을 다른 형식으로 보내드리기를 원하시나요?"
+    },
+    {
+      "source_line": 136,
+      "en": "What format do you need?",
+      "ko_before": "어떤 형식이 필요하신가요?",
+      "ko_after": "어떤 형식이 필요하신가요?"
+    },
+    {
+      "source_line": 137,
+      "en": "When should I send the materials?",
+      "ko_before": "자료를 언제까지 보내면 될까요?",
+      "ko_after": "제가 자료를 언제 보내야 하나요?"
+    },
+    {
+      "source_line": 138,
+      "en": "I’ll send it by the end of today.",
+      "ko_before": "오늘 중으로 보내드리겠습니다.",
+      "ko_after": "제가 오늘이 끝날 때까지 그것을 보내겠습니다."
+    },
+    {
+      "source_line": 139,
+      "en": "I’ll send it by tomorrow.",
+      "ko_before": "내일까지 보내드리겠습니다.",
+      "ko_after": "제가 내일까지 그것을 보내겠습니다."
+    },
+    {
+      "source_line": 140,
+      "en": "I'm preparing the materials.",
+      "ko_before": "자료를 준비하고 있습니다.",
+      "ko_after": "제가 자료를 준비하고 있습니다."
+    },
+    {
+      "source_line": 141,
+      "en": "The materials aren't ready yet.",
+      "ko_before": "아직 자료가 준비되지 않았습니다.",
+      "ko_after": "자료가 아직 준비되지 않았습니다."
+    },
+    {
+      "source_line": 142,
+      "en": "I've updated the file.",
+      "ko_before": "파일을 업데이트했습니다.",
+      "ko_after": "제가 파일을 업데이트했습니다."
+    },
+    {
+      "source_line": 143,
+      "en": "I'll send the link again.",
+      "ko_before": "링크를 다시 보내드리겠습니다.",
+      "ko_after": "제가 링크를 다시 보내겠습니다."
+    },
+    {
+      "source_line": 144,
+      "en": "I can't access the link.",
+      "ko_before": "링크에 접근할 수 없습니다.",
+      "ko_after": "저는 그 링크에 접근할 수 없습니다."
+    },
+    {
+      "source_line": 145,
+      "en": "Could you verify the access permissions?",
+      "ko_before": "접근 권한을 확인해 주시겠어요?",
+      "ko_after": "접근 권한을 확인해 주시겠어요?"
+    },
+    {
+      "source_line": 146,
+      "en": "I can't edit this document.",
+      "ko_before": "이 문서를 편집할 수 없습니다.",
+      "ko_after": "저는 이 문서를 편집할 수 없습니다."
+    },
+    {
+      "source_line": 147,
+      "en": "Please leave your comments in the document.",
+      "ko_before": "문서에 의견을 남겨 주세요.",
+      "ko_after": "문서에 의견을 남겨 주세요."
+    },
+    {
+      "source_line": 148,
+      "en": "Please check the revised parts.",
+      "ko_before": "수정한 부분을 확인해 주세요.",
+      "ko_after": "수정된 부분들을 확인해 주세요."
+    },
+    {
+      "source_line": 149,
+      "en": "I’ve incorporated your feedback.",
+      "ko_before": "검토 의견을 반영했습니다.",
+      "ko_after": "제가 당신의 피드백을 반영했습니다."
+    },
+    {
+      "source_line": 150,
+      "en": "Please let me know if you need more information.",
+      "ko_before": "추가 자료가 필요하면 알려주세요.",
+      "ko_after": "더 많은 정보가 필요하면 저에게 알려주세요."
+    },
+    {
+      "source_line": 151,
+      "en": "Please let me know if you have any questions.",
+      "ko_before": "문의 사항이 있으면 알려주세요.",
+      "ko_after": "질문이 있으면 저에게 알려주세요."
+    },
+    {
+      "source_line": 152,
+      "en": "Thank you for checking.",
+      "ko_before": "확인해 주셔서 감사합니다.",
+      "ko_after": "확인해 주셔서 감사합니다."
+    },
+    {
+      "source_line": 153,
+      "en": "Thank you for your quick reply.",
+      "ko_before": "빠른 회신 감사합니다.",
+      "ko_after": "빠른 답변 감사합니다."
+    },
+    {
+      "source_line": 154,
+      "en": "Thank you for your help.",
+      "ko_before": "도와주셔서 감사합니다.",
+      "ko_after": "도와주셔서 감사합니다."
+    },
+    {
+      "source_line": 155,
+      "en": "Thank you for informing me.",
+      "ko_before": "알려주셔서 감사합니다.",
+      "ko_after": "저에게 알려주셔서 감사합니다."
+    },
+    {
+      "source_line": 156,
+      "en": "Sorry for the inconvenience.",
+      "ko_before": "불편을 드려 죄송합니다.",
+      "ko_after": "불편을 드려 죄송합니다."
+    },
+    {
+      "source_line": 157,
+      "en": "Sorry for the confusion.",
+      "ko_before": "혼란을 드려 죄송합니다.",
+      "ko_after": "혼란을 드려 죄송합니다."
+    },
+    {
+      "source_line": 158,
+      "en": "I sent the wrong file.",
+      "ko_before": "제가 잘못 보냈습니다.",
+      "ko_after": "제가 잘못된 파일을 보냈습니다."
+    },
+    {
+      "source_line": 159,
+      "en": "I’ll revise it and send it again.",
+      "ko_before": "수정해서 다시 보내드리겠습니다.",
+      "ko_after": "제가 그것을 수정해서 다시 보내겠습니다."
+    },
+    {
+      "source_line": 160,
+      "en": "I’m sorry I missed that.",
+      "ko_before": "확인하지 못해 죄송합니다.",
+      "ko_after": "제가 그것을 놓쳐서 죄송합니다."
+    },
+    {
+      "source_line": 161,
+      "en": "I’ll be more careful next time.",
+      "ko_before": "다음부터 주의하겠습니다.",
+      "ko_after": "다음번에는 제가 더 주의하겠습니다."
+    },
+    {
+      "source_line": 162,
+      "en": "I'm checking the issue.",
+      "ko_before": "문제를 확인하고 있습니다.",
+      "ko_after": "제가 그 문제를 확인하고 있습니다."
+    },
+    {
+      "source_line": 163,
+      "en": "I’m investigating the cause.",
+      "ko_before": "현재 원인을 파악 중입니다.",
+      "ko_after": "제가 원인을 조사하고 있습니다."
+    },
+    {
+      "source_line": 164,
+      "en": "I haven’t determined the exact cause yet.",
+      "ko_before": "아직 정확한 원인은 모릅니다.",
+      "ko_after": "저는 아직 정확한 원인을 밝혀내지 못했습니다."
+    },
+    {
+      "source_line": 165,
+      "en": "It's taking longer than expected.",
+      "ko_before": "예상보다 시간이 더 걸리고 있습니다.",
+      "ko_after": "예상한 것보다 더 많은 시간이 걸리고 있습니다."
+    },
+    {
+      "source_line": 166,
+      "en": "The schedule is slightly behind.",
+      "ko_before": "일정이 조금 지연되고 있습니다.",
+      "ko_after": "일정이 약간 늦어지고 있습니다."
+    },
+    {
+      "source_line": 167,
+      "en": "So far, the work is progressing as planned.",
+      "ko_before": "현재까지는 계획대로 진행 중입니다.",
+      "ko_after": "지금까지 작업은 계획된 대로 진행되고 있습니다."
+    },
+    {
+      "source_line": 168,
+      "en": "The expected completion date is Friday.",
+      "ko_before": "예상 완료일은 금요일입니다.",
+      "ko_after": "예상 완료일은 금요일입니다."
+    },
+    {
+      "source_line": 169,
+      "en": "I need one more day to complete it.",
+      "ko_before": "완료까지 하루 더 필요합니다.",
+      "ko_after": "그것을 완료하기 위해 하루가 더 필요합니다."
+    },
+    {
+      "source_line": 170,
+      "en": "I may not be able to finish today.",
+      "ko_before": "오늘 안에 끝내기 어려울 것 같습니다.",
+      "ko_after": "저는 오늘 그것을 끝내지 못할 수도 있습니다."
+    },
+    {
+      "source_line": 171,
+      "en": "Could we extend the deadline?",
+      "ko_before": "마감일을 연장할 수 있을까요?",
+      "ko_after": "우리가 마감일을 연장할 수 있을까요?"
+    },
+    {
+      "source_line": 172,
+      "en": "I’ll provide an update.",
+      "ko_before": "진행 상황을 공유하겠습니다.",
+      "ko_after": "제가 진행 상황을 알려드리겠습니다."
+    },
+    {
+      "source_line": 173,
+      "en": "I've completed about half of it.",
+      "ko_before": "현재 절반 정도 완료했습니다.",
+      "ko_after": "저는 그것의 약 절반을 완료했습니다."
+    },
+    {
+      "source_line": 174,
+      "en": "It's almost done.",
+      "ko_before": "거의 완료했습니다.",
+      "ko_after": "그것은 거의 완료되었습니다."
+    },
+    {
+      "source_line": 175,
+      "en": "I’ll notify you as soon as it’s complete.",
+      "ko_before": "완료되면 바로 알려드리겠습니다.",
+      "ko_after": "그것이 완료되는 즉시 제가 당신에게 알리겠습니다."
+    },
+    {
+      "source_line": 176,
+      "en": "The review isn't finished yet.",
+      "ko_before": "검토가 아직 끝나지 않았습니다.",
+      "ko_after": "검토는 아직 끝나지 않았습니다."
+    },
+    {
+      "source_line": 177,
+      "en": "We need to verify a few more things.",
+      "ko_before": "추가 확인이 필요합니다.",
+      "ko_after": "우리는 몇 가지를 더 확인할 필요가 있습니다."
+    },
+    {
+      "source_line": 178,
+      "en": "We need to review this part again.",
+      "ko_before": "이 부분은 다시 검토해야 합니다.",
+      "ko_after": "우리는 이 부분을 다시 검토할 필요가 있습니다."
+    },
+    {
+      "source_line": 179,
+      "en": "The next step is testing.",
+      "ko_before": "다음 단계는 테스트입니다.",
+      "ko_after": "다음 단계는 테스트입니다."
+    },
+    {
+      "source_line": 180,
+      "en": "I’ll prioritize this task.",
+      "ko_before": "이 작업을 먼저 처리하겠습니다.",
+      "ko_after": "제가 이 작업을 우선적으로 처리하겠습니다."
+    },
+    {
+      "source_line": 181,
+      "en": "I'd like to confirm the priority.",
+      "ko_before": "우선순위를 확인하고 싶습니다.",
+      "ko_after": "저는 우선순위를 확인하고 싶습니다."
+    },
+    {
+      "source_line": 182,
+      "en": "Who is responsible for this task?",
+      "ko_before": "이 작업의 담당자는 누구인가요?",
+      "ko_after": "누가 이 작업을 담당하나요?"
+    },
+    {
+      "source_line": 183,
+      "en": "I’ll take responsibility for this task.",
+      "ko_before": "이 작업을 제가 맡겠습니다.",
+      "ko_after": "제가 이 작업에 대한 책임을 맡겠습니다."
+    },
+    {
+      "source_line": 184,
+      "en": "Could you handle this task?",
+      "ko_before": "이 작업을 맡아 주시겠어요?",
+      "ko_after": "이 작업을 처리해 주시겠어요?"
+    },
+    {
+      "source_line": 185,
+      "en": "I need some help.",
+      "ko_before": "도움이 필요합니다.",
+      "ko_after": "저는 약간의 도움이 필요합니다."
+    },
+    {
+      "source_line": 186,
+      "en": "Could you help me for a moment?",
+      "ko_before": "잠시 도와주실 수 있나요?",
+      "ko_after": "잠시 저를 도와주시겠어요?"
+    },
+    {
+      "source_line": 187,
+      "en": "I’d like your advice.",
+      "ko_before": "조언을 구하고 싶습니다.",
+      "ko_after": "저는 당신의 조언을 받고 싶습니다."
+    },
+    {
+      "source_line": 188,
+      "en": "Is there anything I've missed?",
+      "ko_before": "제가 놓친 부분이 있을까요?",
+      "ko_after": "제가 놓친 것이 있나요?"
+    },
+    {
+      "source_line": 189,
+      "en": "Can we proceed with this method?",
+      "ko_before": "이 방법으로 진행해도 될까요?",
+      "ko_after": "우리는 이 방법으로 진행할 수 있을까요?"
+    },
+    {
+      "source_line": 190,
+      "en": "I’ll proceed with this approach.",
+      "ko_before": "이 방향으로 진행하겠습니다.",
+      "ko_after": "제가 이 접근 방식으로 진행하겠습니다."
+    },
+    {
+      "source_line": 191,
+      "en": "I’ll make a decision after an internal review.",
+      "ko_before": "내부 확인 후 결정하겠습니다.",
+      "ko_after": "제가 내부 검토 후에 결정을 내리겠습니다."
+    },
+    {
+      "source_line": 192,
+      "en": "I’ll confirm this with the person responsible.",
+      "ko_before": "담당자에게 확인하겠습니다.",
+      "ko_after": "제가 이것을 담당자와 확인하겠습니다."
+    },
+    {
+      "source_line": 193,
+      "en": "We need approval.",
+      "ko_before": "승인이 필요합니다.",
+      "ko_after": "우리는 승인이 필요합니다."
+    },
+    {
+      "source_line": 194,
+      "en": "Could you approve this?",
+      "ko_before": "승인해 주시겠어요?",
+      "ko_after": "이것을 승인해 주시겠어요?"
+    },
+    {
+      "source_line": 195,
+      "en": "The request has been approved.",
+      "ko_before": "승인이 완료되었습니다.",
+      "ko_after": "요청이 승인되었습니다."
+    },
+    {
+      "source_line": 196,
+      "en": "I haven't received approval yet.",
+      "ko_before": "아직 승인을 받지 못했습니다.",
+      "ko_after": "저는 아직 승인을 받지 못했습니다."
+    },
+    {
+      "source_line": 197,
+      "en": "I’ll revise it and resubmit it.",
+      "ko_before": "수정 후 다시 제출하겠습니다.",
+      "ko_after": "제가 그것을 수정하고 다시 제출하겠습니다."
+    },
+    {
+      "source_line": 198,
+      "en": "I’ll notify you as soon as a decision is made.",
+      "ko_before": "결정되면 바로 알려드리겠습니다.",
+      "ko_after": "결정이 내려지는 즉시 제가 당신에게 알리겠습니다."
+    },
+    {
+      "source_line": 199,
+      "en": "This isn't my area of responsibility.",
+      "ko_before": "이 부분은 제 담당이 아닙니다.",
+      "ko_after": "이것은 제가 책임지는 분야가 아닙니다."
+    },
+    {
+      "source_line": 200,
+      "en": "I’ll forward this to the person responsible.",
+      "ko_before": "담당자에게 전달하겠습니다.",
+      "ko_after": "제가 이것을 담당자에게 전달하겠습니다."
+    }
+  ]
+}
