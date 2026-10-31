@@ -1461,6 +1461,18 @@ function renderGrammarErrorStats(){
     body.appendChild(reference);body.appendChild(actual);body.appendChild(dates);item.appendChild(body);root.appendChild(item);
   });
 }
+function closeGradeGuide(){
+  var modal=$('gradeGuideModal');if(!modal)return;
+  modal.classList.remove('show');modal.setAttribute('aria-hidden','true');
+  var trigger=$('gradeGuideOpenBtn');if(trigger)trigger.focus();
+}
+on('gradeGuideOpenBtn','click',function(){
+  var modal=$('gradeGuideModal');if(!modal)return;
+  modal.classList.add('show');modal.setAttribute('aria-hidden','false');$('gradeGuideCloseBtn').focus();
+});
+on('gradeGuideCloseBtn','click',closeGradeGuide);
+on('gradeGuideModal','click',function(e){if(e.target===$('gradeGuideModal'))closeGradeGuide();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('gradeGuideModal').classList.contains('show'))closeGradeGuide();});
 on('volumeSlider','input',function(e){settings.volume=parseInt(e.target.value,10)||0;$('volumeValue').textContent=settings.volume+'%';saveSettings();});
 on('volumeSlider','change',function(){playCorrectSound(false);});
 on('ratioMinus','click',function(){settings.newCardRatio=Math.max(1,settings.newCardRatio-1);$('ratioValue').textContent=settings.newCardRatio+'문제당 1개';saveSettings();refreshSetupInfo();});
