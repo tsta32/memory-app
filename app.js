@@ -13,12 +13,13 @@ var ERROR_HISTORY_KEY='srs_error_history_v1';
 var GRAMMAR_OPTION_DEFAULTS={article:true};
 var GRAMMAR_OPTION_LABELS={article:'관사',vocabulary:'어휘'};
 
-var cards=[],chapters=[],settings={volume:100,newCardRatio:5,grammarOptions:Object.assign({},GRAMMAR_OPTION_DEFAULTS)};
+var cards=[],chapters=[],settings={volume:100,newCardRatio:5,manualCorrectTotal:0,grammarOptions:Object.assign({},GRAMMAR_OPTION_DEFAULTS)};
+var manualCorrectTotalCount=0;
 var nextCardId=1,nextChapterId=1;
 var errorHistory=[],errorHistoryWritable=true;
 
 var sessionQueue=[],sessionUniqueIds=[],sessionDoneCount=0,streak=0;
-var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0,sessionManualCorrectCount=0;
+var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0,answerSettled=false;
 var sessionMissedIds=[],retryQueue=[];
 var sessionCompletedIds=[]; // 정답/오답 확정된 카드 id (완료)
 var sessionSkippedIds=[];   // 오답처리 건너뛴 카드 id
@@ -183,9 +184,8 @@ function anagram(y,a){
   }return diff;
 }
 
-// Deterministic answer comparison. Grammar differences are ignored only when
-// their corresponding option is OFF; spelling tolerance is limited to one
-// single-character edit or adjacent transposition in one multi-letter word.
+// Deterministic grading accepts only normalized token equality, except when
+// the article option is OFF.
 var ARTICLE_WORDS={a:1,an:1,the:1};
 function answerTokens(s){
   s=expandContractions(String(s||''));
@@ -223,6 +223,7 @@ function buildSettingsObject(raw){
   var saved={};
   if(raw){try{saved=JSON.parse(raw);if(!saved||typeof saved!=='object'||Array.isArray(saved))return null;}catch(e){return null;}}
   saved.volume=settings.volume;saved.newCardRatio=settings.newCardRatio;
+  saved.manualCorrectTotal=manualCorrectTotalCount;
   saved.acSort=acSort;saved.quizOrder=quizOrder;
   saved.bizChapterIds=Object.keys(bizChapterIds).map(Number);
   saved.grammarOptions=normalizeGrammarOptions(settings.grammarOptions);
@@ -303,6 +304,9 @@ function loadAll(){
   try{var sr=localStorage.getItem(SETTINGS_KEY);if(sr){var sp=JSON.parse(sr);if(sp){
     if(typeof sp.volume==='number')settings.volume=sp.volume;
     if(typeof sp.newCardRatio==='number')settings.newCardRatio=sp.newCardRatio;
+    if(typeof sp.manualCorrectTotal==='number'&&isFinite(sp.manualCorrectTotal)&&sp.manualCorrectTotal>=0)manualCorrectTotalCount=Math.floor(sp.manualCorrectTotal);
+    else if(typeof sp.manualCorrectCount==='number'&&isFinite(sp.manualCorrectCount)&&sp.manualCorrectCount>=0)manualCorrectTotalCount=Math.floor(sp.manualCorrectCount);
+    settings.manualCorrectTotal=manualCorrectTotalCount;
     if(typeof sp.acSort==='string')acSort=sp.acSort;
     if(typeof sp.quizOrder==='string')quizOrder=sp.quizOrder;
     settings.grammarOptions=normalizeGrammarOptions(sp.grammarOptions);
@@ -544,7 +548,7 @@ function startSessionWith(isPractice){
   if(quizBmOnly) chosen=chosen.filter(function(c){return c.bookmarked;});
   if(!chosen.length){$('ngFilterInfo').textContent='해당 카드 없음';$('ngFilterInfo').style.color='var(--danger-text)';return;}
   sessionQueue=chosen.map(function(c){return c.id;});sessionUniqueIds=chosen.map(function(c){return c.id;});
-  sessionDoneCount=0;sessionManualCorrectCount=0;streak=0;sessionMissedIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
+  sessionDoneCount=0;streak=0;sessionMissedIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
   sessionCompletedIds=[];sessionSkippedIds=[];
   $('setupScreen').style.display='none';$('quizScreen').style.display='block';
   loadNext();
@@ -1514,7 +1518,7 @@ function scheduleCorrect(card,cls){
 }
 
 /* ---------- quiz UI ---------- */
-function updateStats(){$('progressCount').textContent=sessionDoneCount+'/'+sessionUniqueIds.length;$('streakCount').textContent=streak;$('remainingCount').textContent=Math.max(sessionUniqueIds.length-sessionDoneCount,0)+retryQueue.length;var manual=$('manualCorrectCount');if(manual)manual.textContent='수동판정정답 '+sessionManualCorrectCount;}
+function updateStats(){$('progressCount').textContent=sessionDoneCount+'/'+sessionUniqueIds.length;$('streakCount').textContent=streak;$('remainingCount').textContent=Math.max(sessionUniqueIds.length-sessionDoneCount,0)+retryQueue.length;var manual=$('manualCorrectCount');if(manual)manual.textContent='수동판정정답 '+manualCorrectTotalCount;}
 function maskWord(w,lv){return w.split('').map(function(ch,i){if(!/[a-zA-Z]/.test(ch))return lv>=3?ch:'';if(lv>=3)return ch;if(lv===2&&i===0)return ch;return'_';}).join('');}
 function buildHint(en,lv){return en.split(' ').map(function(w){return maskWord(w,lv);}).join('   ');}
 function showHint(lv){var ht=$('hintText'),hl=$('hintLabel');if(lv<=0){ht.style.display='none';hl.style.display='none';return;}ht.textContent=buildHint(current.en,lv);ht.style.color=lv>=3?'var(--danger-text)':'var(--warning)';ht.style.display='block';hl.textContent=['','실루엣 힌트','첫 글자 힌트','전체 정답'][lv]||'';hl.style.display='block';}
@@ -1533,6 +1537,7 @@ function loadNext(){
   else if(retryQueue.length){id=retryQueue.shift();isRetry=true;}
   else{finishSession();return;}
   current=findCard(id);
+  answerSettled=false;
   currentIsRetry=isRetry;
   // 질문 표시 체크박스 상태 반영
   var qmc=$('quizMarkCheck');
@@ -1991,20 +1996,23 @@ on('bizNextBtn','click',function(){bizAllResults=[];bizStepResults=[];bizFinaliz
 
 
 function finalizeCorrect(manual){
-  if(manual){sessionManualCorrectCount++;if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
+  if(!current||answerSettled)return;
+  answerSettled=true;
+  pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('checkBtn').style.display='none';$('answerInput').disabled=true;
+  if(manual){manualCorrectTotalCount++;settings.manualCorrectTotal=manualCorrectTotalCount;saveSettings();if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
   var cls=hintLevel>=2?'hard':'easy';
+  current.lastTestedAt=now();
   if(!practiceMode){
-    scheduleCorrect(current,cls);
     if(cls==='hard'){
       // ngCount는 이 세션에서 이 카드가 첫 오답일 때만 +1 (재도전에서 또 틀려도 추가 안 됨)
       var alreadyMissed=sessionMissedIds.indexOf(current.id)!==-1;
       if(!alreadyMissed) current.ngCount=(current.ngCount||0)+1;
       sessionMissedIds.push(current.id);
     }
+    scheduleCorrect(current,cls);
   }
   sessionDoneCount++;
   if(sessionCompletedIds.indexOf(current.id)===-1) sessionCompletedIds.push(current.id);
-  current.lastTestedAt=now(); // 최근 테스트 시간 기록
   if(cls==='hard'){streak=0;retryQueue.push(current.id);}
   else streak++;
   var big=streak>=3;
@@ -2022,60 +2030,42 @@ function finalizeCorrect(manual){
     if(token===autoAdvanceToken) loadNext();
   }, 150);
 }
-function escalateWrong(){
-  streak=0;$('koreanText').style.color='var(--danger)';flashCP('var(--danger)',true);shakeScreen();bigText('NG','#FF4D6D');playWrongSound();
-  hintLevel=Math.min(hintLevel+1,3);showHint(hintLevel);
-  $('boxBadge').textContent=['','실루엣 힌트','첫 글자 힌트','전체 노출'][hintLevel]||$('boxBadge').textContent;
-  var inp=$('answerInput');inp.value='';inp.disabled=false;$('diffPanel').style.display='none';$('checkBtn').style.display='block';pendingDiff=null;
-  setTimeout(function(){inp.focus();},350);updateStats();
-}
 function showDiff(y,a){
-  pendingDiff={y:y,a:a,result:deterministicGrade(a,y,settings.grammarOptions)};var d=diffHL(y,a);$('diffYour').innerHTML='입력: '+d.y;$('diffAns').innerHTML='정답: '+d.a;
-  $('diffPanel').style.display='block';$('checkBtn').style.display='none';$('answerInput').disabled=true;
-  setTimeout(function(){$('markCorrectBtn').focus();},50);
+  pendingDiff={y:y,a:a,result:deterministicGrade(a,y,settings.grammarOptions)};var d=diffHL(y,a);
+  $('diffYour').innerHTML='내 답변: '+(y.trim()?d.y:'(입력 없음)');$('diffAns').innerHTML='모범 답안: '+d.a;
+  $('diffPanel').style.display='block';$('checkBtn').style.display='none';$('nextBtn').style.display='block';$('answerInput').disabled=true;
+  setTimeout(function(){$('nextBtn').focus();},50);
 }
-function finishWrongAnswer(cardId,reference,raw,result,extraHint){
-  var historySaved=recordAnswerErrors(cardId,reference,raw,result.errors);
-  escalateWrong();
-  var reason=result.errors.map(function(e){return e.reason;}).filter(Boolean).join(' ');
-  var hint=$('footerHint');
-  if(hint){hint.textContent=(reason?'오답: '+reason:'오답으로 판정했습니다.')+(extraHint?' · '+extraHint:'')+(historySaved?'':' · 오답 이력 저장에 실패했습니다.');hint.style.color='var(--danger-text)';}
+function confirmWrongAnswer(){
+  if(!current||!pendingDiff||answerSettled)return;
+  answerSettled=true;
+  var decision=pendingDiff,card=current,historySaved=recordAnswerErrors(card.id,card.en,decision.y,decision.result.errors);
+  pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('answerInput').disabled=true;
+  $('koreanText').style.color='var(--danger)';flashCP('var(--danger)',true);playWrongSound();
+  streak=0;
+  var firstMiss=sessionMissedIds.indexOf(card.id)===-1;
+  if(!practiceMode&&firstMiss)card.ngCount=(card.ngCount||0)+1;
+  sessionMissedIds.push(card.id);sessionSkippedIds.push(card.id);
+  if(sessionCompletedIds.indexOf(card.id)===-1)sessionCompletedIds.push(card.id);
+  if(!practiceMode){card.everAnswered=true;card.stage=0;card.dueAt=now()+FIFTEEN_MIN;card.lastTestedAt=now();saveCards();}
+  sessionDoneCount++;retryQueue=retryQueue.filter(function(id){return id!==card.id;});
+  var hint=$('footerHint');if(hint){hint.textContent=historySaved?'오답으로 기록했습니다.':'오답으로 기록했습니다. 오류 이력은 저장하지 못했습니다.';hint.style.color='var(--danger-text)';}
+  updateStats();
+  var token=++autoAdvanceToken;
+  setTimeout(function(){if(token===autoAdvanceToken)loadNext();},150);
 }
 function checkAnswer(){
-  if(!current||$('checkBtn').disabled)return;
+  if(!current||answerSettled||pendingDiff||$('checkBtn').disabled)return;
   var raw=$('answerInput').value;
-  if(!raw.trim()){escalateWrong();return;}
-  var cardId=current.id,reference=current.en,options=Object.assign({},settings.grammarOptions);
+  var reference=current.en,options=Object.assign({},settings.grammarOptions);
   var result=deterministicGrade(reference,raw,options);
   if(result.pass){finalizeCorrect();return;}
   showDiff(raw,reference);
 }
 
-on('checkBtn','click',checkAnswer);on('nextBtn','click',loadNext);
-on('markCorrectBtn','click',function(){if(!current||!pendingDiff)return;pendingDiff=null;$('diffPanel').style.display='none';finalizeCorrect(true);});
-on('markWrongBtn','click',function(){if(!current||!pendingDiff)return;var diff=pendingDiff;pendingDiff=null;$('diffPanel').style.display='none';finishWrongAnswer(current.id,current.en,diff.y,diff.result);});
+on('checkBtn','click',checkAnswer);on('nextBtn','click',confirmWrongAnswer);
+on('markCorrectBtn','click',function(){if(!current||!pendingDiff||answerSettled)return;finalizeCorrect(true);});
 on('cancelSessionBtn','click',function(){$('cancelModal').classList.add('show');});
-
-// 오답처리하고 건너뛰기 (세션 재출제 없음)
-on('skipFailBtn','click',function(){
-  if(!current)return;
-  var c=current;
-  // ngCount +1 (이 세션에서 첫 번째만)
-  if(sessionMissedIds.indexOf(c.id)===-1) c.ngCount=(c.ngCount||0)+1;
-  sessionMissedIds.push(c.id);
-  sessionSkippedIds.push(c.id);
-  if(sessionCompletedIds.indexOf(c.id)===-1) sessionCompletedIds.push(c.id);
-  // 15분 후 복습 예약
-  c.everAnswered=true;c.stage=0;c.dueAt=now()+FIFTEEN_MIN;
-  saveCards();
-  sessionDoneCount++;
-  streak=0;
-  updateStats();
-  // retryQueue에서 이 카드 제거 (재출제 방지)
-  retryQueue=retryQueue.filter(function(id){return id!==c.id;});
-  var token=++autoAdvanceToken;
-  setTimeout(function(){if(token===autoAdvanceToken)loadNext();},150);
-});
 
 // 테스트 현황 모달
 on('failAllBtn','click',function(){
@@ -2769,7 +2759,7 @@ on('cancelModalConfirm','click',function(){$('cancelModal').classList.remove('sh
 document.addEventListener('keydown',function(e){
   if(e.key!=='Enter')return;
   if($('quizScreen').style.display!=='block')return;
-  if($('nextBtn').style.display==='block'){e.preventDefault();loadNext();return;}
+  if($('nextBtn').style.display==='block'){e.preventDefault();confirmWrongAnswer();return;}
   if($('checkBtn').style.display==='block'){e.preventDefault();checkAnswer();return;}
 });
 

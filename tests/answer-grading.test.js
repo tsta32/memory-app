@@ -40,4 +40,9 @@ assert.match(app, /on\('markCorrectBtn','click',function\(\).*finalizeCorrect\(t
 assert.match(app, /manualCorrectCount/);
 assert.doesNotMatch(app, /recheckIrregularGrammar|SECOND_PASS_IRREGULAR|verifiedAiIrregularPair/);
 assert.match(app, /if\(result\.pass\)\{finalizeCorrect\(\);return;\}\s*showDiff\(raw,reference\)/);
+assert.match(app, /function confirmWrongAnswer\(\)[\s\S]*recordAnswerErrors\(card\.id,card\.en,decision\.y,decision\.result\.errors\)/);
+assert.match(app, /on\('nextBtn','click',confirmWrongAnswer\)/);
+assert.match(app, /if\(\$\('nextBtn'\)\.style\.display==='block'\)\{e\.preventDefault\(\);confirmWrongAnswer\(\);return;\}/);
+assert.match(app, /var current=null[\s\S]*answerSettled=false/);
+assert.doesNotMatch(app, /skipFailBtn|markWrongBtn/);
 console.log('Passed answer normalization, article-only option, and manual grading regression checks.');
