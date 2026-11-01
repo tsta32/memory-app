@@ -225,16 +225,60 @@ function deterministicGrade(reference,answer,options){
   }
   return{pass:pass,errors:pass?[]:[{type:'vocabulary',reason:'정규화 후에도 답안이 다릅니다.'}]};
 }
-function diffHL(y,a){
-  var max=Math.max(y.length,a.length),yh='',ah='';
-  for(var i=0;i<max;i++){
-    var yc=y[i]||'',ac=a[i]||'';
-    if(yc===ac){yh+=esc(yc);ah+=esc(ac);}
+function diffTokenRecords(text,mode,articleEnabled){
+  var words=[],re=/[A-Za-z0-9]+(?:['’][A-Za-z0-9]+)*/g,m;
+  while((m=re.exec(String(text||'')))!==null)words.push({text:m[0],start:m.index,end:m.index+m[0].length,index:words.length});
+  var records=[];
+  words.forEach(function(word,index){
+    var values;
+    if(mode==='raw')values=answerTokensWithoutContractionExpansion(word.text);
     else{
-      yh+=yc?'<span style="background:var(--danger-bg);color:var(--danger-text);border-radius:2px;">'+esc(yc)+'</span>':'';
-      ah+=ac?'<span style="background:var(--success-bg);color:var(--success-text);border-radius:2px;">'+esc(ac)+'</span>':'';
+      values=answerTokens(word.text);
+      if(index+1<words.length){
+        var withNext=answerTokens(word.text+' '+words[index+1].text),nextValues=answerTokens(words[index+1].text);
+        var suffixMatches=nextValues.length<=withNext.length&&nextValues.every(function(value,suffixIndex){return value===withNext[withNext.length-nextValues.length+suffixIndex];});
+        if(suffixMatches)values=withNext.slice(0,withNext.length-nextValues.length);
+      }
     }
-  }return{y:yh,a:ah};
+    values.forEach(function(value){if(articleEnabled||!ARTICLE_WORDS[value])records.push({value:value,wordIndex:index});});
+  });
+  return{words:words,records:records};
+}
+function alignDiffTokens(left,right){
+  var n=left.records.length,m=right.records.length,dp=Array.from({length:n+1},function(){return new Array(m+1).fill(0);}),i,j;
+  for(i=n-1;i>=0;i--)for(j=m-1;j>=0;j--){
+    dp[i][j]=left.records[i].value===right.records[j].value?1+dp[i+1][j+1]:Math.max(dp[i+1][j],dp[i][j+1]);
+  }
+  var leftMarked={},rightMarked={};i=0;j=0;
+  while(i<n||j<m){
+    if(i<n&&j<m&&left.records[i].value===right.records[j].value){i++;j++;continue;}
+    if(i<n&&(j===m||dp[i+1][j]>=dp[i][j+1])){leftMarked[left.records[i].wordIndex]=true;i++;continue;}
+    if(j<m){rightMarked[right.records[j].wordIndex]=true;j++;continue;}
+  }
+  return{cost:n+m-(2*dp[0][0]),leftMarked:leftMarked,rightMarked:rightMarked};
+}
+function renderDiffText(text,words,marked,color){
+  var out='',cursor=0;
+  words.forEach(function(word){
+    out+=esc(text.slice(cursor,word.start));
+    var slice=text.slice(word.start,word.end);
+    if(marked[word.index])slice=slice.replace(/[A-Za-z0-9]+/g,function(part){return'<span style="background:var(--'+color+'-bg);color:var(--'+color+'-text);border-radius:2px;">'+esc(part)+'</span>';});
+    else slice=esc(slice);
+    out+=slice;cursor=word.end;
+  });
+  return out+esc(text.slice(cursor));
+}
+function diffHL(y,a,options){
+  options=normalizeGrammarOptions(options);
+  var leftExpanded=diffTokenRecords(y,'expanded',options.article),rightExpanded=diffTokenRecords(a,'expanded',options.article);
+  var alignment=alignDiffTokens(leftExpanded,rightExpanded);
+  var left=leftExpanded,right=rightExpanded;
+  var leftRaw=diffTokenRecords(y,'raw',options.article),rightRaw=diffTokenRecords(a,'raw',options.article),rawAlignment=alignDiffTokens(leftRaw,rightRaw);
+  if(rawAlignment.cost<alignment.cost){left=leftRaw;right=rightRaw;alignment=rawAlignment;}
+  return{
+    y:renderDiffText(y,left.words,alignment.leftMarked,'danger'),
+    a:renderDiffText(a,right.words,alignment.rightMarked,'success')
+  };
 }
 
 /* ---------- persistence ---------- */
@@ -2102,7 +2146,7 @@ function finalizeCorrect(manual){
   }, 150);
 }
 function showDiff(y,a){
-  pendingDiff={y:y,a:a,result:deterministicGrade(a,y,settings.grammarOptions)};var d=diffHL(y,a);
+  pendingDiff={y:y,a:a,result:deterministicGrade(a,y,settings.grammarOptions)};var d=diffHL(y,a,settings.grammarOptions);
   $('diffYour').innerHTML='내 답변: '+(y.trim()?d.y:'(입력 없음)');$('diffAns').innerHTML='모범 답안: '+d.a;
   $('diffYour').style.display='';$('diffAns').style.display='';
   $('diffMessage').textContent=currentIsRetest

@@ -252,6 +252,49 @@ test('omitted apostrophe in I’ll is accepted in first test and retest stages o
   } finally { await retest.context.close(); }
 });
 
+test('answer differences highlight only normalized grading mismatches in first test and both retest stages', async ({ browser }) => {
+  const reference = 'the time was changed';
+  const answer = 'The time has changed.';
+  const firstPass = await openQuiz(browser, reference);
+  try {
+    await enterAnswerAndCheck(firstPass.page, answer);
+    await expect(firstPass.page.locator('#diffPanel')).toBeVisible();
+    await expect(firstPass.page.locator('#diffYour span')).toHaveText(['has']);
+    await expect(firstPass.page.locator('#diffAns span')).toHaveText(['was']);
+  } finally { await firstPass.context.close(); }
+
+  const retest = await openApp(browser, reference);
+  try {
+    await retest.page.locator('#startBtn').click();
+    await enterAnswerAndCheck(retest.page, answer);
+    await expect(retest.page.locator('#diffPanel')).toBeVisible();
+    await expect(retest.page.locator('#diffYour span')).toHaveText(['has']);
+    await expect(retest.page.locator('#diffAns span')).toHaveText(['was']);
+    await retest.page.locator('#nextBtn').click();
+    await expect(retest.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    await retest.page.waitForTimeout(320);
+
+    await enterAnswerAndCheck(retest.page, answer);
+    await expect(retest.page.locator('#diffPanel')).toBeVisible();
+    await expect(retest.page.locator('#diffYour span')).toHaveText(['has']);
+    await expect(retest.page.locator('#diffAns span')).toHaveText(['was']);
+    await retest.page.locator('#nextBtn').click();
+    await expect(retest.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    await retest.page.waitForTimeout(320);
+    await enterAnswerAndCheck(retest.page, reference);
+    await expect(retest.page.locator('#diffMessage')).toContainText('실루엣 단계 정답');
+    await retest.page.locator('#nextBtn').click();
+    await retest.page.waitForTimeout(320);
+    await expect(retest.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
+
+    await enterAnswerAndCheck(retest.page, answer);
+    await expect(retest.page.locator('#diffPanel')).toBeVisible();
+    await expect(retest.page.locator('#diffYour span')).toHaveText(['has']);
+    await expect(retest.page.locator('#diffAns span')).toHaveText(['was']);
+    await assertHealthyBrowser(retest);
+  } finally { await retest.context.close(); }
+});
+
 test('real settings UI exposes only the article option and result buttons settle one answer once', async ({ browser }) => {
   const inventory = await openApp(browser, "I'll reconnect.");
   try {

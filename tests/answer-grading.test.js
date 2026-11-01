@@ -14,8 +14,9 @@ function source(name) {
   assert.fail(`function ${name} closes`);
 }
 const context = { GRAMMAR_OPTION_DEFAULTS: { article: true }, ARTICLE_WORDS: { a: 1, an: 1, the: 1 } };
+context.esc = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 vm.createContext(context);
-vm.runInContext([source('expandContractions'), source('answerTokens'), source('answerTokensWithoutContractionExpansion'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('buildAnswerSilhouette'), source('zeroNgCounts')].join('\n'), context);
+vm.runInContext([source('expandContractions'), source('answerTokens'), source('answerTokensWithoutContractionExpansion'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('diffTokenRecords'), source('alignDiffTokens'), source('renderDiffText'), source('diffHL'), source('buildAnswerSilhouette'), source('zeroNgCounts')].join('\n'), context);
 const normalize = s => context.answerTokens(s).join(' ');
 const equivalent = [
   ["I'm ready!", 'I am ready.'], ["don't", 'do not'], ["won't", 'will not'],
@@ -34,6 +35,16 @@ for (const [a, b] of equivalent) assert.equal(normalize(a), normalize(b), `${a} 
 for (const [a, b] of [["he's ready", "he's finished"], ["I'd gone", 'I would go']]) assert.notEqual(normalize(a), normalize(b));
 assert.equal(context.deterministicGrade('Let’s review today’s agenda first.', "let's review today's agenda first", { article: true }).pass, true);
 assert.equal(context.deterministicGrade('I’ll verify the meeting time.', 'ill verify the meeting time', { article: true }).pass, true);
+const normalizedDiff = context.diffHL('The time has changed.', 'the time was changed', { article: true });
+assert.deepEqual(Array.from(normalizedDiff.y.matchAll(/<span[^>]*>(.*?)<\/span>/g), match => match[1]), ['has']);
+assert.deepEqual(Array.from(normalizedDiff.a.matchAll(/<span[^>]*>(.*?)<\/span>/g), match => match[1]), ['was']);
+assert.equal(context.diffHL('Lets do it?', "let's do it.", { article: true }).y.includes('<span'), false, 'ignored apostrophe/punctuation difference is not highlighted');
+const articleOffDiff = context.diffHL('I saw bird cat.', 'I saw a bird dog.', { article: false });
+assert.deepEqual(Array.from(articleOffDiff.y.matchAll(/<span[^>]*>(.*?)<\/span>/g), match => match[1]), ['cat']);
+assert.deepEqual(Array.from(articleOffDiff.a.matchAll(/<span[^>]*>(.*?)<\/span>/g), match => match[1]), ['dog']);
+const contractionDiff = context.diffHL("I'll verify the time tomorrow.", 'I will verify the date tomorrow.', { article: true });
+assert.deepEqual(Array.from(contractionDiff.y.matchAll(/<span[^>]*>(.*?)<\/span>/g), match => match[1]), ['time']);
+assert.deepEqual(Array.from(contractionDiff.a.matchAll(/<span[^>]*>(.*?)<\/span>/g), match => match[1]), ['date']);
 assert.notEqual(normalize('red-blue'), normalize('redblue'), 'punctuation between words must not merge tokens');
 assert.equal(context.deterministicGrade('I saw a bird.', 'I saw the bird.', { article: true }).pass, false);
 assert.equal(context.deterministicGrade('I saw a bird.', 'I saw the bird.', { article: false }).pass, true);
