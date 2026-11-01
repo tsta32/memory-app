@@ -70,7 +70,10 @@ input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(42
 .stats-bar{display:flex;gap:8px;margin-bottom:14px;}
 .stat{flex:1;background:var(--surface);border-radius:var(--r-lg);padding:10px;text-align:center;border:1.5px solid var(--border);}
 .stat .lbl{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;font-weight:800;}
+#manualCorrectStat{min-width:0;}
+#manualCorrectStat .lbl{white-space:nowrap;letter-spacing:0.02em;}
 .stat .val{font-size:22px;font-weight:800;margin-top:2px;}
+@media(max-width:420px){.stats-bar{gap:4px;}.stat{min-width:0;padding:8px 3px;}.stat .lbl{font-size:8px;letter-spacing:0;}#manualCorrectStat .lbl{font-size:7px;}}
 .badge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;padding:5px 14px;border-radius:var(--r-full);margin-bottom:12px;background:var(--accent-light);color:var(--accent-text);border:1.5px solid rgba(42,157,143,0.2);}
 #quizCard{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-xl);padding:22px;box-shadow:0 4px 24px rgba(0,0,0,0.06);}
 #koreanText{font-size:20px;font-weight:700;line-height:1.6;margin-bottom:10px;min-height:58px;transition:color 0.15s;}
@@ -414,6 +417,13 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
         <div id="grammarErrorStats" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
 
+      <div class="card" style="margin-bottom:12px;">
+        <h2 style="font-size:15px;margin-bottom:6px;">🧹 학습 데이터 관리</h2>
+        <p class="muted" style="margin-bottom:10px;">카드에 누적된 오답 횟수만 초기화합니다. 오답 이력과 학습 일정은 유지됩니다.</p>
+        <button type="button" id="resetNgCountsBtn" style="width:100%;color:var(--danger-text);border-color:var(--danger);font-weight:700;">오답 누적 횟수 초기화</button>
+        <p class="muted" id="resetNgCountsFeedback" role="status" style="margin-top:8px;min-height:16px;"></p>
+      </div>
+
       <div class="card">
         <h2 style="font-size:15px;margin-bottom:12px;">📁 챕터 관리</h2>
         <div id="chapterManagerList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
@@ -436,7 +446,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
     <div class="stats-bar">
       <div class="stat"><div class="lbl">정답 처리</div><div class="val" id="progressCount">0/0</div></div>
       <div class="stat"><div class="lbl">연속 정답</div><div class="val" id="streakCount" style="color:var(--info);">0</div></div>
-      <div class="stat"><div class="lbl">수동판정정답</div><div class="val" id="manualCorrectCount">0</div></div>
+      <div class="stat" id="manualCorrectStat"><div class="lbl">수동판정정답</div><div class="val" id="manualCorrectCount">0</div></div>
       <div class="stat"><div class="lbl">미처리 남음</div><div class="val" id="remainingCount" style="color:var(--warning);">0</div></div>
     </div>
     <div class="card" id="quizCard">
@@ -458,7 +468,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
         autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
         style="margin-bottom:12px;" />
       <div id="diffPanel">
-        <p class="muted" style="margin-bottom:6px;">오답입니다. 답을 확인한 뒤 다음 문제로 이동하거나 정답으로 변경하세요.</p>
+        <p class="muted" id="diffMessage" style="margin-bottom:6px;">오답입니다. 답을 확인한 뒤 다음 문제로 이동하거나 정답으로 변경하세요.</p>
         <div class="row" id="diffYour"></div>
         <div class="row" id="diffAns"></div>
         <div class="diff-actions">

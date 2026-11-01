@@ -15,7 +15,7 @@ function source(name) {
 }
 const context = { GRAMMAR_OPTION_DEFAULTS: { article: true }, ARTICLE_WORDS: { a: 1, an: 1, the: 1 } };
 vm.createContext(context);
-vm.runInContext([source('expandContractions'), source('answerTokens'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions')].join('\n'), context);
+vm.runInContext([source('expandContractions'), source('answerTokens'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('buildAnswerSilhouette'), source('zeroNgCounts')].join('\n'), context);
 const normalize = s => context.answerTokens(s).join(' ');
 const equivalent = [
   ["I'm ready!", 'I am ready.'], ["don't", 'do not'], ["won't", 'will not'],
@@ -36,13 +36,23 @@ for (const [a, b] of [['I went home.', 'I go home.'], ['She taught me.', 'She te
   assert.equal(context.deterministicGrade(a, b, {}).pass, false, `${a} / ${b} requires manual decision`);
 }
 assert.deepEqual(Object.keys(context.normalizeGrammarOptions({tense:false, number:false, modal:false, article:false, preposition:false})), ['article']);
+assert.equal(context.buildAnswerSilhouette('Could you speak a little more slowly?'), 'C____ y__ s____ a l_____ m___ s_____');
+assert.equal(context.buildAnswerSilhouette('I went to the office yesterday.'), 'I w___ t_ t__ o_____ y________');
+assert.equal(context.buildAnswerSilhouette("She's already finished her work."), 'S___ a______ f_______ h__ w___');
+assert.equal(context.buildAnswerSilhouette('A I!'), 'A I');
+const resetCards = [{ ngCount: 4, stage: 2, dueAt: 123, lastTestedAt: 456 }, { ngCount: 0, stage: 1, dueAt: 789 }, { stage: 3, dueAt: 999 }];
+assert.equal(context.zeroNgCounts(resetCards), 1);
+assert.deepEqual(JSON.parse(JSON.stringify(resetCards)), [{ ngCount: 0, stage: 2, dueAt: 123, lastTestedAt: 456 }, { ngCount: 0, stage: 1, dueAt: 789 }, { stage: 3, dueAt: 999 }]);
 assert.match(app, /on\('markCorrectBtn','click',function\(\).*finalizeCorrect\(true\)/);
 assert.match(app, /manualCorrectCount/);
 assert.doesNotMatch(app, /recheckIrregularGrammar|SECOND_PASS_IRREGULAR|verifiedAiIrregularPair/);
 assert.match(app, /if\(result\.pass\)\{finalizeCorrect\(\);return;\}\s*showDiff\(raw,reference\)/);
 assert.match(app, /function confirmWrongAnswer\(\)[\s\S]*recordAnswerErrors\(card\.id,card\.en,decision\.y,decision\.result\.errors\)/);
-assert.match(app, /on\('nextBtn','click',confirmWrongAnswer\)/);
-assert.match(app, /if\(\$\('nextBtn'\)\.style\.display==='block'\)\{e\.preventDefault\(\);confirmWrongAnswer\(\);return;\}/);
+assert.match(app, /on\('nextBtn','click',handleResultNext\)/);
+assert.match(app, /if\(\$\('nextBtn'\)\.style\.display==='block'\)\{e\.preventDefault\(\);handleResultNext\(\);return;\}/);
+assert.match(app, /retestUnresolvedIds=retestUnresolvedIds\.filter/);
+assert.match(app, /retestQueue\.push\(retestCard\.id\)/);
+assert.match(app, /on\('resetNgCountsBtn','click'/);
 assert.match(app, /var current=null[\s\S]*answerSettled=false/);
 assert.doesNotMatch(app, /skipFailBtn|markWrongBtn/);
 console.log('Passed answer normalization, article-only option, and manual grading regression checks.');

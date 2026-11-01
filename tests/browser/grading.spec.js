@@ -6,22 +6,26 @@ const BLOCKED_WORKERS = new Set([
   'lively-wave-a149.tsta32.workers.dev'
 ]);
 
-async function openApp(browser, reference, grammarOptions = {}, extraCards = 0, savedManualCount = 0) {
+async function openApp(browser, reference, grammarOptions = {}, extraCards = 0, savedManualCount = 0, seed = {}) {
   const context = await browser.newContext();
   const diagnostics = { consoleErrors: [], pageErrors: [], requestFailures: [], badResponses: [], workerRequests: [] };
-  await context.addInitScript(({ reference, grammarOptions, cardId, extraCards, savedManualCount }) => {
+  await context.addInitScript(({ reference, grammarOptions, cardId, extraCards, savedManualCount, seed }) => {
+    if (sessionStorage.getItem('__memory_app_fixture_seeded')) return;
+    const overrides = Array.isArray(extraCards) ? extraCards : [];
+    const extraCount = Array.isArray(extraCards) ? extraCards.length : extraCards;
     const cards = [{ id: cardId, ko: '브라우저 회귀 검사', en: reference, chapterId: 42, stage: 0,
-      dueAt: Date.now() - 1000, bookmarked: false, everAnswered: false, ngCount: 0, lastTestedAt: 0 }];
-    for (let i = 0; i < extraCards; i++) cards.push({ ...cards[0], id: cardId + i + 1 });
+      dueAt: Date.now() - 1000, bookmarked: false, everAnswered: false, ngCount: 0, lastTestedAt: 0, ...(seed.cardOverrides?.[0] || {}) }];
+    for (let i = 0; i < extraCount; i++) cards.push({ ...cards[0], id: cardId + i + 1, ...(overrides[i] || {}), ...(seed.cardOverrides?.[i + 1] || {}) });
     localStorage.setItem('srs_chapters_v1', JSON.stringify({ chapters: [{ id: 42, name: 'Browser test' }], nextId: 43 }));
     localStorage.setItem('srs_cards_v2', JSON.stringify({
       cards,
-      nextId: cardId + extraCards + 1
+      nextId: cardId + extraCount + 1
     }));
-    localStorage.setItem('srs_settings_v1', JSON.stringify({ grammarOptions, manualCorrectTotal: savedManualCount }));
-    localStorage.setItem('srs_error_history_v1', JSON.stringify({ version: 1, records: [] }));
+    localStorage.setItem('srs_settings_v1', JSON.stringify({ grammarOptions, manualCorrectTotal: savedManualCount, ...(seed.settings || {}) }));
+    localStorage.setItem('srs_error_history_v1', JSON.stringify(seed.errorHistory || { version: 1, records: [] }));
     localStorage.removeItem('memory_sync_code_v1');
-  }, { reference, grammarOptions, cardId: TEST_CARD_ID, extraCards, savedManualCount });
+    sessionStorage.setItem('__memory_app_fixture_seeded', '1');
+  }, { reference, grammarOptions, cardId: TEST_CARD_ID, extraCards, savedManualCount, seed });
 
   await context.route('**/*', async route => {
     const url = new URL(route.request().url());
@@ -134,9 +138,19 @@ test('real UI normalizes case and punctuation, then waits for explicit incorrect
     await expect(negative.page.locator('#progressCount')).toHaveText('0/2');
     await negative.page.locator('#nextBtn').click();
     await expect(negative.page.locator('#progressCount')).toHaveText('1/2');
+    await negative.page.waitForTimeout(320);
     await enterAnswerAndCheck(negative.page, "I won't reconnect.");
     await expect(negative.page.locator('#diffPanel')).toBeVisible();
     await negative.page.locator('#answerInput').press('Enter');
+    await expect(negative.page.locator('#boxBadge')).toHaveText('오답 재출제');
+    await negative.page.waitForTimeout(320);
+    await enterAnswerAndCheck(negative.page, "I'll reconnect.");
+    await expect(negative.page.locator('#diffPanel')).toBeVisible();
+    await negative.page.locator('#nextBtn').click();
+    await negative.page.waitForTimeout(320);
+    await enterAnswerAndCheck(negative.page, "I'll reconnect.");
+    await expect(negative.page.locator('#diffPanel')).toBeVisible();
+    await negative.page.locator('#nextBtn').click();
     await expect(negative.page.locator('#doneScreen')).toBeVisible();
     const history = await negative.page.evaluate(() => JSON.parse(localStorage.getItem('srs_error_history_v1')));
     expect(history.records).toHaveLength(2);
@@ -195,7 +209,7 @@ test('real settings UI exposes only the article option and result buttons settle
     await expect(manual.page.locator('#diffPanel')).toBeVisible();
     await manual.page.locator('#markCorrectBtn').click();
     await expectCorrect(manual.page);
-    await expect(manual.page.locator('#manualCorrectCount')).toHaveText('수동판정정답 5');
+    await expect(manual.page.locator('#manualCorrectCount')).toHaveText('5');
     await manual.page.locator('#markCorrectBtn').evaluate(button => { button.click(); button.click(); });
     await expect(manual.page.locator('#progressCount')).toHaveText('1/1');
     const correctedCard = await manual.page.evaluate(() => JSON.parse(localStorage.getItem('srs_cards_v2')).cards[0]);
@@ -213,9 +227,10 @@ test('real settings UI exposes only the article option and result buttons settle
     await nextCard.page.locator('#markCorrectBtn').click();
     await expect(nextCard.page.locator('#progressCount')).toHaveText('1/2');
     await expect(nextCard.page.locator('#diffPanel')).toBeHidden();
+    await nextCard.page.waitForTimeout(320);
     await enterAnswerAndCheck(nextCard.page, 'I go home.');
     await expect(nextCard.page.locator('#diffPanel')).toBeVisible();
-    await expect(nextCard.page.locator('#manualCorrectCount')).toHaveText('수동판정정답 1');
+    await expect(nextCard.page.locator('#manualCorrectCount')).toHaveText('1');
     await assertHealthyBrowser(nextCard);
   } finally { await nextCard.context.close(); }
 
@@ -248,4 +263,113 @@ test('local app documents its assets without contacting sync or grading Workers'
   } finally {
     await testApp.context.close();
   }
+});
+
+test('retest repeats unresolved misses, excludes manually corrected cards, and never changes persistent learning data', async ({ browser }) => {
+  const app = await openApp(browser, 'I went home.', {}, 2, 0);
+  try {
+    await app.page.locator('#startBtn').click();
+    await enterAnswerAndCheck(app.page, 'I go home.');
+    await app.page.locator('#nextBtn').click();
+    await app.page.waitForTimeout(320);
+    await enterAnswerAndCheck(app.page, 'I go home.');
+    await app.page.locator('#answerInput').press('Enter');
+    await app.page.waitForTimeout(320);
+    await enterAnswerAndCheck(app.page, 'I go home.');
+    await app.page.locator('#markCorrectBtn').click();
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제');
+    await expect(app.page.locator('#hintText')).toHaveText('I w___ h___');
+    const beforeRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
+    const manualCount = await app.page.locator('#manualCorrectCount').textContent();
+    await enterAnswerAndCheck(app.page, 'I go home.');
+    await expect(app.page.locator('#diffPanel')).toBeVisible();
+    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
+    await app.page.locator('#answerInput').press('Enter');
+    await app.page.waitForTimeout(320);
+    await enterAnswerAndCheck(app.page, 'I went home.');
+    await expect(app.page.locator('#diffPanel')).toBeVisible();
+    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
+    await app.page.locator('#nextBtn').click();
+    await app.page.waitForTimeout(320);
+    await enterAnswerAndCheck(app.page, 'I went home.');
+    await expect(app.page.locator('#diffPanel')).toBeVisible();
+    await app.page.locator('#nextBtn').click();
+    await expect(app.page.locator('#doneScreen')).toBeVisible();
+    await expect(app.page.locator('#doneSummary')).toContainText('오답 재출제 완료');
+    expect(await app.page.locator('#manualCorrectCount').textContent()).toBe(manualCount);
+    const afterRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
+    expect(afterRetest).toEqual(beforeRetest);
+    await assertHealthyBrowser(app);
+  } finally { await app.context.close(); }
+});
+
+test('retest uses contraction normalization and the saved article option', async ({ browser }) => {
+  const app = await openApp(browser, "She's finished a report.", { article: false });
+  try {
+    await app.page.locator('#startBtn').click();
+    await enterAnswerAndCheck(app.page, 'She has not finished it.');
+    await app.page.locator('#nextBtn').click();
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제');
+    await expect(app.page.locator('#hintText')).toHaveText('S___ f_______ a r_____');
+    await app.page.waitForTimeout(320);
+    await enterAnswerAndCheck(app.page, 'She has finished the report!');
+    await expect(app.page.locator('#diffPanel')).toBeVisible();
+    await app.page.locator('#nextBtn').click();
+    await expect(app.page.locator('#doneScreen')).toBeVisible();
+    const history = await app.page.evaluate(() => JSON.parse(localStorage.getItem('srs_error_history_v1')).records);
+    expect(history).toHaveLength(1);
+    await assertHealthyBrowser(app);
+  } finally { await app.context.close(); }
+});
+
+test('wrong-count reset confirms, cancels safely, saves only ngCount, and preserves other data', async ({ browser }) => {
+  const originalHistory = { version: 1, records: [{ cardId: TEST_CARD_ID, count: 3, occurrences: [{ reason: 'kept' }] }] };
+  const app = await openApp(browser, 'I went home.', {}, 1, 9, {
+    cardOverrides: [{ ngCount: 4, stage: 2, dueAt: Date.now() + 86400000, lastTestedAt: 1234 }, { ngCount: 2, stage: 1, dueAt: Date.now() + 40000000 }],
+    errorHistory: originalHistory,
+    settings: { correctTotal: 11 }
+  });
+  try {
+    await app.page.locator('#tabSettings').click();
+    const before = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
+    app.page.once('dialog', dialog => dialog.dismiss());
+    await app.page.locator('#resetNgCountsBtn').click();
+    expect(await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }))).toEqual(before);
+    app.page.once('dialog', dialog => {
+      expect(dialog.message()).toContain('오답 누적 횟수');
+      expect(dialog.message()).toContain('SRS 단계');
+      dialog.accept();
+    });
+    await app.page.locator('#resetNgCountsBtn').click();
+    await expect(app.page.locator('#resetNgCountsFeedback')).toContainText('2개 카드의 오답 누적 횟수를 초기화');
+    const saved = await app.page.evaluate(() => ({ cards: JSON.parse(localStorage.getItem('srs_cards_v2')), errors: JSON.parse(localStorage.getItem('srs_error_history_v1')), settings: JSON.parse(localStorage.getItem('srs_settings_v1')) }));
+    expect(saved.cards.cards.map(card => card.ngCount)).toEqual([0, 0]);
+    expect(saved.cards.cards.map(card => [card.stage, card.dueAt, card.lastTestedAt])).toEqual([[2, expect.any(Number), 1234], [1, expect.any(Number), 1234]]);
+    expect(saved.errors).toEqual(originalHistory);
+    expect(saved.settings).toMatchObject({ correctTotal: 11, manualCorrectTotal: 9 });
+    await app.page.reload();
+    expect(await app.page.evaluate(() => JSON.parse(localStorage.getItem('srs_cards_v2')).cards.map(card => card.ngCount))).toEqual([0, 0]);
+    await assertHealthyBrowser(app);
+  } finally { await app.context.close(); }
+});
+
+test('manual-correct statistic heading stays on one line on desktop and mobile', async ({ browser }) => {
+  const app = await openApp(browser, 'I went home.');
+  try {
+    await app.page.locator('#startBtn').click();
+    for (const width of [320, 390, 1280]) {
+      await app.page.setViewportSize({ width, height: 850 });
+      const heading = app.page.locator('#manualCorrectStat .lbl');
+      await expect(heading).toHaveText('수동판정정답');
+      const metrics = await heading.evaluate(node => {
+        const range = document.createRange(); range.selectNodeContents(node);
+        return { height: node.getBoundingClientRect().height, lines: range.getClientRects().length, scrollWidth: node.scrollWidth, clientWidth: node.clientWidth };
+      });
+      expect(metrics.lines).toBe(1);
+      expect(metrics.height).toBeLessThanOrEqual(16);
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+      await expect(app.page.locator('#manualCorrectCount')).toBeVisible();
+    }
+    await assertHealthyBrowser(app);
+  } finally { await app.context.close(); }
 });

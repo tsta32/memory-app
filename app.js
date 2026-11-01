@@ -20,10 +20,13 @@ var errorHistory=[],errorHistoryWritable=true;
 
 var sessionQueue=[],sessionUniqueIds=[],sessionDoneCount=0,streak=0;
 var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0,answerSettled=false;
-var sessionMissedIds=[],retryQueue=[];
+var sessionMissedIds=[],retestCandidateIds=[],retryQueue=[];
+var retestMode=false,retestQueue=[],retestUnresolvedIds=[],retestCorrectWaiting=false;
 var sessionCompletedIds=[]; // 정답/오답 확정된 카드 id (완료)
 var sessionSkippedIds=[];   // 오답처리 건너뛴 카드 id
 var currentIsRetry=false; // 현재 풀고 있는 카드가 세션 내 재도전 카드인지 여부
+var currentIsRetest=false;
+var advanceInputLockUntil=0;
 
 var acSort='added',acShowKo=true,acShowEn=true,acSearch='';
 var acChapterFilter=null,acCheckedIds={};
@@ -190,6 +193,18 @@ var ARTICLE_WORDS={a:1,an:1,the:1};
 function answerTokens(s){
   s=expandContractions(String(s||''));
   return s.replace(/[.,!?;:'"()[\]{}\-—–…]/g,' ').replace(/[^a-z0-9\s]/g,' ').trim().split(/\s+/).filter(Boolean);
+}
+function buildAnswerSilhouette(answer){
+  return String(answer||'').replace(/\p{P}/gu,'').replace(/\p{L}+/gu,function(word){
+    return word.length<2?word:word.charAt(0)+new Array(word.length).join('_');
+  });
+}
+function zeroNgCounts(cardList){
+  var changed=0;
+  (cardList||[]).forEach(function(card){
+    if(card&&typeof card.ngCount==='number'&&card.ngCount!==0){card.ngCount=0;changed++;}
+  });
+  return changed;
 }
 function articleFiltered(tokens,enabled){return enabled?tokens:tokens.filter(function(word){return !ARTICLE_WORDS[word];});}
 function deterministicGrade(reference,answer,options){
@@ -548,9 +563,10 @@ function startSessionWith(isPractice){
   if(quizBmOnly) chosen=chosen.filter(function(c){return c.bookmarked;});
   if(!chosen.length){$('ngFilterInfo').textContent='해당 카드 없음';$('ngFilterInfo').style.color='var(--danger-text)';return;}
   sessionQueue=chosen.map(function(c){return c.id;});sessionUniqueIds=chosen.map(function(c){return c.id;});
-  sessionDoneCount=0;streak=0;sessionMissedIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
+  sessionDoneCount=0;streak=0;sessionMissedIds=[];retestCandidateIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
+  retestMode=false;retestQueue=[];retestUnresolvedIds=[];retestCorrectWaiting=false;currentIsRetest=false;
   sessionCompletedIds=[];sessionSkippedIds=[];
-  $('setupScreen').style.display='none';$('quizScreen').style.display='block';
+  $('failAllBtn').disabled=false;$('setupScreen').style.display='none';$('quizScreen').style.display='block';
   loadNext();
 }
 
@@ -1295,6 +1311,15 @@ function renderGrammarErrorStats(){
     body.appendChild(reference);body.appendChild(actual);body.appendChild(dates);item.appendChild(body);root.appendChild(item);
   });
 }
+on('resetNgCountsBtn','click',function(){
+  var confirmed=window.confirm('초기화 대상: 모든 카드의 오답 누적 횟수(ngCount)만 0으로 초기화합니다.\n\n초기화되지 않는 항목: 기존 오답 이력과 반복 기록, SRS 단계와 다음 복습일, 카드 내용, 학습 기록, 정답 통계 및 수동판정정답 통계.\n\n오답 누적 횟수를 초기화할까요?');
+  if(!confirmed)return;
+  var changed=zeroNgCounts(cards);
+  if(changed)saveCards();
+  renderAllCards();refreshSetupInfo();
+  var feedback=$('resetNgCountsFeedback');
+  if(feedback)feedback.textContent=changed+'개 카드의 오답 누적 횟수를 초기화했습니다. 오답 이력과 SRS 일정은 유지했습니다.';
+});
 function closeGradeGuide(){
   var modal=$('gradeGuideModal');if(!modal)return;
   modal.classList.remove('show');modal.setAttribute('aria-hidden','true');
@@ -1518,7 +1543,7 @@ function scheduleCorrect(card,cls){
 }
 
 /* ---------- quiz UI ---------- */
-function updateStats(){$('progressCount').textContent=sessionDoneCount+'/'+sessionUniqueIds.length;$('streakCount').textContent=streak;$('remainingCount').textContent=Math.max(sessionUniqueIds.length-sessionDoneCount,0)+retryQueue.length;var manual=$('manualCorrectCount');if(manual)manual.textContent='수동판정정답 '+manualCorrectTotalCount;}
+function updateStats(){$('progressCount').textContent=sessionDoneCount+'/'+sessionUniqueIds.length;$('streakCount').textContent=streak;$('remainingCount').textContent=retestMode?retestUnresolvedIds.length:Math.max(sessionUniqueIds.length-sessionDoneCount,0)+retryQueue.length;var manual=$('manualCorrectCount');if(manual)manual.textContent=String(manualCorrectTotalCount);}
 function maskWord(w,lv){return w.split('').map(function(ch,i){if(!/[a-zA-Z]/.test(ch))return lv>=3?ch:'';if(lv>=3)return ch;if(lv===2&&i===0)return ch;return'_';}).join('');}
 function buildHint(en,lv){return en.split(' ').map(function(w){return maskWord(w,lv);}).join('   ');}
 function showHint(lv){var ht=$('hintText'),hl=$('hintLabel');if(lv<=0){ht.style.display='none';hl.style.display='none';return;}ht.textContent=buildHint(current.en,lv);ht.style.color=lv>=3?'var(--danger-text)':'var(--warning)';ht.style.display='block';hl.textContent=['','실루엣 힌트','첫 글자 힌트','전체 정답'][lv]||'';hl.style.display='block';}
@@ -1532,25 +1557,42 @@ function loadNext(){
   while(svg.firstChild) svg.removeChild(svg.firstChild);
   $('koreanText').style.color='';hintLevel=0;resetInputUI();
   var fh=$('footerHint');if(fh){fh.textContent='Enter로 확인 · 다음 카드로 이동';fh.style.color='';}
-  var id=null,isRetry=false;
+  var id=null,isRetry=false,isRetest=false;
   if(sessionQueue.length)id=sessionQueue.shift();
-  else if(retryQueue.length){id=retryQueue.shift();isRetry=true;}
-  else{finishSession();return;}
+  else if(!retestMode&&retryQueue.length){id=retryQueue.shift();isRetry=true;}
+  else{
+    if(!retestMode&&retestCandidateIds.length){
+      retestMode=true;
+      retestUnresolvedIds=Array.from(new Set(retestCandidateIds));
+      retestQueue=retestUnresolvedIds.slice();
+      $('failAllBtn').disabled=true;
+    }
+    if(retestMode){
+      retestQueue=retestQueue.filter(function(cardId){return retestUnresolvedIds.indexOf(cardId)!==-1;});
+      if(!retestQueue.length&&retestUnresolvedIds.length)retestQueue=retestUnresolvedIds.slice();
+      if(retestQueue.length){id=retestQueue.shift();isRetest=true;}
+      else{finishSession();return;}
+    }else{finishSession();return;}
+  }
   current=findCard(id);
   answerSettled=false;
+  retestCorrectWaiting=false;
   currentIsRetry=isRetry;
+  currentIsRetest=isRetest;
   // 질문 표시 체크박스 상태 반영
   var qmc=$('quizMarkCheck');
   if(qmc) qmc.checked=!!quizMarkedIds[current.id];
   updateQuizBmBtn();
-  $('boxBadge').textContent=isRetry?'재도전':(current.stage===0?'새 카드':'Lv'+current.stage+' · '+STAGE_DAYS[Math.min(current.stage-1,STAGE_DAYS.length-1)]+'일');
-  $('koreanText').textContent=current.ko;showHint(0);updateStats();
+  $('boxBadge').textContent=isRetest?'오답 재출제':isRetry?'재도전':(current.stage===0?'새 카드':'Lv'+current.stage+' · '+STAGE_DAYS[Math.min(current.stage-1,STAGE_DAYS.length-1)]+'일');
+  $('koreanText').textContent=current.ko;showHint(0);
+  if(isRetest){$('hintText').textContent=buildAnswerSilhouette(current.en);$('hintText').style.display='block';$('hintText').style.color='var(--warning)';$('hintLabel').textContent='영어 실루엣';$('hintLabel').style.display='block';}
+  updateStats();
 }
 
 function finishSession(){
   $('quizScreen').style.display='none';$('doneScreen').style.display='block';
   var practiceNote=practiceMode?' (연습 모드 — 복습 스케줄 미반영)':'';
-  $('doneSummary').textContent=sessionUniqueIds.length+'개 완료'+practiceNote;
+  $('doneSummary').textContent=sessionUniqueIds.length+'개 완료'+(retestMode?' · 오답 재출제 완료':'')+practiceNote;
   $('progressCount').style.color='';
   practiceMode=false;
   var mw=$('missedWrap'),ml=$('missedList');ml.innerHTML='';
@@ -1998,7 +2040,17 @@ on('bizNextBtn','click',function(){bizAllResults=[];bizStepResults=[];bizFinaliz
 function finalizeCorrect(manual){
   if(!current||answerSettled)return;
   answerSettled=true;
+  advanceInputLockUntil=Date.now()+300;
   pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('checkBtn').style.display='none';$('answerInput').disabled=true;
+  if(currentIsRetest){
+    retestUnresolvedIds=retestUnresolvedIds.filter(function(cardId){return cardId!==current.id;});
+    $('koreanText').style.color='var(--success)';flashCP('var(--success)',true);bigText('OK','#34A96E');playCorrectSound(false);
+    $('diffMessage').textContent='재출제 정답입니다. 다음 문제로 이동하려면 Enter 또는 버튼을 누르세요.';
+    $('diffYour').style.display='none';$('diffAns').style.display='none';$('markCorrectBtn').style.display='none';
+    $('nextBtn').textContent='다음 문제';$('nextBtn').style.display='block';$('diffPanel').style.display='block';
+    $('footerHint').textContent='정답 확인 후 Enter 또는 다음 문제를 누르세요.';
+    retestCorrectWaiting=true;updateStats();setTimeout(function(){$('nextBtn').focus();},50);return;
+  }
   if(manual){manualCorrectTotalCount++;settings.manualCorrectTotal=manualCorrectTotalCount;saveSettings();if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
   var cls=hintLevel>=2?'hard':'easy';
   current.lastTestedAt=now();
@@ -2033,12 +2085,30 @@ function finalizeCorrect(manual){
 function showDiff(y,a){
   pendingDiff={y:y,a:a,result:deterministicGrade(a,y,settings.grammarOptions)};var d=diffHL(y,a);
   $('diffYour').innerHTML='내 답변: '+(y.trim()?d.y:'(입력 없음)');$('diffAns').innerHTML='모범 답안: '+d.a;
+  $('diffYour').style.display='';$('diffAns').style.display='';
+  $('diffMessage').textContent=currentIsRetest?'재출제 오답입니다. 다시 풀려면 다음 문제를 누르거나 Enter를 누르세요.':'오답입니다. 답을 확인한 뒤 다음 문제로 이동하거나 정답으로 변경하세요.';
+  $('markCorrectBtn').style.display=currentIsRetest?'none':'block';$('nextBtn').textContent='다음 문제';
   $('diffPanel').style.display='block';$('checkBtn').style.display='none';$('nextBtn').style.display='block';$('answerInput').disabled=true;
   setTimeout(function(){$('nextBtn').focus();},50);
 }
+function advanceAfterRetestCorrect(){
+  if(!currentIsRetest||!retestCorrectWaiting||!answerSettled)return;
+  retestCorrectWaiting=false;advanceInputLockUntil=Date.now()+300;$('diffPanel').style.display='none';$('nextBtn').style.display='none';
+  var token=++autoAdvanceToken;setTimeout(function(){if(token===autoAdvanceToken)loadNext();},100);
+}
+function handleResultNext(){if(retestCorrectWaiting)advanceAfterRetestCorrect();else confirmWrongAnswer();}
 function confirmWrongAnswer(){
   if(!current||!pendingDiff||answerSettled)return;
   answerSettled=true;
+  advanceInputLockUntil=Date.now()+300;
+  if(currentIsRetest){
+    var retestCard=current;pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('answerInput').disabled=true;
+    if(retestUnresolvedIds.indexOf(retestCard.id)!==-1&&retestQueue.indexOf(retestCard.id)===-1)retestQueue.push(retestCard.id);
+    $('koreanText').style.color='var(--danger)';flashCP('var(--danger)',true);playWrongSound();
+    $('footerHint').textContent='재출제 오답입니다. 다음 라운드에 다시 출제합니다.';$('footerHint').style.color='var(--danger-text)';
+    updateStats();var retestToken=++autoAdvanceToken;
+    setTimeout(function(){if(retestToken===autoAdvanceToken)loadNext();},150);return;
+  }
   var decision=pendingDiff,card=current,historySaved=recordAnswerErrors(card.id,card.en,decision.y,decision.result.errors);
   pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('answerInput').disabled=true;
   $('koreanText').style.color='var(--danger)';flashCP('var(--danger)',true);playWrongSound();
@@ -2046,6 +2116,7 @@ function confirmWrongAnswer(){
   var firstMiss=sessionMissedIds.indexOf(card.id)===-1;
   if(!practiceMode&&firstMiss)card.ngCount=(card.ngCount||0)+1;
   sessionMissedIds.push(card.id);sessionSkippedIds.push(card.id);
+  if(!currentIsRetry&&retestCandidateIds.indexOf(card.id)===-1)retestCandidateIds.push(card.id);
   if(sessionCompletedIds.indexOf(card.id)===-1)sessionCompletedIds.push(card.id);
   if(!practiceMode){card.everAnswered=true;card.stage=0;card.dueAt=now()+FIFTEEN_MIN;card.lastTestedAt=now();saveCards();}
   sessionDoneCount++;retryQueue=retryQueue.filter(function(id){return id!==card.id;});
@@ -2055,7 +2126,7 @@ function confirmWrongAnswer(){
   setTimeout(function(){if(token===autoAdvanceToken)loadNext();},150);
 }
 function checkAnswer(){
-  if(!current||answerSettled||pendingDiff||$('checkBtn').disabled)return;
+  if(!current||answerSettled||pendingDiff||$('checkBtn').disabled||Date.now()<advanceInputLockUntil)return;
   var raw=$('answerInput').value;
   var reference=current.en,options=Object.assign({},settings.grammarOptions);
   var result=deterministicGrade(reference,raw,options);
@@ -2063,8 +2134,8 @@ function checkAnswer(){
   showDiff(raw,reference);
 }
 
-on('checkBtn','click',checkAnswer);on('nextBtn','click',confirmWrongAnswer);
-on('markCorrectBtn','click',function(){if(!current||!pendingDiff||answerSettled)return;finalizeCorrect(true);});
+on('checkBtn','click',checkAnswer);on('nextBtn','click',handleResultNext);
+on('markCorrectBtn','click',function(){if(!current||!pendingDiff||answerSettled||currentIsRetest)return;finalizeCorrect(true);});
 on('cancelSessionBtn','click',function(){$('cancelModal').classList.add('show');});
 
 // 테스트 현황 모달
@@ -2758,8 +2829,10 @@ on('cancelModalConfirm','click',function(){$('cancelModal').classList.remove('sh
 
 document.addEventListener('keydown',function(e){
   if(e.key!=='Enter')return;
+  if(e.repeat)return;
   if($('quizScreen').style.display!=='block')return;
-  if($('nextBtn').style.display==='block'){e.preventDefault();confirmWrongAnswer();return;}
+  if(Date.now()<advanceInputLockUntil){e.preventDefault();return;}
+  if($('nextBtn').style.display==='block'){e.preventDefault();handleResultNext();return;}
   if($('checkBtn').style.display==='block'){e.preventDefault();checkAnswer();return;}
 });
 
