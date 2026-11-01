@@ -15,7 +15,7 @@ function source(name) {
 }
 const context = { GRAMMAR_OPTION_DEFAULTS: { article: true }, ARTICLE_WORDS: { a: 1, an: 1, the: 1 } };
 vm.createContext(context);
-vm.runInContext([source('expandContractions'), source('answerTokens'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('buildAnswerSilhouette'), source('zeroNgCounts')].join('\n'), context);
+vm.runInContext([source('expandContractions'), source('answerTokens'), source('answerTokensWithoutContractionExpansion'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('buildAnswerSilhouette'), source('zeroNgCounts')].join('\n'), context);
 const normalize = s => context.answerTokens(s).join(' ');
 const equivalent = [
   ["I'm ready!", 'I am ready.'], ["don't", 'do not'], ["won't", 'will not'],
@@ -33,6 +33,7 @@ const equivalent = [
 for (const [a, b] of equivalent) assert.equal(normalize(a), normalize(b), `${a} ↔ ${b}`);
 for (const [a, b] of [["he's ready", "he's finished"], ["I'd gone", 'I would go']]) assert.notEqual(normalize(a), normalize(b));
 assert.equal(context.deterministicGrade('Let’s review today’s agenda first.', "let's review today's agenda first", { article: true }).pass, true);
+assert.equal(context.deterministicGrade('I’ll verify the meeting time.', 'ill verify the meeting time', { article: true }).pass, true);
 assert.notEqual(normalize('red-blue'), normalize('redblue'), 'punctuation between words must not merge tokens');
 assert.equal(context.deterministicGrade('I saw a bird.', 'I saw the bird.', { article: true }).pass, false);
 assert.equal(context.deterministicGrade('I saw a bird.', 'I saw the bird.', { article: false }).pass, true);
@@ -53,7 +54,9 @@ assert.doesNotMatch(app, /recheckIrregularGrammar|SECOND_PASS_IRREGULAR|verified
 assert.match(app, /if\(result\.pass\)\{finalizeCorrect\(\);return;\}\s*showDiff\(raw,reference\)/);
 assert.match(source('checkAnswer'), /deterministicGrade\(reference,raw,options\)/);
 assert.doesNotMatch(source('checkAnswer'), /currentIsRetest|retestMode/);
-assert.match(app, /currentRetestStage===1\?'promote':\(manual\?'retry':'complete'\)/);
+assert.match(app, /retestPendingAction=currentRetestStage===1\?'promote':'complete'/);
+assert.match(app, /manual\s*\?\s*\(currentRetestStage===1\?'정답으로 변경했습니다\. 다음에는 힌트 없이 다시 답해 주세요\.'[^\n]*'정답으로 변경했습니다\. 이 문제를 통과했습니다\.'/);
+assert.doesNotMatch(source('finalizeCorrect'), /manual\?'retry'/);
 assert.match(app, /currentRetestStage===2\)retestStages\[retestCard\.id\]=1/);
 assert.match(app, /retestPendingAction==='complete'[\s\S]*retestUnresolvedIds=retestUnresolvedIds\.filter/);
 assert.match(app, /on\('markCorrectBtn','click',function\(\)\{if\(!current\|\|!pendingDiff\|\|answerSettled\)return;finalizeCorrect\(true\);\}\)/);

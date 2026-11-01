@@ -217,6 +217,41 @@ test('smart apostrophe contraction equivalence is identical in first test and bo
   } finally { await retest.context.close(); }
 });
 
+test('omitted apostrophe in I’ll is accepted in first test and retest stages one and two', async ({ browser }) => {
+  const reference = 'I’ll verify the meeting time.';
+  const equivalent = 'ill verify the meeting time';
+  const firstPass = await openQuiz(browser, reference);
+  try {
+    await enterAnswerAndCheck(firstPass.page, equivalent);
+    await expectCorrect(firstPass.page);
+    await expect(firstPass.page.locator('#diffPanel')).toBeHidden();
+    await expect(firstPass.page.locator('#markCorrectBtn')).toBeHidden();
+  } finally { await firstPass.context.close(); }
+
+  const retest = await openApp(browser, reference);
+  try {
+    await retest.page.locator('#startBtn').click();
+    await enterAnswerAndCheck(retest.page, 'We will decide this later.');
+    await expect(retest.page.locator('#diffPanel')).toBeVisible();
+    await retest.page.locator('#nextBtn').click();
+    await expect(retest.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    await enterAnswerAndCheck(retest.page, equivalent);
+    await expect(retest.page.locator('#diffMessage')).toContainText('실루엣 단계 정답');
+    await expect(retest.page.locator('#diffYour')).toBeHidden();
+    await expect(retest.page.locator('#markCorrectBtn')).toBeHidden();
+    await retest.page.locator('#nextBtn').click();
+    await expect(retest.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
+    await retest.page.waitForTimeout(320);
+    await enterAnswerAndCheck(retest.page, equivalent);
+    await expect(retest.page.locator('#diffMessage')).toContainText('2단계 자동 정답');
+    await expect(retest.page.locator('#diffYour')).toBeHidden();
+    await expect(retest.page.locator('#markCorrectBtn')).toBeHidden();
+    await retest.page.locator('#nextBtn').click();
+    await expect(retest.page.locator('#doneScreen')).toBeVisible();
+    await assertHealthyBrowser(retest);
+  } finally { await retest.context.close(); }
+});
+
 test('real settings UI exposes only the article option and result buttons settle one answer once', async ({ browser }) => {
   const inventory = await openApp(browser, "I'll reconnect.");
   try {
@@ -345,7 +380,7 @@ test('two-stage retest repeats misses, regresses after stage-two errors, exclude
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
     await expect(app.page.locator('#hintText')).toBeVisible();
     await app.page.locator('#markCorrectBtn').click();
-    await expect(app.page.locator('#diffMessage')).toContainText('2단계에서는 자동 정답');
+    await expect(app.page.locator('#diffMessage')).toContainText('정답으로 변경했습니다. 다음에는 힌트 없이');
     await app.page.locator('#nextBtn').click();
     await app.page.waitForTimeout(320);
     await enterAnswerAndCheck(app.page, 'I went home.');
@@ -357,6 +392,10 @@ test('two-stage retest repeats misses, regresses after stage-two errors, exclude
     await expect(app.page.locator('#diffPanel')).toBeVisible();
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
     await expect(app.page.locator('#hintText')).toBeHidden();
+    await expect(app.page.locator('#diffYour')).toContainText('내 답변');
+    await expect(app.page.locator('#diffAns')).toContainText('모범 답안');
+    await expect(app.page.locator('#nextBtn')).toHaveText('다음 문제');
+    await expect(app.page.locator('#markCorrectBtn')).toBeVisible();
     await app.page.locator('#nextBtn').click();
     await app.page.waitForTimeout(320);
     await enterAnswerAndCheck(app.page, 'I went home.');
@@ -435,7 +474,7 @@ test('retest uses the same strict article ON rule as the first test', async ({ b
   } finally { await app.context.close(); }
 });
 
-test('retest manual-correct moves the current stage but cannot substitute for the automatic stage-two pass', async ({ browser }) => {
+test('retest manual-correct advances stage one and completes stage two without recording learning data', async ({ browser }) => {
   const app = await openApp(browser, 'I went home.', {}, 0, 6);
   try {
     await app.page.locator('#startBtn').click();
@@ -445,19 +484,18 @@ test('retest manual-correct moves the current stage but cannot substitute for th
     const beforeRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
     await enterAnswerAndCheck(app.page, 'I go home.');
     await app.page.locator('#markCorrectBtn').click();
-    await expect(app.page.locator('#diffMessage')).toContainText('2단계에서는 자동 정답');
+    await expect(app.page.locator('#diffMessage')).toContainText('정답으로 변경했습니다');
+    await expect(app.page.locator('#diffYour')).toContainText('내 답변');
+    await expect(app.page.locator('#diffAns')).toContainText('모범 답안');
+    await expect(app.page.locator('#nextBtn')).toHaveText('다음 문제');
+    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
     await app.page.locator('#nextBtn').click();
     await app.page.waitForTimeout(320);
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
     await expect(app.page.locator('#hintText')).toBeHidden();
     await enterAnswerAndCheck(app.page, 'I go home.');
     await app.page.locator('#markCorrectBtn').click();
-    await expect(app.page.locator('#diffMessage')).toContainText('최종 통과가 아닙니다');
-    await app.page.locator('#nextBtn').click();
-    await app.page.waitForTimeout(320);
-    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
-    await expect(app.page.locator('#hintText')).toBeHidden();
-    await enterAnswerAndCheck(app.page, 'I went home.');
+    await expect(app.page.locator('#diffMessage')).toContainText('이 문제를 통과했습니다');
     await app.page.locator('#nextBtn').click();
     await expect(app.page.locator('#doneScreen')).toBeVisible();
     const afterRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));

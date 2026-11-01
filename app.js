@@ -197,6 +197,9 @@ function answerTokens(s){
   s=expandContractions(String(s||''));
   return s.replace(/[.,!?;:'"()[\]{}\-—–…]/g,' ').replace(/[^a-z0-9\s]/g,' ').trim().split(/\s+/).filter(Boolean);
 }
+function answerTokensWithoutContractionExpansion(s){
+  return String(s||'').toLowerCase().replace(/[’‘`']/g,'').replace(/[.,!?;:"()[\]{}\-—–…]/g,' ').replace(/[^a-z0-9\s]/g,' ').trim().split(/\s+/).filter(Boolean);
+}
 function buildAnswerSilhouette(answer){
   return String(answer||'').replace(/\p{P}/gu,'').replace(/\p{L}+/gu,function(word){
     return word.length<2?word:word.charAt(0)+new Array(word.length).join('_');
@@ -215,6 +218,11 @@ function deterministicGrade(reference,answer,options){
   options=normalizeGrammarOptions(options);
   if(!options.article){a=articleFiltered(a,false);b=articleFiltered(b,false);}
   var pass=a.length===b.length&&a.every(function(word,index){return word===b[index];});
+  if(!pass){
+    var rawA=answerTokensWithoutContractionExpansion(reference),rawB=answerTokensWithoutContractionExpansion(answer);
+    if(!options.article){rawA=articleFiltered(rawA,false);rawB=articleFiltered(rawB,false);}
+    pass=rawA.length===rawB.length&&rawA.every(function(word,index){return word===rawB[index];});
+  }
   return{pass:pass,errors:pass?[]:[{type:'vocabulary',reason:'정규화 후에도 답안이 다릅니다.'}]};
 }
 function diffHL(y,a){
@@ -2049,12 +2057,15 @@ function finalizeCorrect(manual){
   advanceInputLockUntil=Date.now()+300;
   pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('checkBtn').style.display='none';$('answerInput').disabled=true;
   if(currentIsRetest){
-    $('koreanText').style.color='var(--success)';flashCP('var(--success)',true);bigText('OK','#34A96E');playCorrectSound(false);
-    retestPendingAction=currentRetestStage===1?'promote':(manual?'retry':'complete');
+    retestPendingAction=currentRetestStage===1?'promote':'complete';
     $('diffMessage').textContent=manual
-      ?(currentRetestStage===1?'수동 확인으로 1단계 진행 처리했습니다. 2단계에서는 자동 정답이 필요합니다.':'수동 확인은 최종 통과가 아닙니다. 2단계를 자동 정답으로 완료해야 합니다.')
+      ?(currentRetestStage===1?'정답으로 변경했습니다. 다음에는 힌트 없이 다시 답해 주세요.':'정답으로 변경했습니다. 이 문제를 통과했습니다.')
       :(currentRetestStage===1?'실루엣 단계 정답입니다. 다음에는 힌트 없이 다시 답해 주세요.':'2단계 자동 정답입니다. 이 문제를 통과했습니다.');
-    $('diffYour').style.display='none';$('diffAns').style.display='none';$('markCorrectBtn').style.display='none';
+    if(!manual){
+      $('koreanText').style.color='var(--success)';flashCP('var(--success)',true);bigText('OK','#34A96E');playCorrectSound(false);
+      $('diffYour').style.display='none';$('diffAns').style.display='none';
+    }
+    $('markCorrectBtn').style.display='none';
     $('nextBtn').textContent='다음 문제';$('nextBtn').style.display='block';$('diffPanel').style.display='block';
     $('footerHint').textContent='결과 확인 후 Enter 또는 다음 문제를 누르세요.';
     retestCorrectWaiting=true;updateStats();setTimeout(function(){$('nextBtn').focus();},50);return;
@@ -2110,7 +2121,7 @@ function advanceAfterRetestCorrect(){
     retestUnresolvedIds=retestUnresolvedIds.filter(function(id){return id!==cardId;});
     delete retestStages[cardId];
   }
-  if(retestPendingAction==='promote'||retestPendingAction==='retry'){
+  if(retestPendingAction==='promote'){
     if(retestUnresolvedIds.indexOf(cardId)!==-1&&retestQueue.indexOf(cardId)===-1)retestQueue.push(cardId);
   }
   retestPendingAction='';updateStats();
@@ -2122,7 +2133,7 @@ function confirmWrongAnswer(){
   answerSettled=true;
   advanceInputLockUntil=Date.now()+300;
   if(currentIsRetest){
-    var retestCard=current;pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('answerInput').disabled=true;
+    var retestCard=current;pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('markCorrectBtn').style.display='none';$('answerInput').disabled=true;
     if(currentRetestStage===2)retestStages[retestCard.id]=1;
     if(retestUnresolvedIds.indexOf(retestCard.id)!==-1&&retestQueue.indexOf(retestCard.id)===-1)retestQueue.push(retestCard.id);
     $('koreanText').style.color='var(--danger)';flashCP('var(--danger)',true);playWrongSound();
