@@ -7,7 +7,7 @@ const BLOCKED_WORKERS = new Set([
 ]);
 
 async function openApp(browser, reference, grammarOptions = {}, extraCards = 0, savedManualCount = 0, seed = {}) {
-  const context = await browser.newContext();
+  const context = await browser.newContext(seed.contextOptions || {});
   const diagnostics = { consoleErrors: [], pageErrors: [], requestFailures: [], badResponses: [], workerRequests: [] };
   await context.addInitScript(({ reference, grammarOptions, cardId, extraCards, savedManualCount, seed }) => {
     if (sessionStorage.getItem('__memory_app_fixture_seeded')) return;
@@ -46,7 +46,7 @@ async function openApp(browser, reference, grammarOptions = {}, extraCards = 0, 
   page.on('pageerror', error => diagnostics.pageErrors.push(error.message));
   page.on('requestfailed', request => diagnostics.requestFailures.push(`${request.url()}: ${request.failure()?.errorText}`));
   page.on('response', response => { if (response.status() >= 400) diagnostics.badResponses.push(`${response.status()} ${response.url()}`); });
-  await page.goto('/');
+  await page.goto('./');
   await expect(page.locator('#memory-sync-local')).toBeVisible();
   await page.locator('#memory-sync-local').click();
   await expect(page.locator('#chapterSelectList')).toContainText('Browser test');
@@ -601,3 +601,129 @@ test('manual-correct statistic heading stays on one line on desktop and mobile',
     await assertHealthyBrowser(app);
   } finally { await app.context.close(); }
 });
+
+for (const mobile of [false, true]) {
+  test(`test inspection and editing preserves submissions and retest order (${mobile ? 'mobile' : 'desktop'})`, async ({ browser }) => {
+    const app = await openApp(browser, 'First answer.', {}, [
+      { ko: '미출제 한국어 둘', en: 'Second secret.' },
+      { ko: '미출제 한국어 셋', en: 'Third secret.' }
+    ], 0, { contextOptions: mobile ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } : {} });
+    const { page } = app;
+    const submit = async answer => {
+      await page.waitForTimeout(320);
+      await enterAnswerAndCheck(page, answer);
+    };
+    const stored = () => page.evaluate(() => ({
+      cards: JSON.parse(localStorage.getItem('srs_cards_v2')),
+      errors: localStorage.getItem('srs_error_history_v1')
+    }));
+    try {
+      await page.locator('#startBtn').click();
+      await expect(page.locator('#koreanText')).toHaveText('브라우저 회귀 검사');
+      await page.locator('#failAllBtn').click();
+      await expect(page.locator('#testStatusContent')).toContainText('아직 답안을 제출한 문제가 없어요');
+      await expect(page.locator('#testStatusContent')).not.toContainText('First answer.');
+      await expect(page.locator('#testStatusContent')).not.toContainText('미출제');
+      await page.locator('#testStatusClose').click();
+      await expect(page.locator('#tabAllCards')).toBeDisabled();
+      await expect(page.locator('#allCardsList')).not.toContainText('Second secret.');
+      await expect(page.locator('#allCardsList')).not.toContainText('미출제');
+      await page.locator('#answerInput').fill('my draft');
+      await page.locator('#editCurrentBtn').click();
+      await expect(page.locator('#editCardList input')).toHaveCount(2);
+      await page.locator('#editCardList input[data-field="en"]').fill('discarded');
+      await page.locator('#editCardList input[data-field="en"]').press('Enter');
+      await expect(page.locator('#diffPanel')).not.toBeVisible();
+      await page.locator('#editCancelBtn').click();
+      await expect(page.locator('#answerInput')).toHaveValue('my draft');
+      await page.locator('#editCurrentBtn').click();
+      await page.locator('#editCardList input[data-field="ko"]').fill('현재 문제 수정');
+      await page.locator('#editSaveBtn').click();
+      await page.locator('#editConfirmApply').click();
+      await expect(page.locator('#koreanText')).toHaveText('현재 문제 수정');
+      await expect(page.locator('#answerInput')).toHaveValue('my draft');
+      await submit('Wrong.');
+      await expect(page.locator('#diffPanel')).toBeVisible();
+      const before = await stored();
+      const result = await page.locator('#diffPanel').innerText();
+      await page.locator('#failAllBtn').click();
+      await expect(page.locator('#testStatusContent')).toContainText('First answer.');
+      await expect(page.locator('#testStatusContent')).not.toContainText('Second secret.');
+      await page.locator('#testStatusContent').getByRole('button', { name: '편집', exact: true }).click();
+      await page.locator('#editCardList input[data-field="ko"]').fill('제출 문제 수정');
+      await page.locator('#editSaveBtn').click();
+      await page.locator('#editConfirmCancel').click();
+      expect(await stored()).toEqual(before);
+      expect(await page.locator('#diffPanel').innerText()).toEqual(result);
+      await expect(page.locator('#answerInput')).toHaveValue('Wrong.');
+      await page.locator('#nextBtn').click();
+      await expect(page.locator('#koreanText')).toHaveText('미출제 한국어 둘');
+      await submit('Wrong.');
+      await page.locator('#nextBtn').click();
+      await expect(page.locator('#koreanText')).toHaveText('미출제 한국어 셋');
+      await submit('Third secret.');
+      await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+      await expect(page.locator('#koreanText')).toHaveText('현재 문제 수정');
+      const retestState = await stored();
+      await page.locator('#failAllBtn').click();
+      await expect(page.locator('#testStatusContent')).toContainText('제출한 문제 3개');
+      await page.locator('#testStatusContent').getByRole('button', { name: '편집', exact: true }).nth(1).click();
+      await page.locator('#editCardList input[data-field="en"]').fill('Second revised.');
+      await page.locator('#editSaveBtn').click();
+      await page.locator('#editConfirmApply').click();
+      await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+      await expect(page.locator('#koreanText')).toHaveText('현재 문제 수정');
+      const afterEdit = await stored();
+      expect(afterEdit.errors).toEqual(retestState.errors);
+      const schedules = data => data.cards.cards.map(({ ko, en, ...rest }) => rest);
+      expect(schedules(afterEdit)).toEqual(schedules(retestState));
+      await submit('First answer.');
+      await page.locator('#nextBtn').click();
+      await expect(page.locator('#koreanText')).toHaveText('미출제 한국어 둘');
+      await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+      await submit('Second revised.');
+      await page.locator('#nextBtn').click();
+      await expect(page.locator('#koreanText')).toHaveText('현재 문제 수정');
+      await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
+      await assertHealthyBrowser(app);
+    } finally { await app.context.close(); }
+  });
+}
+
+for (const mobile of [false, true]) {
+  test(`editing a submitted answer preserves its original grading reference (${mobile ? 'mobile' : 'desktop'})`, async ({ browser }) => {
+    const app = await openApp(browser, 'Original answer.', {}, 0, 0, {
+      contextOptions: mobile ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } : {}
+    });
+    const { page } = app;
+    try {
+      await page.locator('#startBtn').click();
+      await enterAnswerAndCheck(page, 'Wrong.');
+      const originalResult = await page.locator('#diffPanel').innerText();
+      await page.locator('#editCurrentBtn').click();
+      await page.locator('#editCardList input[data-field="en"]').fill('Revised answer.');
+      await page.locator('#editSaveBtn').click();
+      await page.locator('#editConfirmApply').click();
+      expect(await page.locator('#diffPanel').innerText()).toEqual(originalResult);
+      await expect(page.locator('#answerInput')).toHaveValue('Wrong.');
+      await page.locator('#nextBtn').click();
+      await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+      const saved = await page.evaluate(() => ({
+        errors: JSON.parse(localStorage.getItem('srs_error_history_v1')).records,
+        card: JSON.parse(localStorage.getItem('srs_cards_v2')).cards[0]
+      }));
+      expect(saved.errors.length).toBeGreaterThan(0);
+      for (const record of saved.errors) {
+        expect(record.referenceAnswer).toBe('Original answer.');
+        expect(record.occurrences[0].referenceAnswer).toBe('Original answer.');
+        expect(record.actualAnswer).toBe('Wrong.');
+      }
+      expect(saved.card.en).toBe('Revised answer.');
+      expect(saved.card.ngCount).toBe(1);
+      await page.waitForTimeout(320);
+      await enterAnswerAndCheck(page, 'Revised answer.');
+      await expect(page.locator('#diffMessage')).toContainText('실루엣 단계 정답');
+      await assertHealthyBrowser(app);
+    } finally { await app.context.close(); }
+  });
+}

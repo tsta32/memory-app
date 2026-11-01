@@ -441,8 +441,9 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
   <div id="quizScreen" style="display:none;">
     <div class="quiz-top">
       <button type="button" class="cancel-link" id="cancelSessionBtn">← 취소하고 홈으로</button>
-      <button type="button" id="failAllBtn" style="font-size:12px;padding:6px 10px;color:var(--accent-text);border-color:var(--accent);">📋 테스트 현황</button>
+      <button type="button" id="failAllBtn" style="font-size:12px;padding:6px 10px;color:var(--accent-text);border-color:var(--accent);">📋 푼 문제 보기</button>
     </div>
+    <button type="button" id="editCurrentBtn" style="margin-bottom:8px;">✏️ 현재 문제 편집</button>
     <div class="stats-bar">
       <div class="stat"><div class="lbl">정답 처리</div><div class="val" id="progressCount">0/0</div></div>
       <div class="stat"><div class="lbl">연속 정답</div><div class="val" id="streakCount" style="color:var(--info);">0</div></div>
@@ -647,7 +648,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
 <div class="modal-overlay" id="testStatusModal" style="align-items:flex-start;padding:12px;overflow-y:auto;">
   <div class="modal-box" style="max-width:480px;width:100%;max-height:none;margin-top:8px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <h3 style="font-size:16px;">📋 테스트 현황</h3>
+      <h3 style="font-size:16px;">📋 푼 문제 보기</h3>
       <button type="button" id="testStatusClose" style="padding:4px 10px;font-size:13px;">✕</button>
     </div>
     <div id="testStatusContent" style="display:flex;flex-direction:column;gap:14px;max-height:540px;overflow-y:auto;"></div>

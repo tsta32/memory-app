@@ -1,5 +1,8 @@
 const { defineConfig } = require('@playwright/test');
 
+// Remote checks use isolated fixture contexts and block sync/AI Worker requests.
+const remoteAppURL = process.env.MEMORY_APP_TEST_URL;
+
 module.exports = defineConfig({
   testDir: './tests/browser',
   timeout: 30000,
@@ -8,12 +11,12 @@ module.exports = defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: remoteAppURL || 'http://127.0.0.1:4173',
     browserName: 'chromium',
     headless: true,
     serviceWorkers: 'block'
   },
-  webServer: {
+  webServer: remoteAppURL ? undefined : {
     command: 'python3 -m http.server 4173 --bind 127.0.0.1',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,

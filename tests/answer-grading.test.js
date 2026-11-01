@@ -71,7 +71,7 @@ assert.doesNotMatch(source('finalizeCorrect'), /manual\?'retry'/);
 assert.match(app, /currentRetestStage===2\)retestStages\[retestCard\.id\]=1/);
 assert.match(app, /retestPendingAction==='complete'[\s\S]*retestUnresolvedIds=retestUnresolvedIds\.filter/);
 assert.match(app, /on\('markCorrectBtn','click',function\(\)\{if\(!current\|\|currentIsRetest\|\|!pendingDiff\|\|answerSettled\)return;finalizeCorrect\(true\);\}\)/);
-assert.match(app, /function confirmWrongAnswer\(\)[\s\S]*recordAnswerErrors\(card\.id,card\.en,decision\.y,decision\.result\.errors\)/);
+assert.match(app, /function confirmWrongAnswer\(\)[\s\S]*recordAnswerErrors\(card\.id,decision\.a,decision\.y,decision\.result\.errors\)/);
 assert.match(app, /on\('nextBtn','click',handleResultNext\)/);
 assert.match(app, /if\(\$\('nextBtn'\)\.style\.display==='block'\)\{e\.preventDefault\(\);handleResultNext\(\);return;\}/);
 assert.match(app, /retestUnresolvedIds=retestUnresolvedIds\.filter/);
@@ -84,3 +84,57 @@ assert.match(app, /on\('resetNgCountsBtn','click'/);
 assert.match(app, /var current=null[\s\S]*answerSettled=false/);
 assert.doesNotMatch(app, /skipFailBtn|markWrongBtn/);
 console.log('Passed answer normalization, article-only option, and manual grading regression checks.');
+
+// Exercise inspection and editor entry points without a browser/server.
+{
+  class Element {
+    constructor() { this.children = []; this.style = {}; this.dataset = {}; this.classList = { add() {}, remove() {} }; }
+    set innerHTML(value) { this.html = value; this.children = []; }
+    get innerHTML() { return this.html || ''; }
+    appendChild(child) { this.children.push(child); }
+    addEventListener() {}
+  }
+  const elements = Object.create(null);
+  const getElement = id => elements[id] || (elements[id] = new Element());
+  getElement('quizScreen').style.display = 'block';
+  const fixtureCards = [
+    { id: 1, ko: '제출한 문장', en: 'Submitted answer.' },
+    { id: 2, ko: '현재 문장', en: 'Current answer.' },
+    { id: 3, ko: '노출 금지 문장', en: 'Unseen secret.' },
+    { id: 4, ko: '다른 테스트 문장', en: 'Other session secret.' }
+  ];
+  const sandbox = {
+    $: getElement, document: { createElement: () => new Element() },
+    sessionSubmittedIds: [], sessionCompletedIds: [], sessionMissedIds: [], sessionSkippedIds: [],
+    current: fixtureCards[1], notes: {}, editingSnapshots: [],
+    findCard: id => fixtureCards.find(card => card.id === id), esc: context.esc
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(['quizIsActive', 'canInspectCard', 'renderTestStatusModal', 'openEditModal'].map(source).join('\n'), sandbox);
+  const flatten = node => [node.innerHTML, node.textContent, node.value, ...node.children.map(flatten)].filter(Boolean).join(' ');
+  sandbox.renderTestStatusModal();
+  assert.match(flatten(getElement('testStatusContent')), /아직 답안을 제출한 문제가 없어요/);
+  sandbox.sessionSubmittedIds.push(1);
+  sandbox.renderTestStatusModal();
+  let list = flatten(getElement('testStatusContent'));
+  assert.match(list, /Submitted answer/);
+  assert.doesNotMatch(list, /Current answer|Unseen secret|Other session secret|현재 문장|노출 금지/);
+  assert.match(list, /채점 확인 중/);
+  sandbox.openEditModal([1, 2, 3, 4]);
+  assert.deepEqual(Array.from(sandbox.editingSnapshots, item => item.id), [1, 2]);
+  assert.doesNotMatch(flatten(getElement('editCardList')), /Unseen secret|Other session secret/);
+  // Retests retain the original submission allowlist, even for cards outside the queue.
+  sandbox.sessionSubmittedIds.push(2, 3);
+  sandbox.sessionCompletedIds.push(1, 2, 3);
+  sandbox.current = fixtureCards[0];
+  sandbox.renderTestStatusModal();
+  list = flatten(getElement('testStatusContent'));
+  assert.match(list, /Submitted answer/);
+  assert.match(list, /Unseen secret/);
+  assert.doesNotMatch(list, /Other session secret/);
+  sandbox.openEditModal([3, 4]);
+  assert.deepEqual(Array.from(sandbox.editingSnapshots, item => item.id), [3]);
+  getElement('quizScreen').style.display = 'none';
+  assert.equal(sandbox.canInspectCard(4), true, 'normal browsing resumes after the test');
+}
+console.log('Passed submitted-only inspection, current-card editing, and retest access checks.');
