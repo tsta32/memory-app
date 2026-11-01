@@ -727,3 +727,79 @@ for (const mobile of [false, true]) {
     } finally { await app.context.close(); }
   });
 }
+
+for (const stage of [1, 2]) {
+ for (const activation of ['Enter', 'tap']) {
+  test(`abandoned retests: ${activation} on skip exits stage ${stage} without taking the retry action`, async ({ browser }) => {
+    const app = await openApp(browser, 'Original answer.', {}, 0, 0, {
+      contextOptions: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
+    });
+    const { page } = app;
+    try {
+      await page.locator('#startBtn').tap();
+      await enterAnswerAndCheck(page, 'Wrong.'); await page.locator('#nextBtn').tap();
+      await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+      const original = await page.evaluate(() => ['srs_cards_v2','srs_error_history_v1','srs_settings_v1'].map(k => localStorage.getItem(k)));
+      if (stage === 2) {
+        await page.waitForTimeout(320); await enterAnswerAndCheck(page, 'Original answer.');
+        await page.locator('#nextBtn').tap();
+        await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
+      }
+      await page.waitForTimeout(320); await enterAnswerAndCheck(page, 'Wrong again.');
+      if (activation === 'Enter') {await page.locator('#skipRetestBtn').focus(); await page.locator('#skipRetestBtn').press('Enter');}
+      else await page.locator('#skipRetestBtn').tap();
+      await expect(page.locator('#doneScreen')).toBeVisible();
+      expect(await page.evaluate(() => JSON.parse(localStorage.getItem('memory_study_session_v1')).status)).toBe('ended');
+      expect(await page.evaluate(() => ['srs_cards_v2','srs_error_history_v1','srs_settings_v1'].map(k => localStorage.getItem(k)))).toEqual(original);
+      await page.reload();await page.locator('#memory-sync-local').click();await expect(page.locator('#setupScreen')).toBeVisible();await expect(page.locator('#quizScreen')).toBeHidden();
+      await assertHealthyBrowser(app);
+    } finally { await app.context.close(); }
+  });
+}
+
+}
+
+test('abandoned retests: mobile taps purge every queue and survive stale restored queue entries', async ({ browser }) => {
+  const app = await openApp(browser, 'Original answer.', {}, [
+    { ko: '두 번째 재출제', en: 'Second answer.' }, { ko: '세 번째 재출제', en: 'Third answer.' }
+  ], 0, { contextOptions: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } });
+  const { page } = app;
+  const data = () => page.evaluate(() => ['srs_cards_v2','srs_error_history_v1','srs_settings_v1'].map(k => localStorage.getItem(k)));
+  try {
+    await page.locator('#startBtn').tap();
+    for (let i=0; i<3; i++) {
+      if (i) await page.waitForTimeout(320);
+      await enterAnswerAndCheck(page, 'Wrong.'); await page.locator('#nextBtn').tap();
+      await expect(page.locator('#progressCount')).toHaveText(`${i+1}/3`);
+    }
+    await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    const original = await data();
+    await page.waitForTimeout(320); await enterAnswerAndCheck(page, 'Wrong again.');
+    await page.locator('#skipRetestBtn').tap();
+    await expect(page.locator('#koreanText')).toHaveText('두 번째 재출제');
+    const snapshot = await page.evaluate(() => JSON.parse(localStorage.getItem('memory_study_session_v1')));
+    expect(snapshot.state.retestAbandonedIds).toEqual([TEST_CARD_ID]);
+    for (const key of ['sessionQueue','retryQueue','retestCandidateIds','retestQueue','retestUnresolvedIds']) expect(snapshot.state[key]).not.toContain(TEST_CARD_ID);
+    expect(snapshot.state.retestStages).not.toHaveProperty(String(TEST_CARD_ID));
+    // Inject entries that an old queue snapshot/callback could leave behind. The durable exclusion must win.
+    await page.evaluate(id => {
+      const key='memory_study_session_v1',s=JSON.parse(localStorage.getItem(key));
+      for (const queue of ['sessionQueue','retryQueue','retestCandidateIds','retestQueue','retestUnresolvedIds']) s.state[queue].unshift(id);
+      s.state.retestQueue.unshift(s.state.currentId);s.state.currentId=id;s.state.answerSettled=false;
+      s.state.retestStages[id]=2;s.revision+=100;
+      localStorage.setItem(key,JSON.stringify(s));sessionStorage.setItem(key,JSON.stringify(s));
+    }, TEST_CARD_ID);
+    await page.reload(); await expect(page.locator('#quizScreen')).toBeVisible();
+    await expect(page.locator('#koreanText')).toHaveText('두 번째 재출제');
+    await page.waitForTimeout(320); await enterAnswerAndCheck(page, 'Wrong.');
+    await page.locator('#skipRetestBtn').evaluate(button => {button.click();button.click();});
+    await expect(page.locator('#koreanText')).toHaveText('세 번째 재출제');
+    await page.reload();await expect(page.locator('#quizScreen')).toBeVisible();
+    await expect(page.locator('#koreanText')).toHaveText('세 번째 재출제');
+    await page.waitForTimeout(320);await enterAnswerAndCheck(page,'Wrong.');await page.locator('#skipRetestBtn').tap();
+    await expect(page.locator('#doneScreen')).toBeVisible();expect(await data()).toEqual(original);
+    await page.reload(); await page.locator('#memory-sync-local').click();
+    await expect(page.locator('#setupScreen')).toBeVisible();await expect(page.locator('#quizScreen')).toBeHidden();
+    expect(await data()).toEqual(original);await assertHealthyBrowser(app);
+  } finally { await app.context.close(); }
+});

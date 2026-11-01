@@ -23,6 +23,7 @@ var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0,answerSettled=f
 var sessionMissedIds=[],retestCandidateIds=[],retryQueue=[];
 var retestMode=false,retestQueue=[],retestUnresolvedIds=[],retestCorrectWaiting=false;
 var retestStages={},currentRetestStage=0,retestPendingAction='';
+var retestAbandonedIds=[]; // Session-local terminal exclusions, including across reloads.
 var sessionSubmittedIds=[];
 var sessionCompletedIds=[]; // 정답/오답 확정된 카드 id (완료)
 var sessionSkippedIds=[];   // 오답처리 건너뛴 카드 id
@@ -310,7 +311,7 @@ function studyState(){return {
   sessionQueue:sessionQueue,sessionUniqueIds:sessionUniqueIds,sessionDoneCount:sessionDoneCount,streak:streak,
   currentId:current&&current.id,hintLevel:hintLevel,pendingDiff:pendingDiff,answerSettled:answerSettled,
   sessionMissedIds:sessionMissedIds,retestCandidateIds:retestCandidateIds,retryQueue:retryQueue,
-  retestMode:retestMode,retestQueue:retestQueue,retestUnresolvedIds:retestUnresolvedIds,
+  retestMode:retestMode,retestQueue:retestQueue,retestUnresolvedIds:retestUnresolvedIds,retestAbandonedIds:retestAbandonedIds,
   retestCorrectWaiting:retestCorrectWaiting,retestStages:retestStages,currentRetestStage:currentRetestStage,
   retestPendingAction:retestPendingAction,sessionSubmittedIds:sessionSubmittedIds,sessionCompletedIds:sessionCompletedIds,
   sessionSkippedIds:sessionSkippedIds,currentIsRetry:currentIsRetry,currentIsRetest:currentIsRetest,
@@ -356,6 +357,7 @@ function validStudyState(s){
   if(!Number.isInteger(s.currentId)||!Number.isInteger(s.streak)||s.streak<0||[0,1,2].indexOf(s.currentRetestStage)===-1||[0,1,2,3].indexOf(s.hintLevel)===-1)return false;
   if(!['answerSettled','retestMode','retestCorrectWaiting','currentIsRetry','currentIsRetest','practiceMode'].every(function(k){return typeof s[k]==='boolean';}))return false;
   if(!arrays.every(function(key){return Array.isArray(s[key])&&s[key].every(function(id){return Number.isInteger(id)&&!!findCard(id);});}))return false;
+  if(s.retestAbandonedIds!==undefined&&(!Array.isArray(s.retestAbandonedIds)||!s.retestAbandonedIds.every(function(id){return Number.isInteger(id)&&s.sessionUniqueIds.indexOf(id)!==-1;})))return false;
   if(!s.sessionUniqueIds.length||!findCard(s.currentId)||s.sessionUniqueIds.indexOf(s.currentId)===-1)return false;
   return arrays.every(function(key){return s[key].every(function(id){return s.sessionUniqueIds.indexOf(id)!==-1;});})&&
     (!s.pendingDiff||(typeof s.pendingDiff.y==='string'&&typeof s.pendingDiff.a==='string'&&s.pendingDiff.result&&Array.isArray(s.pendingDiff.result.errors)));
@@ -378,10 +380,13 @@ function restoreStudySession(record){
     sessionQueue=s.sessionQueue;sessionUniqueIds=s.sessionUniqueIds;sessionDoneCount=s.sessionDoneCount;streak=s.streak;
     current=findCard(s.currentId);hintLevel=s.hintLevel;pendingDiff=s.pendingDiff;answerSettled=s.answerSettled;
     sessionMissedIds=s.sessionMissedIds;retestCandidateIds=s.retestCandidateIds;retryQueue=s.retryQueue;
+    retestAbandonedIds=s.retestAbandonedIds||[];
     retestMode=s.retestMode;retestQueue=s.retestQueue;retestUnresolvedIds=s.retestUnresolvedIds;retestCorrectWaiting=s.retestCorrectWaiting;
     retestStages=s.retestStages;currentRetestStage=s.currentRetestStage;retestPendingAction=s.retestPendingAction;
     sessionSubmittedIds=s.sessionSubmittedIds;sessionCompletedIds=s.sessionCompletedIds;sessionSkippedIds=s.sessionSkippedIds;
     currentIsRetry=s.currentIsRetry;currentIsRetest=s.currentIsRetest;practiceMode=s.practiceMode;quizMarkedIds=s.quizMarkedIds;
+    pruneAbandonedRetests();
+    if(retestAbandonedIds.indexOf(current.id)!==-1){answerSettled=true;pendingDiff=null;retestCorrectWaiting=false;retestPendingAction='';}
     studyWrites=record.writes||{};autoAdvanceToken++;advanceInputLockUntil=Date.now()+300;
     $('setupScreen').style.display='none';$('doneScreen').style.display='none';$('quizScreen').style.display='block';
     TABS.forEach(function(t){$(t.btn).disabled=t.btn!=='tabQuiz';});
@@ -753,7 +758,7 @@ function startSessionWith(isPractice){
   if(!chosen.length){$('ngFilterInfo').textContent='해당 카드 없음';$('ngFilterInfo').style.color='var(--danger-text)';return;}
   sessionQueue=chosen.map(function(c){return c.id;});sessionUniqueIds=chosen.map(function(c){return c.id;});
   sessionDoneCount=0;streak=0;sessionMissedIds=[];retestCandidateIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
-  retestMode=false;retestQueue=[];retestUnresolvedIds=[];retestCorrectWaiting=false;retestStages={};currentRetestStage=0;retestPendingAction='';currentIsRetest=false;
+  retestMode=false;retestQueue=[];retestUnresolvedIds=[];retestAbandonedIds=[];retestCorrectWaiting=false;retestStages={};currentRetestStage=0;retestPendingAction='';currentIsRetest=false;
   sessionSubmittedIds=[];sessionCompletedIds=[];sessionSkippedIds=[];
   studyId=Date.now()+'-'+Math.random().toString(36).slice(2);studyEnded=false;studyWrites={};studyDiagnostic('started');
   $('failAllBtn').disabled=false;$('testStatusFailAll').disabled=false;$('setupScreen').style.display='none';$('quizScreen').style.display='block';
@@ -1768,8 +1773,24 @@ function showHint(lv){var ht=$('hintText'),hl=$('hintLabel');if(lv<=0){ht.style.
 
 function resetInputUI(){var inp=$('answerInput');inp.value='';inp.disabled=false;$('checkBtn').style.display='block';$('nextBtn').style.display='none';$('markCorrectBtn').style.display='';$('skipRetestBtn').style.display='none';$('diffPanel').style.display='none';pendingDiff=null;setTimeout(function(){if(quizIsActive()&&!quizModalOpen()&&!answerSettled)inp.focus();},50);}
 
+// Exclusions win over any retained/rebuilt queue. Preserve the relative order of other IDs.
+function pruneAbandonedRetests(){
+  var abandoned=new Set(retestAbandonedIds);
+  function keep(id){return !abandoned.has(id);}
+  sessionQueue=sessionQueue.filter(keep);
+  retryQueue=retryQueue.filter(keep);
+  retestCandidateIds=retestCandidateIds.filter(keep);
+  retestQueue=retestQueue.filter(keep);
+  retestUnresolvedIds=retestUnresolvedIds.filter(keep);
+  retestAbandonedIds.forEach(function(id){delete retestStages[id];});
+}
+function abandonRetestId(id){
+  if(retestAbandonedIds.indexOf(id)===-1)retestAbandonedIds.push(id);
+  pruneAbandonedRetests();
+}
 function loadNext(){
   if(!quizIsActive()||studyEnded||(current&&!answerSettled))return;
+  pruneAbandonedRetests();
   if(quizIsActive()&&quizModalOpen()){
     var waitingToken=autoAdvanceToken;
     setTimeout(function(){if(quizIsActive()&&waitingToken===autoAdvanceToken)loadNext();},100);
@@ -2249,7 +2270,7 @@ function finalizeCorrect(manual){
     $('skipRetestBtn').style.display='none';
     $('nextBtn').textContent='다음 문제';$('nextBtn').style.display='block';$('diffPanel').style.display='block';
     $('footerHint').textContent='결과 확인 후 Enter 또는 다음 문제를 누르세요.';
-    retestCorrectWaiting=true;updateStats();setTimeout(function(){if(quizIsActive()&&!quizModalOpen()&&(pendingDiff||retestCorrectWaiting))$('nextBtn').focus();},50);return;
+    retestCorrectWaiting=true;updateStats();setTimeout(function(){if(quizIsActive()&&!quizModalOpen()&&(pendingDiff||retestCorrectWaiting)&&document.activeElement!==$('skipRetestBtn')&&document.activeElement!==$('markCorrectBtn'))$('nextBtn').focus();},50);return;
   }
   if(manual){manualCorrectTotalCount++;settings.manualCorrectTotal=manualCorrectTotalCount;saveSettings();if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
   var cls=hintLevel>=2?'hard':'easy';
@@ -2291,7 +2312,7 @@ function showDiff(y,a){
     :'오답입니다. 답을 확인한 뒤 다음 문제로 이동하거나 정답으로 변경하세요.';
   $('markCorrectBtn').style.display=currentIsRetest?'none':'block';$('skipRetestBtn').style.display=currentIsRetest?'block':'none';$('nextBtn').textContent='다음 문제';
   $('diffPanel').style.display='block';$('checkBtn').style.display='none';$('nextBtn').style.display='block';$('answerInput').disabled=true;
-  setTimeout(function(){if(quizIsActive()&&!quizModalOpen()&&(pendingDiff||retestCorrectWaiting))$('nextBtn').focus();},50);
+  setTimeout(function(){if(quizIsActive()&&!quizModalOpen()&&(pendingDiff||retestCorrectWaiting)&&document.activeElement!==$('skipRetestBtn')&&document.activeElement!==$('markCorrectBtn'))$('nextBtn').focus();},50);
 }
 function advanceAfterRetestCorrect(){
   if(!currentIsRetest||!retestCorrectWaiting||!answerSettled)return;
@@ -2303,7 +2324,7 @@ function advanceAfterRetestCorrect(){
     delete retestStages[cardId];
   }
   if(retestPendingAction==='promote'){
-    if(retestUnresolvedIds.indexOf(cardId)!==-1&&retestQueue.indexOf(cardId)===-1)retestQueue.push(cardId);
+    if(retestAbandonedIds.indexOf(cardId)===-1&&retestUnresolvedIds.indexOf(cardId)!==-1&&retestQueue.indexOf(cardId)===-1)retestQueue.push(cardId);
   }
   retestPendingAction='';updateStats();
   var token=++autoAdvanceToken;setTimeout(function(){if(token===autoAdvanceToken)loadNext();},100);
@@ -2316,7 +2337,7 @@ function confirmWrongAnswer(){
   if(currentIsRetest){
     var retestCard=current;pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('markCorrectBtn').style.display='none';$('skipRetestBtn').style.display='none';$('answerInput').disabled=true;
     if(currentRetestStage===2)retestStages[retestCard.id]=1;
-    if(retestUnresolvedIds.indexOf(retestCard.id)!==-1&&retestQueue.indexOf(retestCard.id)===-1)retestQueue.push(retestCard.id);
+    if(retestAbandonedIds.indexOf(retestCard.id)===-1&&retestUnresolvedIds.indexOf(retestCard.id)!==-1&&retestQueue.indexOf(retestCard.id)===-1)retestQueue.push(retestCard.id);
     $('koreanText').style.color='var(--danger)';flashCP('var(--danger)',true);playWrongSound();
     $('footerHint').textContent='재출제 오답입니다. 다음 라운드에 다시 출제합니다.';$('footerHint').style.color='var(--danger-text)';
     updateStats();var retestToken=++autoAdvanceToken;
@@ -2341,14 +2362,15 @@ function confirmWrongAnswer(){
 function skipRetestCard(){
   if(!currentIsRetest||!current||!pendingDiff||answerSettled)return;
   answerSettled=true;advanceInputLockUntil=Date.now()+300;
+  autoAdvanceToken++;
   var cardId=current.id;
   pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('skipRetestBtn').style.display='none';$('markCorrectBtn').style.display='none';$('answerInput').disabled=true;
-  retestUnresolvedIds=retestUnresolvedIds.filter(function(id){return id!==cardId;});
-  retestQueue=retestQueue.filter(function(id){return id!==cardId;});
-  delete retestStages[cardId];
+  abandonRetestId(cardId);
+  retestCorrectWaiting=false;retestPendingAction='';
   $('footerHint').textContent='이 문제는 오답으로 두고 재출제에서 제외했습니다.';$('footerHint').style.color='var(--danger-text)';
   updateStats();
-  var token=++autoAdvanceToken;setTimeout(function(){if(token===autoAdvanceToken)loadNext();},100);
+  // Move or finish in the same action; no stale transition callback can re-add this ID.
+  loadNext();
 }
 function checkAnswer(){
   if(!current||answerSettled||pendingDiff||$('checkBtn').disabled||Date.now()<advanceInputLockUntil)return;
@@ -3056,6 +3078,7 @@ document.addEventListener('keydown',function(e){
   if(['answerInput','checkBtn','nextBtn','markCorrectBtn','skipRetestBtn'].indexOf(e.target&&e.target.id)===-1&&!(e.target===document.body&&(pendingDiff||retestCorrectWaiting)))return;
   if($('quizScreen').style.display!=='block')return;
   if(Date.now()<advanceInputLockUntil){e.preventDefault();return;}
+  if(e.target===$('skipRetestBtn')){e.preventDefault();if($('skipRetestBtn').style.display==='block')skipRetestCard();return;}
   if($('nextBtn').style.display==='block'){e.preventDefault();handleResultNext();return;}
   if($('checkBtn').style.display==='block'){e.preventDefault();checkAnswer();return;}
 });

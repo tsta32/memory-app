@@ -76,7 +76,7 @@ assert.match(app, /on\('nextBtn','click',handleResultNext\)/);
 assert.match(app, /if\(\$\('nextBtn'\)\.style\.display==='block'\)\{e\.preventDefault\(\);handleResultNext\(\);return;\}/);
 assert.match(app, /retestUnresolvedIds=retestUnresolvedIds\.filter/);
 assert.match(app, /retestQueue\.push\(retestCard\.id\)/);
-assert.match(source('skipRetestCard'), /retestUnresolvedIds=retestUnresolvedIds\.filter[\s\S]*retestQueue=retestQueue\.filter[\s\S]*delete retestStages\[cardId\]/);
+
 assert.match(app, /on\('skipRetestBtn','click',skipRetestCard\)/);
 assert.match(app, /currentIsRetest\?'none':'block'.*skipRetestBtn/);
 assert.match(app, /currentIsRetest\|\|!current\|\|!pendingDiff\|\|answerSettled/);
@@ -174,3 +174,32 @@ console.log('Passed submitted-only inspection, current-card editing, and retest 
   assert.doesNotMatch(fs.readFileSync(path.join(__dirname,'..','sync-bootstrap.js'),'utf8').match(/var DATA_KEYS=([^;]+);/)[1], /memory_study/);
 }
 console.log('Passed local checkpoint selection, atomic grading journal, and conflict preservation checks.');
+
+// A terminal skip removes every occurrence without changing grading history or other queue order.
+{
+  const sandbox = {
+    retestAbandonedIds: [], sessionQueue: [1, 2, 1, 3], retryQueue: [1, 2, 1],
+    retestCandidateIds: [1, 2, 3, 1], retestQueue: [2, 1, 3, 1], retestUnresolvedIds: [1, 2, 3],
+    retestStages: { 1: 2, 2: 1, 3: 2 }, sessionMissedIds: [1, 2, 3], sessionCompletedIds: [1, 2, 3]
+  };
+  vm.createContext(sandbox);
+  vm.runInContext([source('pruneAbandonedRetests'), source('abandonRetestId')].join('\n'), sandbox);
+  sandbox.abandonRetestId(1);sandbox.abandonRetestId(1);
+  assert.deepEqual(Array.from(sandbox.retestAbandonedIds), [1]);
+  assert.deepEqual(Array.from(sandbox.sessionQueue), [2, 3]);
+  assert.deepEqual(Array.from(sandbox.retryQueue), [2]);
+  assert.deepEqual(Array.from(sandbox.retestCandidateIds), [2, 3]);
+  assert.deepEqual(Array.from(sandbox.retestQueue), [2, 3]);
+  assert.deepEqual(Array.from(sandbox.retestUnresolvedIds), [2, 3]);
+  assert.equal(sandbox.retestStages[1], undefined);
+  assert.deepEqual(Array.from(sandbox.sessionMissedIds), [1, 2, 3]);
+  assert.deepEqual(Array.from(sandbox.sessionCompletedIds), [1, 2, 3]);
+  for (const key of ['sessionQueue','retryQueue','retestCandidateIds','retestQueue','retestUnresolvedIds']) sandbox[key].unshift(1);
+  sandbox.retestStages[1] = 1;
+  sandbox.pruneAbandonedRetests();
+  for (const key of ['sessionQueue','retryQueue','retestCandidateIds','retestQueue','retestUnresolvedIds']) assert.equal(sandbox[key].includes(1), false, key+' ignores stale abandoned entries');
+  sandbox.abandonRetestId(2);sandbox.abandonRetestId(3);
+  assert.deepEqual(Array.from(sandbox.retestQueue), []);
+  assert.deepEqual(Array.from(sandbox.retestUnresolvedIds), []);
+}
+console.log('Passed terminal retest exclusion and stale queue pruning checks.');
