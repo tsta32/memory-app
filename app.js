@@ -22,6 +22,7 @@ var sessionQueue=[],sessionUniqueIds=[],sessionDoneCount=0,streak=0;
 var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0,answerSettled=false;
 var sessionMissedIds=[],retestCandidateIds=[],retryQueue=[];
 var retestMode=false,retestQueue=[],retestUnresolvedIds=[],retestCorrectWaiting=false;
+var retestStages={},currentRetestStage=0,retestPendingAction='';
 var sessionCompletedIds=[]; // 정답/오답 확정된 카드 id (완료)
 var sessionSkippedIds=[];   // 오답처리 건너뛴 카드 id
 var currentIsRetry=false; // 현재 풀고 있는 카드가 세션 내 재도전 카드인지 여부
@@ -564,7 +565,7 @@ function startSessionWith(isPractice){
   if(!chosen.length){$('ngFilterInfo').textContent='해당 카드 없음';$('ngFilterInfo').style.color='var(--danger-text)';return;}
   sessionQueue=chosen.map(function(c){return c.id;});sessionUniqueIds=chosen.map(function(c){return c.id;});
   sessionDoneCount=0;streak=0;sessionMissedIds=[];retestCandidateIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
-  retestMode=false;retestQueue=[];retestUnresolvedIds=[];retestCorrectWaiting=false;currentIsRetest=false;
+  retestMode=false;retestQueue=[];retestUnresolvedIds=[];retestCorrectWaiting=false;retestStages={};currentRetestStage=0;retestPendingAction='';currentIsRetest=false;
   sessionCompletedIds=[];sessionSkippedIds=[];
   $('failAllBtn').disabled=false;$('setupScreen').style.display='none';$('quizScreen').style.display='block';
   loadNext();
@@ -1565,6 +1566,7 @@ function loadNext(){
       retestMode=true;
       retestUnresolvedIds=Array.from(new Set(retestCandidateIds));
       retestQueue=retestUnresolvedIds.slice();
+      retestStages={};retestUnresolvedIds.forEach(function(cardId){retestStages[cardId]=1;});
       $('failAllBtn').disabled=true;
     }
     if(retestMode){
@@ -1579,13 +1581,15 @@ function loadNext(){
   retestCorrectWaiting=false;
   currentIsRetry=isRetry;
   currentIsRetest=isRetest;
+  currentRetestStage=isRetest?(retestStages[current.id]||1):0;
   // 질문 표시 체크박스 상태 반영
   var qmc=$('quizMarkCheck');
   if(qmc) qmc.checked=!!quizMarkedIds[current.id];
   updateQuizBmBtn();
-  $('boxBadge').textContent=isRetest?'오답 재출제':isRetry?'재도전':(current.stage===0?'새 카드':'Lv'+current.stage+' · '+STAGE_DAYS[Math.min(current.stage-1,STAGE_DAYS.length-1)]+'일');
+  $('boxBadge').textContent=isRetest?'오답 재출제 · '+currentRetestStage+'단계':isRetry?'재도전':(current.stage===0?'새 카드':'Lv'+current.stage+' · '+STAGE_DAYS[Math.min(current.stage-1,STAGE_DAYS.length-1)]+'일');
   $('koreanText').textContent=current.ko;showHint(0);
-  if(isRetest){$('hintText').textContent=buildAnswerSilhouette(current.en);$('hintText').style.display='block';$('hintText').style.color='var(--warning)';$('hintLabel').textContent='영어 실루엣';$('hintLabel').style.display='block';}
+  if(isRetest&&currentRetestStage===1){$('hintText').textContent=buildAnswerSilhouette(current.en);$('hintText').style.display='block';$('hintText').style.color='var(--warning)';$('hintLabel').textContent='영어 실루엣 힌트 · 1단계';$('hintLabel').style.display='block';}
+  else if(isRetest){$('hintText').style.display='none';$('hintLabel').style.display='none';}
   updateStats();
 }
 
@@ -2043,12 +2047,14 @@ function finalizeCorrect(manual){
   advanceInputLockUntil=Date.now()+300;
   pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('checkBtn').style.display='none';$('answerInput').disabled=true;
   if(currentIsRetest){
-    retestUnresolvedIds=retestUnresolvedIds.filter(function(cardId){return cardId!==current.id;});
     $('koreanText').style.color='var(--success)';flashCP('var(--success)',true);bigText('OK','#34A96E');playCorrectSound(false);
-    $('diffMessage').textContent='재출제 정답입니다. 다음 문제로 이동하려면 Enter 또는 버튼을 누르세요.';
+    retestPendingAction=currentRetestStage===1?'promote':(manual?'retry':'complete');
+    $('diffMessage').textContent=manual
+      ?(currentRetestStage===1?'수동 확인으로 1단계 진행 처리했습니다. 2단계에서는 자동 정답이 필요합니다.':'수동 확인은 최종 통과가 아닙니다. 2단계를 자동 정답으로 완료해야 합니다.')
+      :(currentRetestStage===1?'실루엣 단계 정답입니다. 다음에는 힌트 없이 다시 답해 주세요.':'2단계 자동 정답입니다. 이 문제를 통과했습니다.');
     $('diffYour').style.display='none';$('diffAns').style.display='none';$('markCorrectBtn').style.display='none';
     $('nextBtn').textContent='다음 문제';$('nextBtn').style.display='block';$('diffPanel').style.display='block';
-    $('footerHint').textContent='정답 확인 후 Enter 또는 다음 문제를 누르세요.';
+    $('footerHint').textContent='결과 확인 후 Enter 또는 다음 문제를 누르세요.';
     retestCorrectWaiting=true;updateStats();setTimeout(function(){$('nextBtn').focus();},50);return;
   }
   if(manual){manualCorrectTotalCount++;settings.manualCorrectTotal=manualCorrectTotalCount;saveSettings();if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
@@ -2086,14 +2092,26 @@ function showDiff(y,a){
   pendingDiff={y:y,a:a,result:deterministicGrade(a,y,settings.grammarOptions)};var d=diffHL(y,a);
   $('diffYour').innerHTML='내 답변: '+(y.trim()?d.y:'(입력 없음)');$('diffAns').innerHTML='모범 답안: '+d.a;
   $('diffYour').style.display='';$('diffAns').style.display='';
-  $('diffMessage').textContent=currentIsRetest?'재출제 오답입니다. 다시 풀려면 다음 문제를 누르거나 Enter를 누르세요.':'오답입니다. 답을 확인한 뒤 다음 문제로 이동하거나 정답으로 변경하세요.';
-  $('markCorrectBtn').style.display=currentIsRetest?'none':'block';$('nextBtn').textContent='다음 문제';
+  $('diffMessage').textContent=currentIsRetest
+    ?(currentRetestStage===1?'실루엣 단계 오답입니다. 답을 확인한 뒤 1단계를 다시 진행하세요.':'2단계 오답입니다. 답을 확인한 뒤 실루엣 단계부터 다시 진행하세요.')
+    :'오답입니다. 답을 확인한 뒤 다음 문제로 이동하거나 정답으로 변경하세요.';
+  $('markCorrectBtn').style.display='block';$('nextBtn').textContent='다음 문제';
   $('diffPanel').style.display='block';$('checkBtn').style.display='none';$('nextBtn').style.display='block';$('answerInput').disabled=true;
   setTimeout(function(){$('nextBtn').focus();},50);
 }
 function advanceAfterRetestCorrect(){
   if(!currentIsRetest||!retestCorrectWaiting||!answerSettled)return;
   retestCorrectWaiting=false;advanceInputLockUntil=Date.now()+300;$('diffPanel').style.display='none';$('nextBtn').style.display='none';
+  var cardId=current.id;
+  if(retestPendingAction==='promote')retestStages[cardId]=2;
+  else if(retestPendingAction==='complete'){
+    retestUnresolvedIds=retestUnresolvedIds.filter(function(id){return id!==cardId;});
+    delete retestStages[cardId];
+  }
+  if(retestPendingAction==='promote'||retestPendingAction==='retry'){
+    if(retestUnresolvedIds.indexOf(cardId)!==-1&&retestQueue.indexOf(cardId)===-1)retestQueue.push(cardId);
+  }
+  retestPendingAction='';updateStats();
   var token=++autoAdvanceToken;setTimeout(function(){if(token===autoAdvanceToken)loadNext();},100);
 }
 function handleResultNext(){if(retestCorrectWaiting)advanceAfterRetestCorrect();else confirmWrongAnswer();}
@@ -2103,6 +2121,7 @@ function confirmWrongAnswer(){
   advanceInputLockUntil=Date.now()+300;
   if(currentIsRetest){
     var retestCard=current;pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('answerInput').disabled=true;
+    if(currentRetestStage===2)retestStages[retestCard.id]=1;
     if(retestUnresolvedIds.indexOf(retestCard.id)!==-1&&retestQueue.indexOf(retestCard.id)===-1)retestQueue.push(retestCard.id);
     $('koreanText').style.color='var(--danger)';flashCP('var(--danger)',true);playWrongSound();
     $('footerHint').textContent='재출제 오답입니다. 다음 라운드에 다시 출제합니다.';$('footerHint').style.color='var(--danger-text)';
@@ -2135,7 +2154,7 @@ function checkAnswer(){
 }
 
 on('checkBtn','click',checkAnswer);on('nextBtn','click',handleResultNext);
-on('markCorrectBtn','click',function(){if(!current||!pendingDiff||answerSettled||currentIsRetest)return;finalizeCorrect(true);});
+on('markCorrectBtn','click',function(){if(!current||!pendingDiff||answerSettled)return;finalizeCorrect(true);});
 on('cancelSessionBtn','click',function(){$('cancelModal').classList.add('show');});
 
 // 테스트 현황 모달

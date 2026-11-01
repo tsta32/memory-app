@@ -47,6 +47,12 @@ assert.match(app, /on\('markCorrectBtn','click',function\(\).*finalizeCorrect\(t
 assert.match(app, /manualCorrectCount/);
 assert.doesNotMatch(app, /recheckIrregularGrammar|SECOND_PASS_IRREGULAR|verifiedAiIrregularPair/);
 assert.match(app, /if\(result\.pass\)\{finalizeCorrect\(\);return;\}\s*showDiff\(raw,reference\)/);
+assert.match(source('checkAnswer'), /deterministicGrade\(reference,raw,options\)/);
+assert.doesNotMatch(source('checkAnswer'), /currentIsRetest|retestMode/);
+assert.match(app, /currentRetestStage===1\?'promote':\(manual\?'retry':'complete'\)/);
+assert.match(app, /currentRetestStage===2\)retestStages\[retestCard\.id\]=1/);
+assert.match(app, /retestPendingAction==='complete'[\s\S]*retestUnresolvedIds=retestUnresolvedIds\.filter/);
+assert.match(app, /on\('markCorrectBtn','click',function\(\)\{if\(!current\|\|!pendingDiff\|\|answerSettled\)return;finalizeCorrect\(true\);\}\)/);
 assert.match(app, /function confirmWrongAnswer\(\)[\s\S]*recordAnswerErrors\(card\.id,card\.en,decision\.y,decision\.result\.errors\)/);
 assert.match(app, /on\('nextBtn','click',handleResultNext\)/);
 assert.match(app, /if\(\$\('nextBtn'\)\.style\.display==='block'\)\{e\.preventDefault\(\);handleResultNext\(\);return;\}/);
