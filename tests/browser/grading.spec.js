@@ -82,6 +82,7 @@ async function expectCorrect(page) {
 
 test('real UI accepts contraction/full-form equivalents in both directions', async ({ browser }) => {
   const cases = [
+    ["Let’s review today’s agenda first.", "let's review today's agenda first"],
     ["I'll reconnect.", 'I will reconnect.'],
     ["I'm ready.", 'I am ready.'],
     ["It's ready.", 'It is ready.'],
@@ -179,6 +180,41 @@ test('real UI normalizes case and punctuation, then waits for explicit incorrect
   } finally {
     await negative.context.close();
   }
+});
+
+test('smart apostrophe contraction equivalence is identical in first test and both retest stages', async ({ browser }) => {
+  const reference = 'Let’s review today’s agenda first.';
+  const equivalent = "let's review today's agenda first";
+  const firstPass = await openQuiz(browser, reference);
+  try {
+    await enterAnswerAndCheck(firstPass.page, equivalent);
+    await expectCorrect(firstPass.page);
+    await expect(firstPass.page.locator('#diffPanel')).toBeHidden();
+    await expect(firstPass.page.locator('#markCorrectBtn')).toBeHidden();
+  } finally { await firstPass.context.close(); }
+
+  const retest = await openApp(browser, reference);
+  try {
+    await retest.page.locator('#startBtn').click();
+    await enterAnswerAndCheck(retest.page, 'We will decide this later.');
+    await retest.page.locator('#diffPanel').waitFor({ state: 'visible' });
+    await retest.page.locator('#nextBtn').click();
+    await expect(retest.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    const beforeRetest = await retest.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
+    await enterAnswerAndCheck(retest.page, equivalent);
+    await expect(retest.page.locator('#diffMessage')).toContainText('실루엣 단계 정답');
+    await retest.page.locator('#nextBtn').click();
+    await retest.page.waitForTimeout(320);
+    await expect(retest.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
+    await expect(retest.page.locator('#hintText')).toBeHidden();
+    await enterAnswerAndCheck(retest.page, equivalent);
+    await expect(retest.page.locator('#diffMessage')).toContainText('2단계 자동 정답');
+    await retest.page.locator('#nextBtn').click();
+    await expect(retest.page.locator('#doneScreen')).toBeVisible();
+    const afterRetest = await retest.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
+    expect(afterRetest).toEqual(beforeRetest);
+    await assertHealthyBrowser(retest);
+  } finally { await retest.context.close(); }
 });
 
 test('real settings UI exposes only the article option and result buttons settle one answer once', async ({ browser }) => {

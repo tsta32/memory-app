@@ -19,6 +19,8 @@ vm.runInContext([source('expandContractions'), source('answerTokens'), source('a
 const normalize = s => context.answerTokens(s).join(' ');
 const equivalent = [
   ["I'm ready!", 'I am ready.'], ["don't", 'do not'], ["won't", 'will not'],
+  ["I'm ready", 'I’m ready'], ["don't stop", 'don’t stop'], ["I'll go", 'I’ll go'],
+  ["Let’s review today’s agenda first.", "let's review today's agenda first"],
   ["he's ready", 'he is ready'], ["he's finished", 'he has finished'], ["he's finished", 'he is finished'],
   ["he's tired", 'he is tired'], ["she's here", 'she is here'], ["she's gone", 'she has gone'],
   ["I'd go", 'I would go'], ["I'd gone", 'I had gone'],
@@ -30,6 +32,8 @@ const equivalent = [
 ];
 for (const [a, b] of equivalent) assert.equal(normalize(a), normalize(b), `${a} ↔ ${b}`);
 for (const [a, b] of [["he's ready", "he's finished"], ["I'd gone", 'I would go']]) assert.notEqual(normalize(a), normalize(b));
+assert.equal(context.deterministicGrade('Let’s review today’s agenda first.', "let's review today's agenda first", { article: true }).pass, true);
+assert.notEqual(normalize('red-blue'), normalize('redblue'), 'punctuation between words must not merge tokens');
 assert.equal(context.deterministicGrade('I saw a bird.', 'I saw the bird.', { article: true }).pass, false);
 assert.equal(context.deterministicGrade('I saw a bird.', 'I saw the bird.', { article: false }).pass, true);
 for (const [a, b] of [['I went home.', 'I go home.'], ['She taught me.', 'She teached me.'], ['I can go.', 'I could go.'], ['They saw children.', 'They saw child.'], ['I went to school.', 'I went in school.'], ['She bought it.', 'She purchased it.']]) {

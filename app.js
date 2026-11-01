@@ -81,7 +81,9 @@ function norm(s){return s.trim().toLowerCase().replace(/[.,!?;:'"()\-]/g,'').rep
 // Expand all contractions to their full forms so that
 // "I'm" and "I am", "won't" and "will not", etc. are treated as identical.
 function expandContractions(s){
-  s=s.toLowerCase();
+  // Normalize typographic apostrophes before contraction expansion. Keep
+  // punctuation token boundaries intact later in answerTokens().
+  s=String(s||'').replace(/[\u2018\u2019\u02bc\uff07]/g,"'").toLowerCase();
   var participles='been done gone gotten made taken seen said told given found thought bought brought written spoken left met sent kept felt run eaten drunk known chosen begun become held paid stood sat won taught built arisen awoken beaten bent bitten bled blown bred clung crept dealt dug fed fled forbidden ground had laid led lent lain lit meant read sought sewn shrunk sunk slid smelt spelt spilt spun spat split spread sprung swept torn woven wept withdrawn withstood'.split(' ');
   function looksParticiple(word){
     var adjectiveLike={aged:1,beloved:1,bored:1,closed:1,crowded:1,excited:1,interested:1,married:1,pleased:1,relaxed:1,scared:1,surprised:1,tired:1,worried:1};
