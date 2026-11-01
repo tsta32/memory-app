@@ -6,20 +6,22 @@ const BLOCKED_WORKERS = new Set([
   'lively-wave-a149.tsta32.workers.dev'
 ]);
 
-async function openApp(browser, reference, grammarOptions = {}) {
+async function openApp(browser, reference, grammarOptions = {}, extraCards = 0) {
   const context = await browser.newContext();
   const diagnostics = { consoleErrors: [], pageErrors: [], requestFailures: [], badResponses: [], workerRequests: [] };
-  await context.addInitScript(({ reference, grammarOptions, cardId }) => {
+  await context.addInitScript(({ reference, grammarOptions, cardId, extraCards }) => {
+    const cards = [{ id: cardId, ko: '브라우저 회귀 검사', en: reference, chapterId: 42, stage: 0,
+      dueAt: Date.now() - 1000, bookmarked: false, everAnswered: false, ngCount: 0, lastTestedAt: 0 }];
+    for (let i = 0; i < extraCards; i++) cards.push({ ...cards[0], id: cardId + i + 1 });
     localStorage.setItem('srs_chapters_v1', JSON.stringify({ chapters: [{ id: 42, name: 'Browser test' }], nextId: 43 }));
     localStorage.setItem('srs_cards_v2', JSON.stringify({
-      cards: [{ id: cardId, ko: '브라우저 회귀 검사', en: reference, chapterId: 42, stage: 0,
-        dueAt: Date.now() - 1000, bookmarked: false, everAnswered: false, ngCount: 0, lastTestedAt: 0 }],
-      nextId: cardId + 1
+      cards,
+      nextId: cardId + extraCards + 1
     }));
     localStorage.setItem('srs_settings_v1', JSON.stringify({ grammarOptions }));
     localStorage.setItem('srs_error_history_v1', JSON.stringify({ version: 1, records: [] }));
     localStorage.removeItem('memory_sync_code_v1');
-  }, { reference, grammarOptions, cardId: TEST_CARD_ID });
+  }, { reference, grammarOptions, cardId: TEST_CARD_ID, extraCards });
 
   await context.route('**/*', async route => {
     const url = new URL(route.request().url());
@@ -98,7 +100,7 @@ test('real UI accepts contraction/full-form equivalents in both directions', asy
   }
 });
 
-test('real UI ignores case and punctuation but rejects a meaning change and stores its error', async ({ browser }) => {
+test('real UI ignores case and punctuation and lets the learner manually grade other differences', async ({ browser }) => {
   const positive = await openQuiz(browser, "I'll reconnect.");
   try {
     await enterAnswerAndCheck(positive.page, 'i WILL reconnect!!!');
@@ -111,68 +113,90 @@ test('real UI ignores case and punctuation but rejects a meaning change and stor
   const negative = await openQuiz(browser, "I'll reconnect.");
   try {
     await enterAnswerAndCheck(negative.page, "I won't reconnect.");
+    await expect(negative.page.locator('#diffPanel')).toBeVisible();
+    await expect(negative.page.locator('#diffYour')).toContainText("won't");
+    await negative.page.locator('#markWrongBtn').click();
     await expect(negative.page.locator('#footerHint')).toContainText('오답:');
-    await expect(negative.page.locator('#footerHint')).toContainText('핵심 단어가 추가');
+    await negative.page.locator('#skipFailBtn').click();
+    await expect(negative.page.locator('#doneScreen')).toBeVisible();
     const history = await negative.page.evaluate(() => JSON.parse(localStorage.getItem('srs_error_history_v1')));
     expect(history.records).toHaveLength(1);
     expect(history.records[0]).toMatchObject({ cardId: TEST_CARD_ID, errorType: 'vocabulary', actualAnswer: "I won't reconnect.", count: 1 });
-    expect(history.records[0].occurrences[0].reason).toContain('핵심 단어가 추가');
+    expect(history.records[0].occurrences[0].reason).toContain('정규화 후에도');
+    const gradedCard = await negative.page.evaluate(() => JSON.parse(localStorage.getItem('srs_cards_v2')).cards[0]);
+    expect(gradedCard).toMatchObject({ stage: 0, ngCount: 1, everAnswered: true });
+    expect(gradedCard.dueAt).toBeGreaterThan(Date.now());
+    expect(gradedCard.dueAt).toBeLessThan(Date.now() + 16 * 60 * 1000);
     await assertHealthyBrowser(negative);
   } finally {
     await negative.context.close();
   }
 });
 
-test('real settings UI exposes only five grammar options and each option works ON/OFF', async ({ browser }) => {
+test('real settings UI exposes only the article option and manual grades count separately', async ({ browser }) => {
   const inventory = await openApp(browser, "I'll reconnect.");
   try {
     await inventory.page.locator('#tabSettings').click();
     const optionNames = await inventory.page.locator('[data-grammar-option]').evaluateAll(nodes =>
       nodes.map(node => node.getAttribute('data-grammar-option')).sort()
     );
-    expect(optionNames).toEqual(['article', 'modal', 'number', 'preposition', 'tense']);
+    expect(optionNames).toEqual(['article']);
     await expect(inventory.page.locator('[data-grammar-option="meaning"]')).toHaveCount(0);
-    await expect(inventory.page.locator('#grammarErrorStats')).toContainText('의미·문맥');
+    await expect(inventory.page.locator('#grammarErrorStats')).toContainText('어휘');
     await assertHealthyBrowser(inventory);
   } finally {
     await inventory.context.close();
   }
 
-  const cases = [
-    ['I went home.', 'I go home.', 'tense', '시제'],
-    ['I saw the child.', 'I saw the children.', 'number', '단수·복수 및 수 일치'],
-    ['I can go.', 'I could go.', 'modal', '조동사'],
-    ['I saw a bird.', 'I saw the bird.', 'article', '관사'],
-    ['I went to school.', 'I went in school.', 'preposition', '전치사']
-  ];
-  for (const [reference, answer, option, label] of cases) {
+  const articleOn = await openQuiz(browser, 'I saw a bird.');
+  try {
+    await enterAnswerAndCheck(articleOn.page, 'I saw the bird.');
+    await expect(articleOn.page.locator('#diffPanel')).toBeVisible();
+  } finally { await articleOn.context.close(); }
+
+  const articleOff = await openApp(browser, 'I saw a bird.');
+  try {
+    await articleOff.page.locator('#tabSettings').click();
+    await articleOff.page.locator('[data-grammar-option="article"]').uncheck();
+    await articleOff.page.locator('#tabQuiz').click();
+    await articleOff.page.locator('#practiceBtn').click();
+    await expect(articleOff.page.locator('#quizScreen')).toBeVisible();
+    await enterAnswerAndCheck(articleOff.page, 'I saw the bird.');
+    await expectCorrect(articleOff.page);
+  } finally { await articleOff.context.close(); }
+
+  const manual = await openQuiz(browser, 'I went home.');
+  try {
+    await enterAnswerAndCheck(manual.page, 'I go home.');
+    await expect(manual.page.locator('#diffPanel')).toBeVisible();
+    await manual.page.locator('#markCorrectBtn').click();
+    await expectCorrect(manual.page);
+    await expect(manual.page.locator('#manualCorrectCount')).toHaveText('수동판정정답 1');
+    await assertHealthyBrowser(manual);
+  } finally { await manual.context.close(); }
+
+  const nextCard = await openApp(browser, 'I went home.', {}, 1);
+  try {
+    await nextCard.page.locator('#practiceBtn').click();
+    await expect(nextCard.page.locator('#quizScreen')).toBeVisible();
+    await enterAnswerAndCheck(nextCard.page, 'I go home.');
+    await nextCard.page.locator('#markCorrectBtn').click();
+    await expect(nextCard.page.locator('#progressCount')).toHaveText('1/2');
+    await expect(nextCard.page.locator('#diffPanel')).toBeHidden();
+    await enterAnswerAndCheck(nextCard.page, 'I go home.');
+    await expect(nextCard.page.locator('#diffPanel')).toBeVisible();
+    await expect(nextCard.page.locator('#manualCorrectCount')).toHaveText('수동판정정답 1');
+    await assertHealthyBrowser(nextCard);
+  } finally { await nextCard.context.close(); }
+
+  for (const [reference, answer] of [['I went home.', 'I go home.'], ['I can go.', 'I could go.'], ['I saw the child.', 'I saw the children.'], ['I went to school.', 'I went in school.']]) {
     const enabled = await openQuiz(browser, reference);
     try {
       await enterAnswerAndCheck(enabled.page, answer);
-      await expect(enabled.page.locator('#footerHint')).toContainText('오답:');
-      await expect(enabled.page.locator('#footerHint')).toContainText(label);
-      const history = await enabled.page.evaluate(() => JSON.parse(localStorage.getItem('srs_error_history_v1')));
-      expect(history.records[0]).toMatchObject({ cardId: TEST_CARD_ID, errorType: option, count: 1 });
+      await expect(enabled.page.locator('#diffPanel')).toBeVisible();
       await assertHealthyBrowser(enabled);
     } finally {
       await enabled.context.close();
-    }
-
-    const disabled = await openApp(browser, reference);
-    try {
-      await disabled.page.locator('#tabSettings').click();
-      const checkbox = disabled.page.locator(`[data-grammar-option="${option}"]`);
-      await expect(checkbox).toBeChecked();
-      await checkbox.uncheck();
-      await disabled.page.locator('#tabQuiz').click();
-      await disabled.page.locator('#practiceBtn').click();
-      await expect(disabled.page.locator('#quizScreen')).toBeVisible();
-      await enterAnswerAndCheck(disabled.page, answer);
-      await expectCorrect(disabled.page);
-      expect(await disabled.page.evaluate(() => JSON.parse(localStorage.getItem('srs_error_history_v1')).records)).toEqual([]);
-      await assertHealthyBrowser(disabled);
-    } finally {
-      await disabled.context.close();
     }
   }
 });

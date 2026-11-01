@@ -10,15 +10,15 @@ var TRENDS_KEY='srs_trends_v1';  // [{date, result}]
 var APIKEY_KEY='srs_apikey_v1'; // 구버전 백업 호환용; 실제 키는 서버에서 관리
 var BIZ_SESSIONS_KEY='srs_biz_sessions_v1'; // [{date,passRate,avgTime,totalSteps,steps:[{stepKo,userAnswer,pass,min,ideal}]}]
 var ERROR_HISTORY_KEY='srs_error_history_v1';
-var GRAMMAR_OPTION_DEFAULTS={tense:true,number:true,modal:true,article:true,preposition:true};
-var GRAMMAR_OPTION_LABELS={tense:'시제',number:'단수·복수 및 수 일치',modal:'조동사',article:'관사',preposition:'전치사',spelling:'철자',meaning:'의미·문맥',vocabulary:'어휘'};
+var GRAMMAR_OPTION_DEFAULTS={article:true};
+var GRAMMAR_OPTION_LABELS={article:'관사',vocabulary:'어휘'};
 
 var cards=[],chapters=[],settings={volume:100,newCardRatio:5,grammarOptions:Object.assign({},GRAMMAR_OPTION_DEFAULTS)};
 var nextCardId=1,nextChapterId=1;
 var errorHistory=[],errorHistoryWritable=true;
 
 var sessionQueue=[],sessionUniqueIds=[],sessionDoneCount=0,streak=0;
-var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0;
+var current=null,hintLevel=0,pendingDiff=null,autoAdvanceToken=0,sessionManualCorrectCount=0;
 var sessionMissedIds=[],retryQueue=[];
 var sessionCompletedIds=[]; // 정답/오답 확정된 카드 id (완료)
 var sessionSkippedIds=[];   // 오답처리 건너뛴 카드 id
@@ -78,9 +78,12 @@ function norm(s){return s.trim().toLowerCase().replace(/[.,!?;:'"()\-]/g,'').rep
 function expandContractions(s){
   s=s.toLowerCase();
   var participles='been done gone gotten made taken seen said told given found thought bought brought written spoken left met sent kept felt run eaten drunk known chosen begun become held paid stood sat won taught built arisen awoken beaten bent bitten bled blown bred clung crept dealt dug fed fled forbidden ground had laid led lent lain lit meant read sought sewn shrunk sunk slid smelt spelt spilt spun spat split spread sprung swept torn woven wept withdrawn withstood'.split(' ');
-  function looksParticiple(word){return /(?:ed|en)$/.test(word)||participles.indexOf(word)!==-1;}
-  s=s.replace(/\b(i|you|he|she|it|we|they|that)'d\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'had':'would')+' '+next;});
-  s=s.replace(/\b(it)'s\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'has':'is')+' '+next;});
+  function looksParticiple(word){
+    var adjectiveLike={aged:1,beloved:1,bored:1,closed:1,crowded:1,excited:1,interested:1,married:1,pleased:1,relaxed:1,scared:1,surprised:1,tired:1,worried:1};
+    return participles.indexOf(word)!==-1||(/ed$/.test(word)&&!adjectiveLike[word]);
+  }
+  s=s.replace(/\b(i|you|he|she|it|we|they|that|there|who|what|where|when|why|how)'d\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'had':'would')+' '+next;});
+  s=s.replace(/\b(i|you|we|they|he|she|it|that|there|who|what|where|when|why|how)'s\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'has':'is')+' '+next;});
   // negative contractions first (order matters: won't before 'll etc.)
   s=s.replace(/\bwon't\b/g,'will not');
   s=s.replace(/\bcan't\b/g,'cannot');
@@ -102,6 +105,8 @@ function expandContractions(s){
   s=s.replace(/\bmightn't\b/g,'might not');
   s=s.replace(/\bmustn't\b/g,'must not');
   s=s.replace(/\bneedn't\b/g,'need not');
+  s=s.replace(/\bdaren't\b/g,'dare not');
+  s=s.replace(/\boughtn't\b/g,'ought not');
   // positive contractions
   s=s.replace(/\bi'm\b/g,'i am');
   s=s.replace(/\byou're\b/g,'you are');
@@ -112,6 +117,9 @@ function expandContractions(s){
   s=s.replace(/\bit's\b/g,'it is');
   s=s.replace(/\bwe're\b/g,'we are');
   s=s.replace(/\bthey're\b/g,'they are');
+  s=s.replace(/\bwhat're\b/g,'what are');
+  s=s.replace(/\bwhere're\b/g,'where are');
+  s=s.replace(/\bwho're\b/g,'who are');
   s=s.replace(/\bthat's\b/g,'that is');
   s=s.replace(/\bwhat's\b/g,'what is');
   s=s.replace(/\bthere's\b/g,'there is');
@@ -125,20 +133,25 @@ function expandContractions(s){
   s=s.replace(/\bit'll\b/g,'it will');
   s=s.replace(/\bwe'll\b/g,'we will');
   s=s.replace(/\bthey'll\b/g,'they will');
+  s=s.replace(/\bwhat'll\b/g,'what will');
+  s=s.replace(/\bthat'll\b/g,'that will');
   s=s.replace(/\bthat'll\b/g,'that will');
   s=s.replace(/\bi've\b/g,'i have');
   s=s.replace(/\byou've\b/g,'you have');
   s=s.replace(/\bwe've\b/g,'we have');
   s=s.replace(/\bthey've\b/g,'they have');
-  s=s.replace(/\bi'd\b/g,'i would');         // covers i had too
-  s=s.replace(/\byou'd\b/g,'you would');
-  s=s.replace(/\bhe'd\b/g,'he would');
-  s=s.replace(/\bshe'd\b/g,'she would');
-  s=s.replace(/\bwe'd\b/g,'we would');
-  s=s.replace(/\bthey'd\b/g,'they would');
+  s=s.replace(/\b(he|she|it)'ve\b/g,'$1 have');
+  s=s.replace(/\b(i|you|he|she|it|we|they|that|there|who|what|where|when|why|how)'re\b/g,'$1 are');
+  s=s.replace(/\b(i|you|he|she|it|we|they|that|there|who|what|where|when|why|how)'ll\b/g,'$1 will');
+  s=s.replace(/\b(i|you|he|she|it|we|they|that|there|who|what|where|when|why|how)'ve\b/g,'$1 have');
+  s=s.replace(/\b(i|you|he|she|it|we|they|that|there|who|what|where|when|why|how)'d\b/g,'$1 would');
   s=s.replace(/\bi'd've\b/g,'i would have');
   s=s.replace(/\blet's\b/g,'let us');
-  s=s.replace(/\bthey'd\b/g,'they would');
+  s=s.replace(/\b y'all\b/g,' you all');
+  s=s.replace(/\by'all\b/g,'you all');
+  // For common perfect/passive participles, accept the corresponding
+  // pronoun + "is" wording as the same conventional "'s" contraction.
+  s=s.replace(/\b(i|you|he|she|it|we|they|that|there|who|what|where|when|why|how) is ([a-z]+)/g,function(all,subject,next){return looksParticiple(next)?subject+' has '+next:all;});
   return s.replace(/\s+/g,' ').trim();
 }
 
@@ -174,211 +187,17 @@ function anagram(y,a){
 // their corresponding option is OFF; spelling tolerance is limited to one
 // single-character edit or adjacent transposition in one multi-letter word.
 var ARTICLE_WORDS={a:1,an:1,the:1};
-var MODAL_WORDS={can:1,could:1,will:1,would:1,shall:1,should:1,may:1,might:1,must:1};
-var PREPOSITION_WORDS={about:1,above:1,across:1,after:1,against:1,along:1,among:1,around:1,at:1,before:1,behind:1,below:1,beneath:1,beside:1,between:1,beyond:1,by:1,despite:1,down:1,during:1,for:1,from:1,in:1,inside:1,into:1,near:1,of:1,off:1,on:1,onto:1,out:1,outside:1,over:1,through:1,to:1,toward:1,under:1,until:1,up:1,upon:1,with:1,within:1,without:1};
-var IRREGULAR_FORMS={
-  be:['am','is','are','was','were','been','being'], have:['has','had','having'], do:['does','did','done','doing'], go:['goes','went','gone','going'], get:['gets','got','gotten','getting'], make:['makes','made','making'], take:['takes','took','taken','taking'], come:['comes','came','coming'], see:['sees','saw','seen','seeing'], say:['says','said','saying'], tell:['tells','told','telling'], give:['gives','gave','given','giving'], find:['finds','found','finding'], think:['thinks','thought','thinking'], buy:['buys','bought','buying'], bring:['brings','brought','bringing'], write:['writes','wrote','written','writing'], read:['reads','read','reading'], speak:['speaks','spoke','spoken','speaking'], leave:['leaves','left','leaving'], meet:['meets','met','meeting'], send:['sends','sent','sending'], keep:['keeps','kept','keeping'], feel:['feels','felt','feeling'], run:['runs','ran','run','running'], eat:['eats','ate','eaten','eating'], drink:['drinks','drank','drunk','drinking'], know:['knows','knew','known','knowing'], choose:['chooses','chose','chosen','choosing'], begin:['begins','began','begun','beginning'], become:['becomes','became','becoming'], hold:['holds','held','holding'], pay:['pays','paid','paying'], stand:['stands','stood','standing'], sit:['sits','sat','sitting'], win:['wins','won','winning'], work:['works','worked','working']
-};
-var IRREGULAR_PAST_FORMS={be:['was','were','been'],have:['had'],do:['did','done'],go:['went','gone'],get:['got','gotten'],make:['made'],take:['took','taken'],come:['came'],see:['saw','seen'],say:['said'],tell:['told'],give:['gave','given'],find:['found'],think:['thought'],buy:['bought'],bring:['brought'],write:['wrote','written'],speak:['spoke','spoken'],leave:['left'],meet:['met'],send:['sent'],keep:['kept'],feel:['felt'],run:['ran'],eat:['ate','eaten'],drink:['drank','drunk'],know:['knew','known'],choose:['chose','chosen'],begin:['began','begun'],become:['became'],hold:['held'],pay:['paid'],stand:['stood'],sit:['sat'],win:['won'],work:['worked']};
-var IRREGULAR_NOUNS={child:'children',man:'men',woman:'women',person:'people',mouse:'mice',goose:'geese',foot:'feet',tooth:'teeth'};
 function answerTokens(s){
   s=expandContractions(String(s||''));
   return s.replace(/[.,!?;:'"()[\]{}\-—–…]/g,' ').replace(/[^a-z0-9\s]/g,' ').trim().split(/\s+/).filter(Boolean);
 }
-function morphologyCategory(a,b){
-  if(a===b)return null;
-  if(IRREGULAR_NOUNS[a]===b||IRREGULAR_NOUNS[b]===a)return 'number';
-  if(MODAL_WORDS[a]&&MODAL_WORDS[b])return 'modal';
-  if(ARTICLE_WORDS[a]&&ARTICLE_WORDS[b])return 'article';
-  if(PREPOSITION_WORDS[a]&&PREPOSITION_WORDS[b])return 'preposition';
-  function stemFor(word){
-    if(IRREGULAR_FORMS[word])return word;
-    for(var base in IRREGULAR_FORMS)if(IRREGULAR_FORMS[base].indexOf(word)!==-1)return base;
-    if(word.length>4&&word.slice(-3)==='ies')return word.slice(0,-3)+'y';
-    if(word.length>4&&word.slice(-3)==='ied')return word.slice(0,-3)+'y';
-    if(word.length>4&&word.slice(-2)==='ed'){var past=word.slice(0,-2);return past.length>2&&past[past.length-1]===past[past.length-2]?past.slice(0,-1):past;}
-    if(word.length>4&&word.slice(-3)==='ing'){var gerund=word.slice(0,-3);if(gerund.length>2&&gerund[gerund.length-1]===gerund[gerund.length-2])gerund=gerund.slice(0,-1);return gerund;}
-    if(word.length>3&&word.slice(-1)==='s'&&!/(ss|us|is|ous|ness|ics)$/.test(word))return word.slice(0,-1);
-    return word;
-  }
-  var sa=stemFor(a),sb=stemFor(b);
-  if(sa+'e'===sb||sb+'e'===sa){sa=sa+'e';sb=sb+'e';}
-  if(sa===sb){
-    // Work/works is agreement (number); work/worked is tense.
-    var aThird=a===sa+'s'||a===sa+'es'||a===sa+'ies'||(IRREGULAR_FORMS[sa]&&IRREGULAR_FORMS[sa][0]===a);
-    var bThird=b===sb+'s'||b===sb+'es'||b===sb+'ies'||(IRREGULAR_FORMS[sb]&&IRREGULAR_FORMS[sb][0]===b);
-    if(sa==='be'&&['be','am','is','are'].indexOf(a)!==-1&&['be','am','is','are'].indexOf(b)!==-1)return 'number';
-    var aPast=/ed$/.test(a)||!!(IRREGULAR_PAST_FORMS[sa]&&IRREGULAR_PAST_FORMS[sa].indexOf(a)!==-1);
-    var bPast=/ed$/.test(b)||!!(IRREGULAR_PAST_FORMS[sb]&&IRREGULAR_PAST_FORMS[sb].indexOf(b)!==-1);
-    if(aPast!==bPast)return 'tense';
-    if(aThird!==bThird)return 'number';
-    if(/ing$/.test(a)!==/ing$/.test(b))return 'tense';
-  }
-  var tensePairs={};
-  Object.keys(IRREGULAR_FORMS).forEach(function(base){IRREGULAR_FORMS[base].forEach(function(form){tensePairs[base+'|'+form]=true;tensePairs[form+'|'+base]=true;});});
-  if(tensePairs[a+'|'+b])return 'tense';
-  function pluralBase(word){
-    if(IRREGULAR_NOUNS[word])return Object.keys(IRREGULAR_NOUNS).filter(function(k){return IRREGULAR_NOUNS[k]===word;})[0];
-    if(/ies$/.test(word))return word.slice(0,-3)+'y';
-    if(/(ches|shes|xes|zes|ses)$/.test(word))return word.slice(0,-2);
-    if(/s$/.test(word)&&!/ss$/.test(word))return word.slice(0,-1);
-    return null;
-  }
-  if(pluralBase(a)===b||pluralBase(b)===a)return 'number';
-  return null;
-}
-function oneSpellingError(a,b){
-  if(a.length<2||b.length<2)return false;
-  if(a===b)return false;
-  if(lev(a,b)===1)return true;
-  if(a.length!==b.length)return false;
-  for(var i=0;i<a.length-1;i++)if(a[i]!==b[i]&&a[i]===b[i+1]&&a[i+1]===b[i]&&a.slice(i+2)===b.slice(i+2))return true;
-  return false;
-}
-// Some irregular past forms look like one-character typos (build/built,
-// feed/fed). Route these narrow ending patterns to the irregular-only review
-// before applying the ordinary spelling allowance.
-function possibleIrregularSpellingCollision(a,b){
-  function dTSwap(x,y){return x.replace(/d$/,'t')===y||y.replace(/d$/,'t')===x;}
-  function removeRepeatedChar(x,y){for(var i=1;i<x.length;i++)if(x[i]===x[i-1]&&x.slice(0,i)+x.slice(i+1)===y)return true;return false;}
-  function vowelSubstitution(x,y){if(x.length!==y.length)return false;var mismatch=-1;for(var i=0;i<x.length;i++)if(x[i]!==y[i]){if(mismatch!==-1||'aeiou'.indexOf(x[i])===-1||'aeiou'.indexOf(y[i])===-1)return false;mismatch=i;}return mismatch!==-1;}
-  return dTSwap(a,b)||removeRepeatedChar(a,b)||removeRepeatedChar(b,a)||vowelSubstitution(a,b);
-}
+function articleFiltered(tokens,enabled){return enabled?tokens:tokens.filter(function(word){return !ARTICLE_WORDS[word];});}
 function deterministicGrade(reference,answer,options){
-  var a=answerTokens(reference),b=answerTokens(answer),memo={};
+  var a=answerTokens(reference),b=answerTokens(answer);
   options=normalizeGrammarOptions(options);
-  function combine(tail,errors,typo){return{errors:errors.concat(tail.errors),typo:typo||tail.typo};}
-  function rank(result){return result.errors.length*100+(result.typo?1:0);}
-  function solve(i,j,typo){
-    var key=i+','+j+','+(typo?1:0);if(memo[key])return memo[key];
-    if(i===a.length&&j===b.length)return memo[key]={errors:[],typo:typo};
-    var candidates=[];
-    function add(ni,nj,nt,errs){var tail=solve(ni,nj,nt);candidates.push(combine(tail,errs||[],nt));}
-    if(i<a.length&&j<b.length&&a[i]===b[j])add(i+1,j+1,typo,[]);
-    if(i<a.length&&j<b.length&&a[i]!==b[j]){
-      var category=morphologyCategory(a[i],b[j]);
-      if(category)add(i+1,j+1,typo,options[category]? [{type:category,reason:'문법 옵션 '+GRAMMAR_OPTION_LABELS[category]+'이(가) ON인데 형태가 다릅니다: “'+a[i]+'” → “'+b[j]+'”.'}]:[]);
-      else if(!typo&&oneSpellingError(a[i],b[j])&&!possibleIrregularSpellingCollision(a[i],b[j]))add(i+1,j+1,true,[]);
-      else add(i+1,j+1,typo,[{type:'vocabulary',reason:'허용된 철자 차이를 넘는 어휘 차이입니다: “'+a[i]+'” → “'+b[j]+'”.'}]);
-    }
-    if(i<a.length){var ca=ARTICLE_WORDS[a[i]]?'article':PREPOSITION_WORDS[a[i]]?'preposition':MODAL_WORDS[a[i]]?'modal':null;if(ca)add(i+1,j,typo,options[ca]?[{type:ca,reason:'문법 옵션 '+GRAMMAR_OPTION_LABELS[ca]+'이(가) ON인데 해당 표현이 빠졌습니다: “'+a[i]+'”.'}]:[]);else add(i+1,j,typo,[{type:'vocabulary',reason:'모범 답안의 핵심 단어가 빠졌습니다: “'+a[i]+'”.'}]);}
-    if(j<b.length){var cb=ARTICLE_WORDS[b[j]]?'article':PREPOSITION_WORDS[b[j]]?'preposition':MODAL_WORDS[b[j]]?'modal':null;if(cb)add(i,j+1,typo,options[cb]?[{type:cb,reason:'문법 옵션 '+GRAMMAR_OPTION_LABELS[cb]+'이(가) ON인데 다른 표현이 추가되었습니다: “'+b[j]+'”.'}]:[]);else add(i,j+1,typo,[{type:'vocabulary',reason:'학습자 답변에 모범 답안에 없는 핵심 단어가 추가되었습니다: “'+b[j]+'”.'}]);}
-    candidates.sort(function(x,y){return rank(x)-rank(y);});
-    return memo[key]=candidates[0]||{errors:[{type:'vocabulary',reason:'두 문장의 단어 구성이 다릅니다.'}],typo:typo};
-  }
-  var result=solve(0,0,false),unique=[],seen={};
-  result.errors.forEach(function(e){var k=e.type+'|'+e.reason;if(!seen[k]){seen[k]=true;unique.push(e);}});
-  return{pass:unique.length===0,errors:unique,typo:result.typo};
-}
-// A narrow second pass may reclassify only an exact deterministic vocabulary
-// mismatch as an irregular verb or noun form. It never decides whole-answer
-// correctness and fails closed when the response is missing or uncertain.
-var SECOND_PASS_IRREGULAR_VERBS={
-  teach:['teaches','taught','teaching'], build:['builds','built','building'], arise:['arises','arose','arisen','arising'], awake:['awakes','awoke','awoken','awaking'], beat:['beats','beat','beaten','beating'], bend:['bends','bent','bending'], bite:['bites','bit','bitten','biting'], bleed:['bleeds','bled','bleeding'], blow:['blows','blew','blown','blowing'], breed:['breeds','bred','breeding'], cling:['clings','clung','clinging'], creep:['creeps','crept','creeping'], deal:['deals','dealt','dealing'], dig:['digs','dug','digging'], feed:['feeds','fed','feeding'], flee:['flees','fled','fleeing'], forbid:['forbids','forbade','forbidden','forbidding'], grind:['grinds','ground','grinding'], hang:['hangs','hung','hanged','hanging'], lay:['lays','laid','laying'], lead:['leads','led','leading'], lend:['lends','lent','lending'], lie:['lies','lay','lain','lying'], light:['lights','lit','lighted','lighting'], mean:['means','meant','meaning'], seek:['seeks','sought','seeking'], sew:['sews','sewed','sewn','sewing'], shrink:['shrinks','shrank','shrunk','shrinking'], sink:['sinks','sank','sunk','sinking'], slide:['slides','slid','sliding'], smell:['smells','smelled','smelt','smelling'], spell:['spells','spelled','spelt','spelling'], spill:['spills','spilled','spilt','spilling'], spin:['spins','spun','spinning'], spit:['spits','spat','spitting'], split:['splits','split','splitting'], spread:['spreads','spread','spreading'], spring:['springs','sprang','sprung','springing'], sweep:['sweeps','swept','sweeping'], tear:['tears','tore','torn','tearing'], weave:['weaves','wove','woven','weaving'], weep:['weeps','wept','weeping'], withdraw:['withdraws','withdrew','withdrawn','withdrawing'], withstand:['withstands','withstood','withstanding']
-};
-var SECOND_PASS_IRREGULAR_NOUNS={cactus:'cacti',fungus:'fungi',nucleus:'nuclei',analysis:'analyses',basis:'bases',crisis:'crises',diagnosis:'diagnoses',thesis:'theses',axis:'axes',index:'indices',matrix:'matrices',appendix:'appendices',criterion:'criteria',phenomenon:'phenomena',datum:'data'};
-function isVerifiedIrregularPair(a,b,type){
-  var families=type==='tense'?Object.assign({},IRREGULAR_FORMS,SECOND_PASS_IRREGULAR_VERBS):Object.assign({},IRREGULAR_NOUNS,SECOND_PASS_IRREGULAR_NOUNS);
-  for(var base in families){var forms=families[base];if(type==='tense'&&(a===base&&forms.indexOf(b)!==-1||b===base&&forms.indexOf(a)!==-1||forms.indexOf(a)!==-1&&forms.indexOf(b)!==-1))return true;if(type==='number'&&(a===base&&forms===b||b===base&&forms===a))return true;}
-  return false;
-}
-function isRegularVerbFormForLemma(lemma,form){
-  if(!lemma||!form)return false;
-  var forms=[lemma],third,past,gerund,last=lemma.slice(-1),isConsonantY=/[^aeiou]y$/.test(lemma),isCvc=lemma.length>2&&/[^aeiou][aeiou][^aeiouwxy]$/.test(lemma);
-  if(isConsonantY){third=lemma.slice(0,-1)+'ies';past=lemma.slice(0,-1)+'ied';}
-  else{third=/(s|x|z|ch|sh|o)$/.test(lemma)?lemma+'es':lemma+'s';past=/e$/.test(lemma)?lemma+'d':(isCvc?lemma+last:lemma)+'ed';}
-  if(/ie$/.test(lemma))gerund=lemma.slice(0,-2)+'ying';
-  else if(/e$/.test(lemma)&&!/ee$/.test(lemma))gerund=lemma.slice(0,-1)+'ing';
-  else gerund=(isCvc?lemma+last:lemma)+'ing';
-  forms.push(third,past,gerund);
-  return forms.indexOf(form)!==-1;
-}
-function verifiedAiIrregularPair(a,b,type,lemma){
-  if(isVerifiedIrregularPair(a,b,type))return true;
-  // The AI lemma is the base form, not necessarily either surface form.
-  // Validate that exactly one candidate is a regular inflection of that lemma;
-  // this supports irregular-vs-overregularized pairs without a verb dictionary.
-  if(type==='tense'){
-    if(!/^[a-z]+$/.test(lemma||''))return false;
-    return isRegularVerbFormForLemma(lemma,a)!==isRegularVerbFormForLemma(lemma,b);
-  }
-  if(!lemma||lemma!==a&&lemma!==b)return false;
-  function pluralStem(word){
-    if(IRREGULAR_NOUNS[word])return word;
-    for(var singular in IRREGULAR_NOUNS)if(IRREGULAR_NOUNS[singular]===word)return singular;
-    if(SECOND_PASS_IRREGULAR_NOUNS[ word ])return word;
-    for(var special in SECOND_PASS_IRREGULAR_NOUNS)if(SECOND_PASS_IRREGULAR_NOUNS[special]===word)return special;
-    if(/ies$/.test(word))return word.slice(0,-3)+'y';
-    if(/(ches|shes|xes|zes|ses)$/.test(word))return word.slice(0,-2);
-    if(/s$/.test(word)&&!/ss$/.test(word))return word.slice(0,-1);
-    return null;
-  }
-  var aBase=pluralStem(a),bBase=pluralStem(b);
-  if(aBase&&bBase&&aBase!==bBase)return false;
-  if(type==='tense')return true;
-  var other=lemma===a?b:a,otherBase=pluralStem(other);
-  if(otherBase&&otherBase!==lemma)return false;
-  return true;
-}
-function extractIrregularResultsJson(raw){
-  raw=String(raw||'').trim();
-  function validResults(value){return value&&typeof value==='object'&&!Array.isArray(value)&&Array.isArray(value.results)?value:null;}
-  function parseCandidate(candidate){try{return validResults(JSON.parse(String(candidate||'').trim()));}catch(e){return null;}}
-  var direct=parseCandidate(raw);if(direct)return direct;
-  var fence=/```(?:json)?\s*([\s\S]*?)```/gi,match;
-  while((match=fence.exec(raw))!==null){var fenced=parseCandidate(match[1]);if(fenced)return fenced;}
-  // Worker replies can prepend prose to a JSON object. Scan balanced object
-  // boundaries while respecting quoted strings and escapes, then parse each.
-  for(var start=0;start<raw.length;start++){
-    if(raw[start]!=='{')continue;
-    var depth=0,inString=false,escaped=false;
-    for(var i=start;i<raw.length;i++){
-      var ch=raw[i];
-      if(inString){if(escaped)escaped=false;else if(ch==='\\')escaped=true;else if(ch==='"')inString=false;continue;}
-      if(ch==='"'){inString=true;continue;}
-      if(ch==='{')depth++;
-      else if(ch==='}'&&--depth===0){var embedded=parseCandidate(raw.slice(start,i+1));if(embedded)return embedded;break;}
-    }
-  }
-  return null;
-}
-function recheckIrregularGrammar(reference,answer,options,result){
-  var candidates=[];
-  (result.errors||[]).forEach(function(error){
-    if(!error||error.type!=='vocabulary')return;
-    var match=String(error.reason||'').match(/“([^”]+)”\s*→\s*“([^”]+)”/);
-    if(match)candidates.push({reference:match[1],answer:match[2]});
-  });
-  if(!candidates.length)return Promise.resolve(result);
-  var prompt='다음 단어 쌍마다 동일한 어휘의 불규칙 문법 활용인지 여부만 판별하라. 전체 문장 정답, 문맥, 의도, 의미 동등성은 판정하지 마라. 같은 어휘의 동사 활용이면 tense, 같은 명사의 단수·복수면 number다. materials↔books처럼 서로 다른 어휘는 isIrregular=false다. 확실하지 않으면 certain=false로 하라. 각 입력 단어 쌍의 철자를 그대로 복사하고, 실제 어휘 원형을 lemma에 넣어라. JSON 객체만 응답하라: {"results":[{"reference":"기준 문장 단어","answer":"학습자 단어","isIrregular":true,"type":"tense 또는 number 또는 null","lemma":"어휘 원형","certain":true}]}\n단어 쌍: '+JSON.stringify(candidates);
-  var timeoutId,request=openAICompatRequest(180,[{role:'user',content:prompt}],null),timeout=new Promise(function(resolve,reject){timeoutId=setTimeout(function(){reject(new Error('불규칙 형태 판별 시간 초과'));},12000);});
-  return Promise.race([request,timeout]).then(function(response){return response.json();}).then(function(data){
-    var raw=(data.content&&data.content[0]&&data.content[0].text)||'';
-    var parsed=extractIrregularResultsJson(raw);
-    if(!parsed)return result;
-    var confirmed={},spellingAccepted={};
-    parsed.results.forEach(function(pair){
-      if(!pair||pair.certain!==true)return;
-      var key=String(pair.reference||'').toLowerCase()+'|'+String(pair.answer||'').toLowerCase();
-      if(!candidates.some(function(candidate){return candidate.reference+'|'+candidate.answer===key;}))return;
-      var a=String(pair.reference||'').toLowerCase(),b=String(pair.answer||'').toLowerCase();
-      if(pair.isIrregular===false){var knownMorphology=isVerifiedIrregularPair(a,b,'tense')||isVerifiedIrregularPair(a,b,'number');if(!knownMorphology&&!result.typo&&oneSpellingError(a,b))spellingAccepted[key]=true;return;}
-      if(pair.isIrregular===true&&['tense','number'].indexOf(pair.type)!==-1&&verifiedAiIrregularPair(a,b,pair.type,String(pair.lemma||'').toLowerCase()))confirmed[key]=pair.type;
-    });
-    if(!Object.keys(confirmed).length&&!Object.keys(spellingAccepted).length)return result;
-    var opts=normalizeGrammarOptions(options),remaining=[];
-    (result.errors||[]).forEach(function(error){
-      if(error&&error.type==='vocabulary'){
-        var match=String(error.reason||'').match(/“([^”]+)”\s*→\s*“([^”]+)”/);
-        var key=match&&match[1].toLowerCase()+'|'+match[2].toLowerCase();
-        var type=key&&confirmed[key];
-        if(type){if(opts[type])remaining.push({type:type,reason:'문법 옵션 '+GRAMMAR_OPTION_LABELS[type]+'이(가) ON인데 불규칙 형태가 다릅니다: “'+match[1]+'” → “'+match[2]+'”.'});return;}
-        if(key&&spellingAccepted[key])return;
-      }
-      remaining.push(error);
-    });
-    return{pass:remaining.length===0,errors:remaining};
-  }).catch(function(){return result;}).then(function(refined){clearTimeout(timeoutId);return refined;});
+  if(!options.article){a=articleFiltered(a,false);b=articleFiltered(b,false);}
+  var pass=a.length===b.length&&a.every(function(word,index){return word===b[index];});
+  return{pass:pass,errors:pass?[]:[{type:'vocabulary',reason:'정규화 후에도 답안이 다릅니다.'}]};
 }
 function diffHL(y,a){
   var max=Math.max(y.length,a.length),yh='',ah='';
@@ -397,7 +216,7 @@ function saveCards(){try{localStorage.setItem(CARDS_KEY,JSON.stringify({cards:ca
 function saveChapters(){try{localStorage.setItem(CHAPTERS_KEY,JSON.stringify({chapters:chapters,nextId:nextChapterId}));}catch(e){}}
 function normalizeGrammarOptions(saved){
   var out=Object.assign({},GRAMMAR_OPTION_DEFAULTS);
-  if(saved&&typeof saved==='object')Object.keys(GRAMMAR_OPTION_DEFAULTS).forEach(function(k){if(typeof saved[k]==='boolean')out[k]=saved[k];});
+  if(saved&&typeof saved==='object'&&typeof saved.article==='boolean')out.article=saved.article;
   return out;
 }
 function buildSettingsObject(raw){
@@ -725,7 +544,7 @@ function startSessionWith(isPractice){
   if(quizBmOnly) chosen=chosen.filter(function(c){return c.bookmarked;});
   if(!chosen.length){$('ngFilterInfo').textContent='해당 카드 없음';$('ngFilterInfo').style.color='var(--danger-text)';return;}
   sessionQueue=chosen.map(function(c){return c.id;});sessionUniqueIds=chosen.map(function(c){return c.id;});
-  sessionDoneCount=0;streak=0;sessionMissedIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
+  sessionDoneCount=0;sessionManualCorrectCount=0;streak=0;sessionMissedIds=[];retryQueue=[];currentIsRetry=false;quizMarkedIds={};
   sessionCompletedIds=[];sessionSkippedIds=[];
   $('setupScreen').style.display='none';$('quizScreen').style.display='block';
   loadNext();
@@ -1695,7 +1514,7 @@ function scheduleCorrect(card,cls){
 }
 
 /* ---------- quiz UI ---------- */
-function updateStats(){$('progressCount').textContent=sessionDoneCount+'/'+sessionUniqueIds.length;$('streakCount').textContent=streak;$('remainingCount').textContent=Math.max(sessionUniqueIds.length-sessionDoneCount,0)+retryQueue.length;}
+function updateStats(){$('progressCount').textContent=sessionDoneCount+'/'+sessionUniqueIds.length;$('streakCount').textContent=streak;$('remainingCount').textContent=Math.max(sessionUniqueIds.length-sessionDoneCount,0)+retryQueue.length;var manual=$('manualCorrectCount');if(manual)manual.textContent='수동판정정답 '+sessionManualCorrectCount;}
 function maskWord(w,lv){return w.split('').map(function(ch,i){if(!/[a-zA-Z]/.test(ch))return lv>=3?ch:'';if(lv>=3)return ch;if(lv===2&&i===0)return ch;return'_';}).join('');}
 function buildHint(en,lv){return en.split(' ').map(function(w){return maskWord(w,lv);}).join('   ');}
 function showHint(lv){var ht=$('hintText'),hl=$('hintLabel');if(lv<=0){ht.style.display='none';hl.style.display='none';return;}ht.textContent=buildHint(current.en,lv);ht.style.color=lv>=3?'var(--danger-text)':'var(--warning)';ht.style.display='block';hl.textContent=['','실루엣 힌트','첫 글자 힌트','전체 정답'][lv]||'';hl.style.display='block';}
@@ -2171,7 +1990,8 @@ on('bizNextBtn','click',function(){bizAllResults=[];bizStepResults=[];bizFinaliz
 
 
 
-function finalizeCorrect(){
+function finalizeCorrect(manual){
+  if(manual){sessionManualCorrectCount++;if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
   var cls=hintLevel>=2?'hard':'easy';
   if(!practiceMode){
     scheduleCorrect(current,cls);
@@ -2210,7 +2030,7 @@ function escalateWrong(){
   setTimeout(function(){inp.focus();},350);updateStats();
 }
 function showDiff(y,a){
-  pendingDiff={y:y,a:a};var d=diffHL(y,a);$('diffYour').innerHTML='입력: '+d.y;$('diffAns').innerHTML='정답: '+d.a;
+  pendingDiff={y:y,a:a,result:deterministicGrade(a,y,settings.grammarOptions)};var d=diffHL(y,a);$('diffYour').innerHTML='입력: '+d.y;$('diffAns').innerHTML='정답: '+d.a;
   $('diffPanel').style.display='block';$('checkBtn').style.display='none';$('answerInput').disabled=true;
   setTimeout(function(){$('markCorrectBtn').focus();},50);
 }
@@ -2227,28 +2047,13 @@ function checkAnswer(){
   if(!raw.trim()){escalateWrong();return;}
   var cardId=current.id,reference=current.en,options=Object.assign({},settings.grammarOptions);
   var result=deterministicGrade(reference,raw,options);
-  // Accepted answers never incur an AI request.
   if(result.pass){finalizeCorrect();return;}
-  $('answerInput').disabled=true;
-  $('checkBtn').disabled=true;
-  $('checkBtn').textContent='확인 중...';
-  recheckIrregularGrammar(reference,raw,options,result).then(function(refined){
-    $('answerInput').disabled=false;
-    $('checkBtn').disabled=false;
-    $('checkBtn').textContent='확인';
-    if(refined.pass){finalizeCorrect();return;}
-    finishWrongAnswer(cardId,reference,raw,refined);
-  }).catch(function(){
-    $('answerInput').disabled=false;
-    $('checkBtn').disabled=false;
-    $('checkBtn').textContent='확인';
-    finishWrongAnswer(cardId,reference,raw,result,'2차 판별에 실패해 기존 오답 판정을 유지했습니다.');
-  });
+  showDiff(raw,reference);
 }
 
 on('checkBtn','click',checkAnswer);on('nextBtn','click',loadNext);
-// The old manual diff override is no longer part of answer grading.
-on('markWrongBtn','click',escalateWrong);
+on('markCorrectBtn','click',function(){if(!current||!pendingDiff)return;pendingDiff=null;$('diffPanel').style.display='none';finalizeCorrect(true);});
+on('markWrongBtn','click',function(){if(!current||!pendingDiff)return;var diff=pendingDiff;pendingDiff=null;$('diffPanel').style.display='none';finishWrongAnswer(current.id,current.en,diff.y,diff.result);});
 on('cancelSessionBtn','click',function(){$('cancelModal').classList.add('show');});
 
 // 오답처리하고 건너뛰기 (세션 재출제 없음)
