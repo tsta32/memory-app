@@ -40,6 +40,8 @@ async function fixture(browser, { sync = false, count = 3 } = {}) {
   });
   await page.goto('./');
   if(!sync)await page.locator('#memory-sync-local').click();
+  // The static start button is visible before async sync/app initialization finishes.
+  await expect(page.locator('#chapterSelectList')).toContainText('Recovery fixture');
   await expect(page.locator('#startBtn')).toBeVisible();
   return {context,page,state,errors};
 }
