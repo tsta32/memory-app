@@ -391,76 +391,85 @@ test('local app documents its assets without contacting sync or grading Workers'
   }
 });
 
-test('two-stage retest repeats misses, regresses after stage-two errors, excludes first-pass manual corrections, and preserves data', async ({ browser }) => {
-  const app = await openApp(browser, 'I went home.', {}, 2, 0);
+test('two-stage retest repeats misses, returns to stage one after a stage-two error, and preserves data', async ({ browser }) => {
+  const app = await openApp(browser, 'I went home.', {}, 0, 0);
+  try {
+    await app.page.locator('#startBtn').click();
+    await enterAnswerAndCheck(app.page, 'I go home.');
+    await app.page.locator('#nextBtn').click();
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    const beforeRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
+
+    await enterAnswerAndCheck(app.page, 'I go home.');
+    await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
+    await app.page.locator('#nextBtn').click();
+    await app.page.waitForTimeout(320);
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    await enterAnswerAndCheck(app.page, 'I went home.');
+    await expect(app.page.locator('#diffMessage')).toContainText('실루엣 단계 정답');
+    await app.page.locator('#nextBtn').click();
+    await app.page.waitForTimeout(320);
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
+    await enterAnswerAndCheck(app.page, 'I go home.');
+    await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
+    await app.page.locator('#nextBtn').click();
+    await app.page.waitForTimeout(320);
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    await enterAnswerAndCheck(app.page, 'I went home.');
+    await app.page.locator('#nextBtn').click();
+    await app.page.waitForTimeout(320);
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
+    await enterAnswerAndCheck(app.page, 'I went home.');
+    await app.page.locator('#nextBtn').click();
+    await app.page.locator('#doneScreen').waitFor({ state: 'visible' });
+    const afterRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
+    expect(afterRetest).toEqual(beforeRetest);
+    await assertHealthyBrowser(app);
+  } finally { await app.context.close(); }
+});
+
+test('retest skip removes stage-one and stage-two misses once and finishes after the last card', async ({ browser }) => {
+  const app = await openApp(browser, 'I went home.', {}, [{ en: 'She ate lunch.' }], 0);
   try {
     await app.page.locator('#startBtn').click();
     await enterAnswerAndCheck(app.page, 'I go home.');
     await app.page.locator('#nextBtn').click();
     await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I go home.');
-    await app.page.locator('#answerInput').press('Enter');
-    await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I go home.');
-    await app.page.locator('#markCorrectBtn').click();
+    await enterAnswerAndCheck(app.page, 'She has lunch.');
+    await app.page.locator('#nextBtn').click();
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
-    await expect(app.page.locator('#hintText')).toHaveText('I w___ h___');
     const beforeRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
     const manualCount = await app.page.locator('#manualCorrectCount').textContent();
+
+    await expect(app.page.locator('#skipRetestBtn')).toBeHidden();
     await enterAnswerAndCheck(app.page, 'I go home.');
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
-    await expect(app.page.locator('#markCorrectBtn')).toBeVisible();
-    await expect(app.page.locator('#diffYour')).toContainText('내 답변');
-    await expect(app.page.locator('#diffAns')).toContainText('모범 답안');
-    await app.page.waitForTimeout(220);
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
-    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
-    await app.page.locator('#answerInput').press('Enter');
+    await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
+    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
+    await app.page.locator('#skipRetestBtn').evaluate(button => { button.click(); button.click(); });
     await app.page.keyboard.press('Enter');
-    await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I go home.');
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
+    await app.page.waitForTimeout(380);
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
-    await expect(app.page.locator('#hintText')).toBeVisible();
-    await app.page.locator('#markCorrectBtn').click();
-    await expect(app.page.locator('#diffMessage')).toContainText('정답으로 변경했습니다. 다음에는 힌트 없이');
+    await expect(app.page.locator('#hintText')).toHaveText('S__ a__ l____');
+
+    await enterAnswerAndCheck(app.page, 'She is eating lunch.');
+    await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
     await app.page.locator('#nextBtn').click();
     await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I went home.');
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
+    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
+    await enterAnswerAndCheck(app.page, 'She ate lunch.');
     await expect(app.page.locator('#diffMessage')).toContainText('실루엣 단계 정답');
     await app.page.locator('#nextBtn').click();
     await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I go home.');
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
-    await expect(app.page.locator('#hintText')).toBeHidden();
-    await expect(app.page.locator('#diffYour')).toContainText('내 답변');
-    await expect(app.page.locator('#diffAns')).toContainText('모범 답안');
-    await expect(app.page.locator('#nextBtn')).toHaveText('다음 문제');
-    await expect(app.page.locator('#markCorrectBtn')).toBeVisible();
-    await app.page.locator('#nextBtn').click();
-    await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I went home.');
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
-    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
-    await expect(app.page.locator('#hintText')).toBeHidden();
-    await app.page.locator('#nextBtn').click();
-    await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I went home.');
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
-    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
-    await app.page.locator('#nextBtn').click();
-    await app.page.waitForTimeout(320);
-    await enterAnswerAndCheck(app.page, 'I went home.');
-    await expect(app.page.locator('#diffPanel')).toBeVisible();
-    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
-    await app.page.locator('#nextBtn').click();
-    await expect(app.page.locator('#doneScreen')).toBeVisible();
+    await enterAnswerAndCheck(app.page, 'She ate lunch yesterday.');
+    await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
+    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
+    await app.page.locator('#skipRetestBtn').click();
+    await app.page.locator('#doneScreen').waitFor({ state: 'visible' });
     await expect(app.page.locator('#doneSummary')).toContainText('오답 재출제 완료');
-    expect(await app.page.locator('#manualCorrectCount').textContent()).toBe(manualCount);
     const afterRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
     expect(afterRetest).toEqual(beforeRetest);
+    await expect(app.page.locator('#manualCorrectCount')).toHaveText(manualCount);
     await assertHealthyBrowser(app);
   } finally { await app.context.close(); }
 });
@@ -501,7 +510,8 @@ test('retest uses the same strict article ON rule as the first test', async ({ b
     await app.page.waitForTimeout(320);
     await enterAnswerAndCheck(app.page, 'I saw the bird.');
     await expect(app.page.locator('#diffPanel')).toBeVisible();
-    await expect(app.page.locator('#markCorrectBtn')).toBeVisible();
+    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
+    await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
     await app.page.locator('#nextBtn').click();
     await app.page.waitForTimeout(320);
@@ -517,7 +527,7 @@ test('retest uses the same strict article ON rule as the first test', async ({ b
   } finally { await app.context.close(); }
 });
 
-test('retest manual-correct advances stage one and completes stage two without recording learning data', async ({ browser }) => {
+test('retest removes manual-correct and only offers skip on submitted wrong results', async ({ browser }) => {
   const app = await openApp(browser, 'I went home.', {}, 0, 6);
   try {
     await app.page.locator('#startBtn').click();
@@ -526,20 +536,12 @@ test('retest manual-correct advances stage one and completes stage two without r
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
     const beforeRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
     await enterAnswerAndCheck(app.page, 'I go home.');
-    await app.page.locator('#markCorrectBtn').click();
-    await expect(app.page.locator('#diffMessage')).toContainText('정답으로 변경했습니다');
+    await expect(app.page.locator('#diffPanel')).toBeVisible();
+    await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
+    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
     await expect(app.page.locator('#diffYour')).toContainText('내 답변');
     await expect(app.page.locator('#diffAns')).toContainText('모범 답안');
-    await expect(app.page.locator('#nextBtn')).toHaveText('다음 문제');
-    await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
-    await app.page.locator('#nextBtn').click();
-    await app.page.waitForTimeout(320);
-    await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
-    await expect(app.page.locator('#hintText')).toBeHidden();
-    await enterAnswerAndCheck(app.page, 'I go home.');
-    await app.page.locator('#markCorrectBtn').click();
-    await expect(app.page.locator('#diffMessage')).toContainText('이 문제를 통과했습니다');
-    await app.page.locator('#nextBtn').click();
+    await app.page.locator('#skipRetestBtn').click();
     await expect(app.page.locator('#doneScreen')).toBeVisible();
     const afterRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
     expect(afterRetest).toEqual(beforeRetest);

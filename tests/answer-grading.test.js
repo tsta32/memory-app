@@ -70,12 +70,16 @@ assert.match(app, /manual\s*\?\s*\(currentRetestStage===1\?'정답으로 변경�
 assert.doesNotMatch(source('finalizeCorrect'), /manual\?'retry'/);
 assert.match(app, /currentRetestStage===2\)retestStages\[retestCard\.id\]=1/);
 assert.match(app, /retestPendingAction==='complete'[\s\S]*retestUnresolvedIds=retestUnresolvedIds\.filter/);
-assert.match(app, /on\('markCorrectBtn','click',function\(\)\{if\(!current\|\|!pendingDiff\|\|answerSettled\)return;finalizeCorrect\(true\);\}\)/);
+assert.match(app, /on\('markCorrectBtn','click',function\(\)\{if\(!current\|\|currentIsRetest\|\|!pendingDiff\|\|answerSettled\)return;finalizeCorrect\(true\);\}\)/);
 assert.match(app, /function confirmWrongAnswer\(\)[\s\S]*recordAnswerErrors\(card\.id,card\.en,decision\.y,decision\.result\.errors\)/);
 assert.match(app, /on\('nextBtn','click',handleResultNext\)/);
 assert.match(app, /if\(\$\('nextBtn'\)\.style\.display==='block'\)\{e\.preventDefault\(\);handleResultNext\(\);return;\}/);
 assert.match(app, /retestUnresolvedIds=retestUnresolvedIds\.filter/);
 assert.match(app, /retestQueue\.push\(retestCard\.id\)/);
+assert.match(source('skipRetestCard'), /retestUnresolvedIds=retestUnresolvedIds\.filter[\s\S]*retestQueue=retestQueue\.filter[\s\S]*delete retestStages\[cardId\]/);
+assert.match(app, /on\('skipRetestBtn','click',skipRetestCard\)/);
+assert.match(app, /currentIsRetest\?'none':'block'.*skipRetestBtn/);
+assert.match(app, /currentIsRetest\|\|!current\|\|!pendingDiff\|\|answerSettled/);
 assert.match(app, /on\('resetNgCountsBtn','click'/);
 assert.match(app, /var current=null[\s\S]*answerSettled=false/);
 assert.doesNotMatch(app, /skipFailBtn|markWrongBtn/);
