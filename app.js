@@ -77,6 +77,10 @@ function norm(s){return s.trim().toLowerCase().replace(/[.,!?;:'"()\-]/g,'').rep
 // "I'm" and "I am", "won't" and "will not", etc. are treated as identical.
 function expandContractions(s){
   s=s.toLowerCase();
+  var participles='been done gone gotten made taken seen said told given found thought bought brought written spoken left met sent kept felt run eaten drunk known chosen begun become held paid stood sat won taught built arisen awoken beaten bent bitten bled blown bred clung crept dealt dug fed fled forbidden ground had laid led lent lain lit meant read sought sewn shrunk sunk slid smelt spelt spilt spun spat split spread sprung swept torn woven wept withdrawn withstood'.split(' ');
+  function looksParticiple(word){return /(?:ed|en)$/.test(word)||participles.indexOf(word)!==-1;}
+  s=s.replace(/\b(i|you|he|she|it|we|they|that)'d\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'had':'would')+' '+next;});
+  s=s.replace(/\b(it)'s\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'has':'is')+' '+next;});
   // negative contractions first (order matters: won't before 'll etc.)
   s=s.replace(/\bwon't\b/g,'will not');
   s=s.replace(/\bcan't\b/g,'cannot');
@@ -101,13 +105,8 @@ function expandContractions(s){
   // positive contractions
   s=s.replace(/\bi'm\b/g,'i am');
   s=s.replace(/\byou're\b/g,'you are');
-  // 's = is 또는 has 양쪽 처리: has도 is로 통일
-  s=s.replace(/\bhe has\b/g,'he is');
-  s=s.replace(/\bshe has\b/g,'she is');
-  s=s.replace(/\bit has\b/g,'it is');
-  s=s.replace(/\bthat has\b/g,'that is');
-  s=s.replace(/\bwhat has\b/g,'what is');
-  s=s.replace(/\bthere has\b/g,'there is');
+  // Apostrophe-s defaults to "is"; its context-sensitive "has" form was
+  // expanded above before punctuation is removed.
   s=s.replace(/\bhe's\b/g,'he is');
   s=s.replace(/\bshe's\b/g,'she is');
   s=s.replace(/\bit's\b/g,'it is');
@@ -183,16 +182,7 @@ var IRREGULAR_FORMS={
 var IRREGULAR_PAST_FORMS={be:['was','were','been'],have:['had'],do:['did','done'],go:['went','gone'],get:['got','gotten'],make:['made'],take:['took','taken'],come:['came'],see:['saw','seen'],say:['said'],tell:['told'],give:['gave','given'],find:['found'],think:['thought'],buy:['bought'],bring:['brought'],write:['wrote','written'],speak:['spoke','spoken'],leave:['left'],meet:['met'],send:['sent'],keep:['kept'],feel:['felt'],run:['ran'],eat:['ate','eaten'],drink:['drank','drunk'],know:['knew','known'],choose:['chose','chosen'],begin:['began','begun'],become:['became'],hold:['held'],pay:['paid'],stand:['stood'],sit:['sat'],win:['won'],work:['worked']};
 var IRREGULAR_NOUNS={child:'children',man:'men',woman:'women',person:'people',mouse:'mice',goose:'geese',foot:'feet',tooth:'teeth'};
 function answerTokens(s){
-  s=String(s||'').toLowerCase();
-  // Expand ambiguous contractions before the regular table so that meaning
-  // and tense are preserved (I'd finished = I had finished; I'd like = I would like).
-  var participles='been done gone gotten made taken seen said told given found thought bought brought written spoken left met sent kept felt run eaten drunk known chosen begun become held paid stood sat won taught built arisen awoken beaten bent bitten bled blown bred clung crept dealt dug fed fled forbidden ground hung had laid led lent lain lit meant read sought sewn shrunk sunk slid smelt spelt spilt spun spat split spread sprung swept torn woven wept withdrawn withstood'.split(' ');
-  function looksParticiple(word){return /(?:ed|en)$/.test(word)||participles.indexOf(word)!==-1;}
-  s=s.replace(/\b(i|you|he|she|it|we|they|that)'d\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'had':'would')+' '+next;});
-  s=s.replace(/\b(it)'s\s+([a-z]+)/g,function(all,subject,next){return subject+' '+(looksParticiple(next)?'has':'is')+' '+next;});
-  s=s.replace(/\b(i|you|he|she|we|they|that)'d\b/g,'$1 would');
-  var contractions={"won't":'will not',"can't":'cannot',"don't":'do not',"doesn't":'does not',"didn't":'did not',"isn't":'is not',"aren't":'are not',"wasn't":'was not',"weren't":'were not',"wouldn't":'would not',"couldn't":'could not',"shouldn't":'should not',"haven't":'have not',"hasn't":'has not',"hadn't":'had not',"mustn't":'must not',"mightn't":'might not',"i'm":'i am',"you're":'you are',"we're":'we are',"they're":'they are',"he's":'he is',"she's":'she is',"it's":'it is',"that's":'that is',"there's":'there is',"i'll":'i will',"you'll":'you will',"he'll":'he will',"she'll":'she will',"we'll":'we will',"they'll":'they will',"i've":'i have',"you've":'you have',"we've":'we have',"they've":'they have'};
-  Object.keys(contractions).forEach(function(k){s=s.replace(new RegExp('\\b'+k+'\\b','g'),contractions[k]);});
+  s=expandContractions(String(s||''));
   return s.replace(/[.,!?;:'"()[\]{}\-—–…]/g,' ').replace(/[^a-z0-9\s]/g,' ').trim().split(/\s+/).filter(Boolean);
 }
 function morphologyCategory(a,b){
@@ -292,8 +282,26 @@ function isVerifiedIrregularPair(a,b,type){
   for(var base in families){var forms=families[base];if(type==='tense'&&(a===base&&forms.indexOf(b)!==-1||b===base&&forms.indexOf(a)!==-1||forms.indexOf(a)!==-1&&forms.indexOf(b)!==-1))return true;if(type==='number'&&(a===base&&forms===b||b===base&&forms===a))return true;}
   return false;
 }
+function isRegularVerbFormForLemma(lemma,form){
+  if(!lemma||!form)return false;
+  var forms=[lemma],third,past,gerund,last=lemma.slice(-1),isConsonantY=/[^aeiou]y$/.test(lemma),isCvc=lemma.length>2&&/[^aeiou][aeiou][^aeiouwxy]$/.test(lemma);
+  if(isConsonantY){third=lemma.slice(0,-1)+'ies';past=lemma.slice(0,-1)+'ied';}
+  else{third=/(s|x|z|ch|sh|o)$/.test(lemma)?lemma+'es':lemma+'s';past=/e$/.test(lemma)?lemma+'d':(isCvc?lemma+last:lemma)+'ed';}
+  if(/ie$/.test(lemma))gerund=lemma.slice(0,-2)+'ying';
+  else if(/e$/.test(lemma)&&!/ee$/.test(lemma))gerund=lemma.slice(0,-1)+'ing';
+  else gerund=(isCvc?lemma+last:lemma)+'ing';
+  forms.push(third,past,gerund);
+  return forms.indexOf(form)!==-1;
+}
 function verifiedAiIrregularPair(a,b,type,lemma){
   if(isVerifiedIrregularPair(a,b,type))return true;
+  // The AI lemma is the base form, not necessarily either surface form.
+  // Validate that exactly one candidate is a regular inflection of that lemma;
+  // this supports irregular-vs-overregularized pairs without a verb dictionary.
+  if(type==='tense'){
+    if(!/^[a-z]+$/.test(lemma||''))return false;
+    return isRegularVerbFormForLemma(lemma,a)!==isRegularVerbFormForLemma(lemma,b);
+  }
   if(!lemma||lemma!==a&&lemma!==b)return false;
   function pluralStem(word){
     if(IRREGULAR_NOUNS[word])return word;
@@ -388,8 +396,8 @@ function diffHL(y,a){
 function saveCards(){try{localStorage.setItem(CARDS_KEY,JSON.stringify({cards:cards,nextId:nextCardId}));}catch(e){}}
 function saveChapters(){try{localStorage.setItem(CHAPTERS_KEY,JSON.stringify({chapters:chapters,nextId:nextChapterId}));}catch(e){}}
 function normalizeGrammarOptions(saved){
-  var out=Object.assign({},GRAMMAR_OPTION_DEFAULTS,saved&&typeof saved==='object'?saved:{});
-  Object.keys(GRAMMAR_OPTION_DEFAULTS).forEach(function(k){if(typeof out[k]!=='boolean')out[k]=GRAMMAR_OPTION_DEFAULTS[k];});
+  var out=Object.assign({},GRAMMAR_OPTION_DEFAULTS);
+  if(saved&&typeof saved==='object')Object.keys(GRAMMAR_OPTION_DEFAULTS).forEach(function(k){if(typeof saved[k]==='boolean')out[k]=saved[k];});
   return out;
 }
 function buildSettingsObject(raw){
