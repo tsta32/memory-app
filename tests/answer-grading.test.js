@@ -138,3 +138,39 @@ console.log('Passed answer normalization, article-only option, and manual gradin
   assert.equal(sandbox.canInspectCard(4), true, 'normal browsing resumes after the test');
 }
 console.log('Passed submitted-only inspection, current-card editing, and retest access checks.');
+
+// Checkpoint choice and journal recovery must be idempotent and preserve conflicts.
+{
+  const makeStorage = () => {
+    const values = new Map();
+    return { getItem: key => values.has(key) ? values.get(key) : null, setItem: (key, value) => values.set(key, String(value)) };
+  };
+  const localStorage = makeStorage(), sessionStorage = makeStorage();
+  const events = [];
+  const sandbox = { localStorage, sessionStorage, STUDY_KEY: 'session', CARDS_KEY: 'cards', SETTINGS_KEY: 'settings', ERROR_HISTORY_KEY: 'errors',
+    studyDiagnostic: event => events.push(event), studyWrites: {}, studyTransaction: true, studyRestoring: false };
+  vm.createContext(sandbox);
+  vm.runInContext(['readStudyCheckpoint','studyWriteData','replayStudyWrites'].map(source).join('\n'), sandbox);
+  localStorage.setItem('session', JSON.stringify({version:1,revision:100,status:'active'}));
+  sessionStorage.setItem('session', JSON.stringify({version:1,revision:101,status:'ended'}));
+  assert.equal(sandbox.readStudyCheckpoint().status, 'ended', 'a newer exit tombstone prevents stale session resurrection');
+  sessionStorage.setItem('session', 'broken JSON');
+  assert.equal(sandbox.readStudyCheckpoint().revision, 100, 'a corrupt fallback does not hide the durable checkpoint');
+  localStorage.setItem('cards','before');
+  sandbox.studyWriteData('cards','grade 1');sandbox.studyWriteData('cards','grade 2');
+  assert.equal(localStorage.getItem('cards'),'before','grading data is not written before its session journal');
+  assert.equal(sandbox.studyWrites.cards.before,'before');
+  assert.equal(sandbox.studyWrites.cards.after,'grade 2');
+  const journal=JSON.parse(JSON.stringify({writes:sandbox.studyWrites}));
+  const crashCopy=JSON.parse(JSON.stringify(journal));
+  sandbox.replayStudyWrites(journal);
+  assert.equal(localStorage.getItem('cards'),'grade 2');
+  sandbox.replayStudyWrites(crashCopy);
+  assert.equal(localStorage.getItem('cards'),'grade 2','replaying an applied journal does not apply grading again');
+  localStorage.setItem('cards','newer data from another action');
+  sandbox.replayStudyWrites({writes:{cards:{before:'before',after:'grade 2'}}});
+  assert.equal(localStorage.getItem('cards'),'newer data from another action','a conflicting snapshot is preserved');
+  assert.deepEqual(events,['recovery-write-conflict']);
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname,'..','sync-bootstrap.js'),'utf8').match(/var DATA_KEYS=([^;]+);/)[1], /memory_study/);
+}
+console.log('Passed local checkpoint selection, atomic grading journal, and conflict preservation checks.');

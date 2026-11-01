@@ -176,10 +176,21 @@ function applyRemote(d){
   lastSnapshot=signature(localNow);localDirty=false;
   if(needsRepair&&syncCode){localDirty=true;enqueueSyncWrite().then(function(result){if(result.dirty)scheduleSyncRetry(250);}).catch(function(e){console.warn('[Memory sync] Preserved local settings/history but cloud repair failed.',e);scheduleSyncRetry(2000);});}
 }
+function studyProtected(){
+  if(window.memoryStudySession&&window.memoryStudySession.isActive())return true;
+  var latest=null;
+  [localStorage,sessionStorage].forEach(function(storage){try{var s=JSON.parse(storage.getItem('memory_study_session_v1'));
+    if(s&&s.version===1&&typeof s.revision==='number'&&(!latest||s.revision>latest.revision))latest=s;
+  }catch(e){}});
+  return !!(latest&&latest.status==='active'&&latest.state&&latest.state.currentId!=null);
+}
 function startPolling(){
   window.setInterval(function(){
-    if(document.visibilityState==='hidden'||localDirty)return;
+    if(document.visibilityState==='hidden'||localDirty||studyProtected())return;
+    var requestedSignature=signature(snapshot());
     request('get').then(function(r){
+      // A request begun on the home screen can arrive after typing has started.
+      if(studyProtected()||localDirty||document.visibilityState==='hidden'||signature(snapshot())!==requestedSignature)return;
       if(!hasData(r.data)&&!completeSnapshot(r.data))return;
       var remoteSignature=signature(r.data),localSignature=signature(snapshot());
       if(remoteSignature!==localSignature&&remoteSignature!==lastSnapshot){applyRemote(r.data);window.location.reload();}
@@ -209,11 +220,13 @@ function showCodeEntry(){
 }
 function connectAndLoad(){
   installStorageHooks();
+  // Restore local session/card journal before any remote snapshot can replace it.
+  if(studyProtected()){loadApp();startPolling();return;}
   request('get').then(function(r){
     if(hasData(r.data)||completeSnapshot(r.data)){applyRemote(r.data);loadApp();startPolling();}
     else{var d=snapshot();return request('set',snapshotPayload(d)).then(function(){lastSnapshot=signature(d);loadApp();startPolling();});}
   }).catch(function(e){console.warn('[Memory sync] Server unavailable; opening local data.',e);loadApp();startPolling();});
 }
-function start(){if(!syncCode){showCodeEntry();return;}connectAndLoad();}
+function start(){if(!syncCode){if(studyProtected()){loadApp();return;}showCodeEntry();return;}connectAndLoad();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
