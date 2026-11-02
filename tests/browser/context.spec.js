@@ -1,18 +1,18 @@
 const { test, expect } = require('@playwright/test');
 const { items } = require('../../business-contexts');
 
-async function openFixture(browser, {all=false, savedContext}={}) {
-  const context=await browser.newContext();
+async function openFixture(browser, {all=false, count=1, index=0, contextOptions={}, savedContext}={}) {
+  const context=await browser.newContext(contextOptions);
   const errors=[],workers=[];
-  await context.addInitScript(({items,all,savedContext})=>{
+  await context.addInitScript(({items,all,count,index,savedContext})=>{
     if(sessionStorage.getItem('context_fixture'))return;
-    const cards=(all?items:items.slice(0,1)).map((x,i)=>({id:i+1,en:x.en,ko:'기존 한국어 '+i,chapterId:9,stage:0,dueAt:1,ngCount:2,everAnswered:false,bookmarked:true,lastTestedAt:42,...(i===0&&savedContext!==undefined?{context:savedContext}:{})}));
+    const cards=(all?items:items.slice(index,index+count)).map((x,i)=>({id:i+1,en:x.en,ko:'기존 한국어 '+i,chapterId:9,stage:0,dueAt:1,ngCount:2,everAnswered:false,bookmarked:true,lastTestedAt:42,...(i===0&&savedContext!==undefined?{context:savedContext}:{})}));
     cards.push({id:999,en:'Unrelated answer.',ko:'다른 챕터',chapterId:10,stage:0,dueAt:1});
     localStorage.setItem('srs_cards_v2',JSON.stringify({cards,nextId:1000}));
     localStorage.setItem('srs_chapters_v1',JSON.stringify({chapters:[{id:9,name:'업무대화 일반'},{id:10,name:'기타'}],nextId:11}));
     localStorage.removeItem('memory_sync_code_v1');
     sessionStorage.setItem('context_fixture','1');
-  },{items,all,savedContext});
+  },{items,all,count,index,savedContext});
   await context.route('**/*',route=>{
     const url=new URL(route.request().url());
     if(url.hostname.endsWith('workers.dev')){workers.push(url.hostname);return route.abort();}
@@ -71,6 +71,7 @@ async function cancel(page){await page.locator('#cancelSessionBtn').click();awai
   const {page,context,errors,workers}=await openFixture(browser);
   await start(page);
   await expect(page.locator('#koreanText')).toHaveText(items[0].context);
+  await expect(page.locator('#hintText')).toBeHidden();
   await page.locator('#answerInput').fill('draft');await page.reload();
   await expect(page.locator('#koreanText')).toHaveText(items[0].context);
   await expect(page.locator('#answerInput')).toHaveValue('draft');
@@ -84,13 +85,18 @@ async function cancel(page){await page.locator('#cancelSessionBtn').click();awai
   await expect(page.locator('#diffAns')).toContainText(items[0].en);
   await page.locator('#nextBtn').click();
   await expect(page.locator('#boxBadge')).toContainText('1단계');
-  await expect(page.locator('#hintText')).toBeHidden();
+  await expect(page.locator('#hintText')).toHaveText('A__ y__ a________ t_ t___ n__');
+  await expect(page.locator('#hintText')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('#hintText')).toHaveText('A__ y__ a________ t_ t___ n__');
   await page.locator('#failAllBtn').click();
   await expect(page.locator('#testStatusContent')).not.toContainText(items[0].en);
   await page.locator('#testStatusClose').click();
   for(let stage=1;stage<=2;stage++){
     await expect(page.locator('#koreanText')).toHaveText(items[0].context);
-    await expect(page.locator('#hintText')).toBeHidden();
+    await expect(page.locator('#boxBadge')).toContainText(stage+'단계');
+    if(stage===1)await expect(page.locator('#hintText')).toHaveText('A__ y__ a________ t_ t___ n__');
+    else await expect(page.locator('#hintText')).toBeHidden();
     await page.waitForTimeout(320);
     await page.locator('#answerInput').fill(items[0].en);await page.locator('#checkBtn').click();
     await page.locator('#nextBtn').click();
@@ -114,3 +120,146 @@ async function cancel(page){await page.locator('#cancelSessionBtn').click();awai
     expect(workers).toEqual([]);await context.close();
   }
  });
+
+async function submitContext(page, answer) {
+  await page.waitForTimeout(320);
+  await page.locator('#answerInput').fill(answer);
+  await page.locator('#checkBtn').click();
+}
+async function expectFieldOrder(scope) {
+  expect(await scope.locator('[data-card-field]').evaluateAll(nodes=>nodes.map(n=>n.dataset.cardField))).toEqual(['context','ko','en']);
+}
+
+for (const stage of [1,2]) {
+  test(`context retest silhouette matches the shared example and skipping stage ${stage} ends the last card`,async({browser})=>{
+    const {page,context,errors,workers}=await openFixture(browser,{index:44});
+    try {
+      await start(page);
+      await expect(page.locator('#koreanText')).toHaveText(items[44].context);
+      await expect(page.locator('#hintText')).toBeHidden();
+      await submitContext(page,'Wrong.');await page.locator('#nextBtn').click();
+      await expect(page.locator('#boxBadge')).toContainText('1단계');
+      await expect(page.locator('#hintText')).toHaveText('W_ c____ c_______ a______ o_____');
+      await expect(page.locator('#hintText')).toBeVisible();
+      if(stage===2){
+        await submitContext(page,items[44].en);await page.locator('#nextBtn').click();
+        await expect(page.locator('#boxBadge')).toContainText('2단계');
+        await expect(page.locator('#hintText')).toBeHidden();
+      }
+      const before=await saved(page);
+      await submitContext(page,'Wrong again.');
+      await page.locator('#skipRetestBtn').click();
+      await expect(page.locator('#doneScreen')).toBeVisible();
+      expect(await saved(page)).toEqual(before);
+      const checkpoint=await page.evaluate(()=>JSON.parse(localStorage.getItem('memory_study_session_v1')));
+      expect(checkpoint.status).toBe('ended');
+      await page.reload();await page.locator('#memory-sync-local').click();
+      await expect(page.locator('#setupScreen')).toBeVisible();await expect(page.locator('#quizScreen')).toBeHidden();
+      expect(errors).toEqual([]);expect(workers).toEqual([]);
+    } finally {await context.close();}
+  });
+}
+
+test('context retest repeats misses, purges a skipped card from every queue, and never restores it',async({browser})=>{
+  const {page,context,errors,workers}=await openFixture(browser,{count:3,contextOptions:{viewport:{width:390,height:844},isMobile:true,hasTouch:true}});
+  try {
+    await start(page);
+    for(let i=0;i<3;i++){
+      await expect(page.locator('#koreanText')).toHaveText(items[i].context);
+      await submitContext(page,'Wrong.');await page.locator('#nextBtn').tap();
+    }
+    // An ordinary wrong result repeats this card after the others.
+    await expect(page.locator('#koreanText')).toHaveText(items[0].context);
+    await submitContext(page,'Wrong again.');await page.locator('#nextBtn').tap();
+    await expect(page.locator('#koreanText')).toHaveText(items[1].context);
+    await submitContext(page,'Wrong again.');await page.locator('#skipRetestBtn').tap();
+    await expect(page.locator('#koreanText')).toHaveText(items[2].context);
+    const snap=await page.evaluate(()=>JSON.parse(localStorage.getItem('memory_study_session_v1')));
+    expect(snap.state.retestAbandonedIds).toEqual([2]);
+    for(const key of ['sessionQueue','retryQueue','retestCandidateIds','retestQueue','retestUnresolvedIds'])expect(snap.state[key]).not.toContain(2);
+    expect(snap.state.retestStages).not.toHaveProperty('2');
+    // Durable exclusions also beat stale queue entries restored after a reload.
+    await page.evaluate(()=>{
+      const key='memory_study_session_v1',s=JSON.parse(localStorage.getItem(key));
+      for(const q of ['sessionQueue','retryQueue','retestCandidateIds','retestQueue','retestUnresolvedIds'])s.state[q].unshift(2);
+      s.state.retestStages[2]=1;s.revision+=100;
+      localStorage.setItem(key,JSON.stringify(s));sessionStorage.setItem(key,JSON.stringify(s));
+    });
+    await page.reload();await expect(page.locator('#koreanText')).toHaveText(items[2].context);
+    await submitContext(page,items[2].en);await page.locator('#nextBtn').tap();
+    await expect(page.locator('#koreanText')).toHaveText(items[0].context);
+    await submitContext(page,'Wrong.');await page.locator('#skipRetestBtn').tap();
+    await expect(page.locator('#koreanText')).toHaveText(items[2].context);
+    await expect(page.locator('#boxBadge')).toContainText('2단계');
+    await expect(page.locator('#hintText')).toBeHidden();
+    await submitContext(page,'Wrong.');await page.locator('#nextBtn').tap();
+    await expect(page.locator('#boxBadge')).toContainText('1단계');
+    await expect(page.locator('#hintText')).toBeVisible();
+    await submitContext(page,'Wrong.');await page.locator('#skipRetestBtn').tap();
+    await expect(page.locator('#doneScreen')).toBeVisible();
+    expect(errors).toEqual([]);expect(workers).toEqual([]);
+  } finally {await context.close();}
+});
+
+for(const mobile of [false,true]) {
+  test(`context/Korean/English order, missing values, management edits and new cards persist (${mobile?'mobile':'desktop'})`,async({browser})=>{
+    const {page,context,errors,workers}=await openFixture(browser,{contextOptions:mobile?{viewport:{width:390,height:844},isMobile:true,hasTouch:true}:{}});
+    try {
+      const original=(await saved(page)).cards[0];
+      await page.locator('#tabAllCards').click();
+      const missing=page.locator('#allCardsList .fc-row').filter({hasText:'Unrelated answer.'});
+      await expectFieldOrder(missing);
+      await expect(missing.locator('.fc-context')).toContainText('문맥 미등록');
+      expect((await saved(page)).cards[1].context).toBeUndefined();
+      await page.locator('#allCardsSearch').fill(items[0].context);
+      const row=page.locator('#allCardsList .fc-row');
+      await expect(row).toHaveCount(1);await expectFieldOrder(row);
+      await expect(row.locator('.fc-context')).toContainText(items[0].context);
+      await page.locator('#memModeBtn').click();await expectFieldOrder(row);await page.locator('#memCollapseBtn').click();
+      await row.locator('button[title="복습 스케줄 설정"]').click();
+      await expectFieldOrder(page.locator('#scheduleModalKo'));await page.locator('#scheduleCancel').click();
+      await row.locator('button[title="질문하기"]').click();
+      await expectFieldOrder(page.locator('#askCardPreview'));await page.locator('#askModalClose').click();
+      await page.locator('#tabAdd').click();
+      await page.locator('#moveCardSearch').fill(items[0].context);
+      const managed=page.locator('#moveCardList > div');
+      await expect(managed).toHaveCount(1);await expectFieldOrder(managed);
+      await managed.getByRole('button',{name:'편집',exact:true}).click();
+      expect(await page.locator('#editCardList input').evaluateAll(nodes=>nodes.map(n=>n.dataset.field))).toEqual(['context','ko','en']);
+      const custom='긴문맥확인: 회의에서 동료에게 오늘 논의할 업무를 시작하기 전에 대화할 시간이 있는지 확인하려고 할 때.';
+      await page.locator('#editCardList input[data-field="context"]').fill(custom);
+      await page.locator('#editSaveBtn').click();await page.locator('#editConfirmApply').click();
+      expect((await saved(page)).cards[0]).toEqual({...original,context:custom});
+      await page.locator('#moveCardSearch').fill(custom);await expectFieldOrder(managed);
+      await expect(managed.locator('.fc-context')).toContainText(custom);
+      expect(await managed.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+      await page.locator('#manualModeBtn').click();
+      expect(await page.locator('#manualCardFields input').evaluateAll(nodes=>nodes.map(n=>n.id))).toEqual(['manualContextInput','manualKoInput','manualEnInput']);
+      const addedContext='업무를 마친 뒤 동료의 도움에 감사의 뜻을 전하려고 할 때.';
+      await page.locator('#manualContextInput').fill(addedContext);
+      await page.locator('#manualKoInput').fill('새 한국어');await page.locator('#manualEnInput').fill('Thank you for helping today.');
+      await page.locator('#bulkAddBtn').click();
+      expect((await saved(page)).cards.find(c=>c.id===1000).context).toBe(addedContext);
+      await page.reload();await page.locator('#memory-sync-local').click();
+      await expect(page.locator('#chapterSelectList')).toContainText('업무대화 일반');
+      await page.locator('#tabAllCards').click();await page.locator('#allCardsSearch').fill(custom);
+      await expect(row.locator('.fc-context')).toContainText(custom);await expectFieldOrder(row);
+      await page.locator('#tabQuiz').click();await start(page,true);
+      await expect(page.locator('#koreanText')).toHaveText(custom);
+      await expect(page.locator('#hintText')).toBeHidden();
+      await submitContext(page,items[0].en);
+      await expect(page.locator('#koreanText')).toHaveText(addedContext);
+      await submitContext(page,'Thank you for helping today.');await expect(page.locator('#doneScreen')).toBeVisible();
+      await page.locator('#doneEditToggleBtn').click();
+      expect(await page.locator('#doneCardList input[data-done-id="1"]').evaluateAll(nodes=>nodes.map(n=>n.dataset.doneField))).toEqual(['context','ko','en']);
+      await page.locator('#doneCardList input[data-done-id="1"][data-done-field="context"]').fill('');
+      await page.locator('#doneEditToggleBtn').click();await page.locator('#editConfirmApply').click();
+      await expect(page.locator('#doneCardList > div').first().locator('.fc-context')).toContainText('문맥 미등록');
+      expect((await saved(page)).cards[0].context).toBe('');
+      await page.reload();await page.locator('#memory-sync-local').click();
+      await expect(page.locator('#chapterSelectList')).toContainText('업무대화 일반');
+      expect((await saved(page)).cards[0].context).toBe('');
+      expect(errors).toEqual([]);expect(workers).toEqual([]);
+    } finally {await context.close();}
+  });
+}

@@ -103,6 +103,11 @@ input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(42
 .fc-row{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--surface-2);border-radius:var(--r-lg);border:1.5px solid var(--border);}
 .fc-row .fc-cb{flex-shrink:0;padding-top:2px;}
 .fc-row .fc-cb input{width:20px;height:20px;cursor:pointer;accent-color:var(--accent);}
+.card-field{margin-bottom:8px;line-height:1.6;overflow-wrap:anywhere;white-space:pre-wrap;}
+.card-field-label{display:block;font-size:11px;font-weight:800;line-height:1.4;color:var(--text-3);margin-bottom:3px;}
+.fc-context{font-size:13px;color:var(--text-2);}
+.fc-ko{font-size:14px;font-weight:700;}
+.fc-en{font-size:13px;color:var(--text-2);}
 .fc-row .fc-body{flex:1;min-width:0;}
 .fc-row .fc-ko{font-size:14px;font-weight:700;line-height:1.5;word-break:break-word;}
 .fc-row .fc-en{font-size:13px;color:var(--text-2);line-height:1.5;word-break:break-word;margin-top:2px;font-weight:600;}
@@ -309,7 +314,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
           <button type="button" id="editBulkBtn" style="font-size:12px;padding:7px 12px;border-color:var(--accent);color:var(--accent-text);" disabled>✏️편집</button>
           <button type="button" id="delBulkBtn" class="ng-bulk-btn" style="font-size:12px;padding:7px 12px;" disabled>🗑삭제</button>
         </div>
-        <input type="text" id="allCardsSearch" placeholder="한국어 또는 영어로 검색" style="margin-bottom:8px;" />
+        <input type="text" id="allCardsSearch" placeholder="문맥, 한국어 또는 영어로 검색" style="margin-bottom:8px;" />
         <div class="chip-row" id="acChapterFilter"></div>
         <div id="allCardsList" style="display:flex;flex-direction:column;gap:8px;max-height:520px;overflow-y:auto;"></div>
         <div id="allCardsEmpty" class="empty-state" style="display:none;">저장된 문장이 없어요</div>

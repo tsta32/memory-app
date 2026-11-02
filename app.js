@@ -689,6 +689,14 @@ function updateQuizInspection(){
   var locked=contextMode&&current&&!pendingDiff&&!answerSettled;
   ['editCurrentBtn','quizAskBtn','quizNotesBtn'].forEach(function(id){$(id).disabled=!!locked;});
 }
+function cardContextHTML(card){
+  return '<div class="card-field fc-context" data-card-field="context"><span class="card-field-label">문맥</span>'+esc(hasContext(card)?card.context:'문맥 미등록')+'</div>';
+}
+function cardDetailsHTML(card){
+  return cardContextHTML(card)+
+    '<div class="card-field fc-ko" data-card-field="ko"><span class="card-field-label">한국어</span>'+esc(card.ko||'')+'</div>'+
+    '<div class="card-field fc-en" data-card-field="en"><span class="card-field-label">영어</span>'+esc(card.en||'')+'</div>';
+}
 function hasContext(card){return typeof card.context==='string'&&!!card.context.trim();}
 
 on('practiceBtn','click',function(){
@@ -806,7 +814,7 @@ function renderAllCards(){
     if(acBmOnly&&!c.bookmarked)return false;
     if(acHasNoteOnly&&!(notes[c.id]&&notes[c.id].length))return false;
     if(!q)return true;
-    return c.ko.toLowerCase().indexOf(q)!==-1||c.en.toLowerCase().indexOf(q)!==-1;
+    return (c.context||'').toLowerCase().indexOf(q)!==-1||c.ko.toLowerCase().indexOf(q)!==-1||c.en.toLowerCase().indexOf(q)!==-1;
   });
   if(acSort==='added')vis.reverse();
   else if(acSort==='ng')vis.sort(function(a,b){return(b.ngCount||0)-(a.ngCount||0);});
@@ -826,8 +834,9 @@ function renderAllCards(){
     cb.addEventListener('change',function(){if(cb.checked)acCheckedIds[c.id]=true;else delete acCheckedIds[c.id];updateBulkBar();});
     cbDiv.appendChild(cb);
     var body=document.createElement('div');body.className='fc-body';
-    body.innerHTML+='<div class="fc-ko" style="color:'+(acShowKo?'':'transparent')+';">'+esc(c.ko)+'</div>';
-    body.innerHTML+='<div class="fc-en" style="color:'+(acShowEn?'':'transparent')+';">'+esc(c.en)+'</div>';
+    body.innerHTML=cardContextHTML(c);
+    body.innerHTML+='<div class="fc-ko card-field" data-card-field="ko" style="color:'+(acShowKo?'':'transparent')+';"><span class="card-field-label">한국어</span>'+esc(c.ko)+'</div>';
+    body.innerHTML+='<div class="fc-en card-field" data-card-field="en" style="color:'+(acShowEn?'':'transparent')+';"><span class="card-field-label">영어</span>'+esc(c.en)+'</div>';
     var meta='<div class="fc-meta"><span class="due-tag '+st.cls+'">'+esc(st.text)+'</span>';
     if(ng>0)meta+='<span class="due-tag ng-badge">재도전 '+ng+'회</span>';
     var ch=findChapter(c.chapterId);if(ch)meta+='<span class="due-tag due-later">'+esc(ch.name)+'</span>';
@@ -886,7 +895,7 @@ on('selectAllBtn','click',function(){
     if(!canInspectCard(c.id))return false;
     if(acChapterFilter!==null&&c.chapterId!==acChapterFilter)return false;
     if(!q)return true;
-    return c.ko.toLowerCase().indexOf(q)!==-1||c.en.toLowerCase().indexOf(q)!==-1;
+    return (c.context||'').toLowerCase().indexOf(q)!==-1||c.ko.toLowerCase().indexOf(q)!==-1||c.en.toLowerCase().indexOf(q)!==-1;
   }).forEach(function(c){acCheckedIds[c.id]=true;});
   renderAllCards();
 });
@@ -902,7 +911,7 @@ on('deselectAllBtn','click',function(){
 var schedulingCard=null;
 function openScheduleModal(c){
   schedulingCard=c;
-  $('scheduleModalKo').textContent=c.ko;
+  $('scheduleModalKo').innerHTML=cardDetailsHTML(c);
   // set current value
   var sel=$('scheduleSelect');
   if(!c.everAnswered||c.stage===0){sel.value='15min';}
@@ -939,7 +948,7 @@ function memGetVisible(){
     if(!canInspectCard(c.id))return false;
     if(acChapterFilter!==null&&c.chapterId!==acChapterFilter)return false;
     if(!q)return true;
-    return c.ko.toLowerCase().indexOf(q)!==-1||c.en.toLowerCase().indexOf(q)!==-1;
+    return (c.context||'').toLowerCase().indexOf(q)!==-1||c.ko.toLowerCase().indexOf(q)!==-1||c.en.toLowerCase().indexOf(q)!==-1;
   });
   if(acSort==='added')vis=vis.slice().reverse();
   else if(acSort==='ng')vis=vis.slice().sort(function(a,b){return(b.ngCount||0)-(a.ngCount||0);});
@@ -966,9 +975,9 @@ function renderMemCards(vis){
     var cbDiv=document.createElement('div');cbDiv.className='fc-cb';
     var body=document.createElement('div');body.className='fc-body';
     var st=reviewStatus(c);
-    body.innerHTML=
-      '<div class="fc-ko" data-mem="ko" style="color:'+(memShowKo?'':'transparent')+';">'+esc(c.ko)+'</div>'+
-      '<div class="fc-en" data-mem="en" style="color:'+(memShowEn?'var(--text-2)':'transparent')+';">'+esc(c.en)+'</div>'+
+    body.innerHTML=cardContextHTML(c)+
+      '<div class="fc-ko card-field" data-card-field="ko" data-mem="ko" style="color:'+(memShowKo?'':'transparent')+';"><span class="card-field-label">한국어</span>'+esc(c.ko)+'</div>'+
+      '<div class="fc-en card-field" data-card-field="en" data-mem="en" style="color:'+(memShowEn?'var(--text-2)':'transparent')+';"><span class="card-field-label">영어</span>'+esc(c.en)+'</div>'+
       '<div class="fc-meta"><span class="due-tag '+st.cls+'">'+esc(st.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge">재도전 '+c.ngCount+'회</span>':'')+'</div>';
 
     var btns=document.createElement('div');btns.className='fc-btns';
@@ -1110,7 +1119,7 @@ function quizModalOpen(){return !!document.querySelector('.modal-overlay.show');
 function refreshEditedQuiz(){
   if(!quizIsActive()||!current)return;
   $('koreanText').textContent=quizPrompt(current);
-  if(!contextMode&&currentIsRetest&&currentRetestStage===1){$('hintText').textContent=buildAnswerSilhouette(current.en);}
+  if(currentIsRetest&&currentRetestStage===1){$('hintText').textContent=buildAnswerSilhouette(current.en);}
   else showHint(hintLevel);
 }
 on('editCurrentBtn','click',function(){if(current)openEditModal([current.id]);});
@@ -1151,8 +1160,8 @@ function openEditModal(ids){
     enInput.dataset.field='en';
     enInput.placeholder='영어 정답';
 
-    var contextLabel=document.createElement('div');contextLabel.textContent='문맥';
-    var contextInput=document.createElement('input');contextInput.type='text';contextInput.value=c.context||'';
+    var contextLabel=document.createElement('label');contextLabel.textContent='문맥';contextLabel.htmlFor='edit-context-'+id;
+    var contextInput=document.createElement('input');contextInput.id='edit-context-'+id;contextInput.type='text';contextInput.value=c.context||'';
     contextInput.dataset.id=id;contextInput.dataset.field='context';
     contextInput.placeholder='어떤 업무 상황에서 무엇을 말하려고 하는지';contextInput.style.marginBottom='10px';
     wrap.appendChild(contextLabel);wrap.appendChild(contextInput);
@@ -1247,7 +1256,7 @@ on('editConfirmApply','click',function(){
   pendingEdits=[];
   editingSnapshots=[];
   renderAllCards();
-  refreshEditedQuiz();
+  refreshEditedQuiz();renderMoveCardList();
   if(quizIsActive())renderTestStatusModal();
   if($('doneScreen').style.display==='block')renderDoneCardList(false);
 });
@@ -1301,7 +1310,7 @@ function renderMoveCardList(){
   var q=($('moveCardSearch')&&$('moveCardSearch').value||'').trim().toLowerCase();
   var visible=cards.filter(function(c){
     if(!canInspectCard(c.id))return false;
-    if(q&&c.ko.toLowerCase().indexOf(q)===-1&&c.en.toLowerCase().indexOf(q)===-1)return false;
+    if(q&&(c.context||'').toLowerCase().indexOf(q)===-1&&c.ko.toLowerCase().indexOf(q)===-1&&c.en.toLowerCase().indexOf(q)===-1)return false;
     return true;
   });
   list.innerHTML='';
@@ -1310,19 +1319,20 @@ function renderMoveCardList(){
     row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-md);border:1.5px solid var(--border);cursor:pointer;';
     var cb=document.createElement('input');cb.type='checkbox';cb.style.cssText='width:17px;height:17px;accent-color:var(--accent);flex-shrink:0;';
     cb.checked=!!moveCheckedIds[c.id];
-    var txt=document.createElement('div');txt.style.flex='1';
+    var txt=document.createElement('div');txt.style.cssText='flex:1;min-width:0;';
     // 현재 챕터 표시
     var chName='미분류';
     if(c.chapterId!==null){var ch=chapters.find(function(x){return x.id===c.chapterId;});if(ch)chName=ch.name;}
-    txt.innerHTML='<div style="font-size:13px;font-weight:700;">'+esc(c.ko)+'</div>'+
-      '<div style="font-size:11px;color:var(--text-3);">'+esc(c.en)+'</div>'+
+    txt.innerHTML=cardDetailsHTML(c)+
       '<div style="font-size:11px;color:var(--accent-text);margin-top:2px;">현재: '+esc(chName)+'</div>';
     (function(c,cb,row){
       function toggle(){cb.checked=!cb.checked;if(cb.checked)moveCheckedIds[c.id]=true;else delete moveCheckedIds[c.id];$('moveCardApplyBtn').disabled=Object.keys(moveCheckedIds).length===0;}
       cb.addEventListener('change',function(){if(cb.checked)moveCheckedIds[c.id]=true;else delete moveCheckedIds[c.id];$('moveCardApplyBtn').disabled=Object.keys(moveCheckedIds).length===0;});
       row.addEventListener('click',function(e){if(e.target===cb)return;toggle();});
     })(c,cb,row);
-    row.appendChild(cb);row.appendChild(txt);
+    var edit=document.createElement('button');edit.type='button';edit.textContent='편집';
+    edit.addEventListener('click',function(e){e.stopPropagation();openEditModal([c.id]);});
+    row.appendChild(cb);row.appendChild(txt);row.appendChild(edit);
     list.appendChild(row);
   });
   if(!visible.length)list.innerHTML='<p class="muted" style="text-align:center;padding:16px 0;">해당하는 카드가 없어요</p>';
@@ -1367,7 +1377,7 @@ on('moveCardApplyBtn','click',function(){
   ta.parentNode.insertBefore(wrap,ta);
   var manual=document.createElement('div'); manual.id='manualCardFields';
   manual.style.cssText='display:none;margin:0 0 12px;';
-  manual.innerHTML='<label for="manualKoInput" style="display:block;margin:8px 0 6px;font-weight:700;">한국어</label><input id="manualKoInput" type="text" placeholder="한국어 단어 또는 문장" style="box-sizing:border-box;width:100%;min-height:46px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text-2);font:inherit;"><label for="manualEnInput" style="display:block;margin:12px 0 6px;font-weight:700;">영어</label><input id="manualEnInput" type="text" placeholder="English word or sentence" style="box-sizing:border-box;width:100%;min-height:46px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text-2);font:inherit;">';
+  manual.innerHTML='<label for="manualContextInput" style="display:block;margin:8px 0 6px;font-weight:700;">문맥 (선택)</label><input id="manualContextInput" type="text" placeholder="어떤 업무 상황에서 무엇을 말하려고 하는지" style="box-sizing:border-box;width:100%;min-height:46px;padding:12px;"><label for="manualKoInput" style="display:block;margin:8px 0 6px;font-weight:700;">한국어</label><input id="manualKoInput" type="text" placeholder="한국어 단어 또는 문장" style="box-sizing:border-box;width:100%;min-height:46px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text-2);font:inherit;"><label for="manualEnInput" style="display:block;margin:12px 0 6px;font-weight:700;">영어</label><input id="manualEnInput" type="text" placeholder="English word or sentence" style="box-sizing:border-box;width:100%;min-height:46px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);color:var(--text-2);font:inherit;">';
   ta.parentNode.insertBefore(manual,ta);
   var originalPlaceholder=ta.placeholder;
   function setMode(mode){
@@ -1386,7 +1396,8 @@ on('moveCardApplyBtn','click',function(){
     addBtn.dataset.inputMode=mode;
   }
   bulkBtn.addEventListener('click',function(){setMode('bulk');});
-  manualBtn.addEventListener('click',function(){setMode('manual');$('manualKoInput').focus();});
+  manualBtn.addEventListener('click',function(){setMode('manual');$('manualContextInput').focus();});
+  $('manualContextInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();$('manualKoInput').focus();}});
   $('manualEnInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();addBtn.click();}});
   $('manualKoInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();$('manualEnInput').focus();}});
   setMode('bulk');
@@ -1395,11 +1406,11 @@ on('moveCardApplyBtn','click',function(){
 on('bulkAddBtn','click',function(){
   var fb=$('bulkResult'),chId=parseChId('bulkChapterSelect');
   if($('bulkAddBtn').dataset.inputMode==='manual'){
-    var ko=$('manualKoInput').value.trim(), en=$('manualEnInput').value.trim();
+    var ko=$('manualKoInput').value.trim(), en=$('manualEnInput').value.trim(), context=$('manualContextInput').value.trim();
     if(!ko||!en){fb.textContent='한국어와 영어를 모두 입력해주세요.';fb.style.color='var(--danger-text)';return;}
-    cards.push({id:nextCardId++,ko:ko,en:en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0});
-    saveCards();$('manualKoInput').value='';$('manualEnInput').value='';
-    fb.textContent='✓ 1개 추가';fb.style.color='var(--success-text)';refreshSetupInfo();$('manualKoInput').focus();return;
+    cards.push({id:nextCardId++,ko:ko,en:en,context:context,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0});
+    saveCards();$('manualContextInput').value='';$('manualKoInput').value='';$('manualEnInput').value='';
+    fb.textContent='✓ 1개 추가';fb.style.color='var(--success-text)';refreshSetupInfo();renderAllCards();renderMoveCardList();$('manualContextInput').focus();return;
   }
   var raw=$('bulkInput').value,added=0,skipped=0;
   raw.split(/\r\n|\r|\n/).forEach(function(line){
@@ -1853,7 +1864,7 @@ function loadNext(){
   $('boxBadge').textContent=isRetest?'오답 재출제 · '+currentRetestStage+'단계':isRetry?'재도전':(current.stage===0?'새 카드':'Lv'+current.stage+' · '+STAGE_DAYS[Math.min(current.stage-1,STAGE_DAYS.length-1)]+'일');
   updateQuizInspection();
   $('koreanText').textContent=quizPrompt(current);showHint(0);
-  if(!contextMode&&isRetest&&currentRetestStage===1){$('hintText').textContent=buildAnswerSilhouette(current.en);$('hintText').style.display='block';$('hintText').style.color='var(--warning)';$('hintLabel').textContent='영어 실루엣 힌트 · 1단계';$('hintLabel').style.display='block';}
+  if(isRetest&&currentRetestStage===1){$('hintText').textContent=buildAnswerSilhouette(current.en);$('hintText').style.display='block';$('hintText').style.color='var(--warning)';$('hintLabel').textContent='영어 실루엣 힌트 · 1단계';$('hintLabel').style.display='block';}
   else if(isRetest){$('hintText').style.display='none';$('hintLabel').style.display='none';}
   updateStats();
   persistStudySession();
@@ -1874,7 +1885,7 @@ function finishSession(reason){
   mw.style.display=unique.length?'block':'none';
   unique.forEach(function(c){
     var row=document.createElement('div');row.style.cssText='display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-md);margin-bottom:6px;';
-    var sentenceBox=document.createElement('div');sentenceBox.style.cssText='flex:1;min-width:0;';appendAskableText(sentenceBox,'',c.ko,'font-size:13px;font-weight:500;',c.id,'ask');appendAskableText(sentenceBox,'',c.en,'font-size:12px;color:var(--text-2);',c.id,'history');
+    var sentenceBox=document.createElement('div');sentenceBox.style.cssText='flex:1;min-width:0;';sentenceBox.innerHTML=cardContextHTML(c);appendAskableText(sentenceBox,'',c.ko,'font-size:13px;font-weight:500;',c.id,'ask');appendAskableText(sentenceBox,'',c.en,'font-size:12px;color:var(--text-2);',c.id,'history');
     var bm=document.createElement('button');bm.type='button';bm.innerHTML=c.bookmarked?'★':'☆';bm.style.cssText='font-size:16px;padding:4px 10px;'+(c.bookmarked?'color:var(--warning);':'');
     bm.addEventListener('click',function(){c.bookmarked=!c.bookmarked;saveCards();bm.innerHTML=c.bookmarked?'★':'☆';bm.style.color=c.bookmarked?'var(--warning)':'';});
     row.insertBefore(sentenceBox,row.firstChild);row.appendChild(bm);ml.appendChild(row);
@@ -1893,7 +1904,7 @@ function finishSession(reason){
         var row=document.createElement('div');
         row.style.cssText='background:var(--surface-2);border-radius:var(--r-md);padding:8px 12px;display:flex;align-items:center;gap:8px;';
         var txt=document.createElement('div');txt.style.flex='1';
-        txt.innerHTML='';appendAskableText(txt,'',c.ko,'font-size:13px;font-weight:700;',c.id,'ask');appendAskableText(txt,'',c.en,'font-size:12px;color:var(--text-2);',c.id,'history');
+        txt.innerHTML=cardContextHTML(c);appendAskableText(txt,'',c.ko,'font-size:13px;font-weight:700;',c.id,'ask');appendAskableText(txt,'',c.en,'font-size:12px;color:var(--text-2);',c.id,'history');
         // 북마크
         var bm=document.createElement('button');bm.type='button';
         bm.style.cssText='font-size:18px;padding:2px 5px;background:transparent;border:none;cursor:pointer;flex-shrink:0;';
@@ -1931,6 +1942,8 @@ function renderDoneCardList(editMode){
     var missed=sessionMissedIds.indexOf(c.id)!==-1;
     if(editMode){
       row.innerHTML=
+        '<label class="card-field-label" for="done-context-'+c.id+'">문맥</label>'+
+        '<input id="done-context-'+c.id+'" type="text" data-done-id="'+c.id+'" data-done-field="context" value="'+esc(c.context||'')+'" style="margin-bottom:8px;" />'+
         '<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">한국어</div>'+
         '<input type="text" data-done-id="'+c.id+'" data-done-field="ko" value="'+esc(c.ko)+'" style="margin-bottom:8px;" />'+
         '<div style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">영어</div>'+
@@ -1943,7 +1956,7 @@ function renderDoneCardList(editMode){
         cb.addEventListener('change',function(){if(cb.checked)doneCheckedIds[c.id]=true;else delete doneCheckedIds[c.id];});
       })(c,cb);
       var content_=document.createElement('div');content_.style.flex='1';
-      content_.innerHTML='';appendAskableText(content_,'',c.ko,'font-size:14px;font-weight:700;margin-bottom:2px;',c.id,'ask');appendAskableText(content_,'',c.en,'font-size:13px;color:var(--text-2);',c.id,'history');
+      content_.innerHTML=cardContextHTML(c);appendAskableText(content_,'',c.ko,'font-size:14px;font-weight:700;margin-bottom:2px;',c.id,'ask');appendAskableText(content_,'',c.en,'font-size:13px;color:var(--text-2);',c.id,'history');
       var bmBtn=document.createElement('button');bmBtn.type='button';
       bmBtn.style.cssText='font-size:20px;padding:2px 6px;background:transparent;border:none;flex-shrink:0;cursor:pointer;line-height:1;';
       bmBtn.textContent=c.bookmarked?'★':'☆';
@@ -1985,15 +1998,16 @@ on('doneEditToggleBtn','click',function(){
       var field=inp.dataset.doneField;
       var val=inp.value.trim();
       var c=findCard(id);
-      if(c&&canInspectCard(id)&&val&&c[field]!==val){
+      if(c&&canInspectCard(id)&&(val||field==='context')&&(c[field]||'')!==val){
         var existing=diffs.find(function(d){return d.id===id;});
-        if(!existing){existing={id:id,origKo:c.ko,origEn:c.en,newKo:c.ko,newEn:c.en};diffs.push(existing);}
+        if(!existing){existing={id:id,origKo:c.ko,origEn:c.en,newKo:c.ko,newEn:c.en,origContext:c.context||'',newContext:c.context||''};diffs.push(existing);}
+        if(field==='context')existing.newContext=val;
         if(field==='ko')existing.newKo=val;
         if(field==='en')existing.newEn=val;
       }
     });
     if(!diffs.length){renderDoneCardList(false);return;}
-    diffs.forEach(function(d){d.koChanged=d.newKo!==d.origKo;d.enChanged=d.newEn!==d.origEn;});
+    diffs.forEach(function(d){d.koChanged=d.newKo!==d.origKo;d.enChanged=d.newEn!==d.origEn;d.contextChanged=d.newContext!==d.origContext;});
     showEditConfirm(diffs);
   } else {
     renderDoneCardList(true);
@@ -2283,7 +2297,7 @@ function finalizeCorrect(manual){
     retestPendingAction=currentRetestStage===1?'promote':'complete';
     $('diffMessage').textContent=manual
       ?(currentRetestStage===1?'정답으로 변경했습니다. 다음에는 힌트 없이 다시 답해 주세요.':'정답으로 변경했습니다. 이 문제를 통과했습니다.')
-      :(currentRetestStage===1?(contextMode?'1단계 정답입니다. 다음 단계에서 다시 답해 주세요.':'실루엣 단계 정답입니다. 다음에는 힌트 없이 다시 답해 주세요.'):'2단계 자동 정답입니다. 이 문제를 통과했습니다.');
+      :(currentRetestStage===1?'실루엣 단계 정답입니다. 다음에는 힌트 없이 다시 답해 주세요.':'2단계 자동 정답입니다. 이 문제를 통과했습니다.');
     if(!manual){
       $('koreanText').style.color='var(--success)';flashCP('var(--success)',true);bigText('OK','#34A96E');playCorrectSound(false);
       $('diffYour').style.display='none';$('diffAns').style.display='none';
@@ -2330,7 +2344,7 @@ function showDiff(y,a){
   $('diffYour').innerHTML='내 답변: '+(y.trim()?d.y:'(입력 없음)');$('diffAns').innerHTML='모범 답안: '+d.a;
   $('diffYour').style.display='';$('diffAns').style.display='';
   $('diffMessage').textContent=currentIsRetest
-    ?(currentRetestStage===1?(contextMode?'1단계 오답입니다. 답을 확인한 뒤 1단계를 다시 진행하세요.':'실루엣 단계 오답입니다. 답을 확인한 뒤 1단계를 다시 진행하세요.'):(contextMode?'2단계 오답입니다. 답을 확인한 뒤 1단계부터 다시 진행하세요.':'2단계 오답입니다. 답을 확인한 뒤 실루엣 단계부터 다시 진행하세요.'))
+    ?(currentRetestStage===1?'실루엣 단계 오답입니다. 답을 확인한 뒤 1단계를 다시 진행하세요.':'2단계 오답입니다. 답을 확인한 뒤 실루엣 단계부터 다시 진행하세요.')
     :'오답입니다. 답을 확인한 뒤 다음 문제로 이동하거나 정답으로 변경하세요.';
   $('markCorrectBtn').style.display=currentIsRetest?'none':'block';$('skipRetestBtn').style.display=currentIsRetest?'block':'none';$('nextBtn').textContent='다음 문제';
   $('diffPanel').style.display='block';$('checkBtn').style.display='none';$('nextBtn').style.display='block';$('answerInput').disabled=true;
@@ -2435,7 +2449,7 @@ function renderTestStatusModal(){
     var skipped=sessionSkippedIds.indexOf(id)!==-1;
     var resultTag=sessionCompletedIds.indexOf(id)===-1?'채점 확인 중':skipped?'오답처리':missed?'오답':'정답';
     var resultColor=missed?'var(--danger-text)':'var(--success-text)';
-    body.innerHTML=
+    body.innerHTML=cardContextHTML(c)+
       '<div style="font-size:13px;font-weight:700;margin-bottom:2px;">'+esc(c.ko)+'</div>'+
       '<div style="font-size:12px;color:var(--text-2);margin-bottom:4px;">'+esc(c.en)+'</div>'+
       '<div style="display:flex;gap:5px;flex-wrap:wrap;">'+
@@ -2670,7 +2684,7 @@ function openAskModal(cardId,sentenceOverride){
   askContextOverride=sentenceOverride?String(sentenceOverride):null;
   askConversation=[];
   askSavedCount=0;
-  $('askCardPreview').innerHTML=sentenceOverride?'<strong>'+esc(sentenceOverride)+'</strong>':'<strong>'+esc(c.ko)+'</strong><br><span style="color:var(--text-3);">'+esc(c.en)+'</span>';
+  $('askCardPreview').innerHTML=sentenceOverride?'<strong>'+esc(sentenceOverride)+'</strong>':cardDetailsHTML(c);
   $('askInput').value='';
   $('askAnswer').style.display='none';$('askAnswer').innerHTML='';
   $('askLoading').style.display='none';
@@ -2847,7 +2861,7 @@ openAskModal=function(cardId,sentenceOverride){askSessionId=Date.now();_origOpen
 function openNotesModal(cardId){
   if(!canInspectCard(cardId))return;
   var c=findCard(cardId);
-  $('notesCardPreview').innerHTML=c?('<strong>'+esc(c.ko)+'</strong><br><span style="color:var(--text-3);">'+esc(c.en)+'</span>'):'';
+  $('notesCardPreview').innerHTML=c?(cardDetailsHTML(c)):'';
   var list=$('notesList'),empty=$('notesEmpty');
   list.innerHTML='';
   var cardNotes=notes[cardId]||[];

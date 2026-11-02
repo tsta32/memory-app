@@ -1,6 +1,6 @@
 
 /* Update-safe service worker */
-var CACHE_NAME = 'srs-app-v68';
+var CACHE_NAME = 'srs-app-v69';
 
 var ASSETS = [
   './index.html',

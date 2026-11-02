@@ -16,7 +16,14 @@ function source(name) {
 const context = { GRAMMAR_OPTION_DEFAULTS: { article: true }, ARTICLE_WORDS: { a: 1, an: 1, the: 1 } };
 context.esc = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 vm.createContext(context);
-vm.runInContext([source('expandContractions'), source('answerTokens'), source('answerTokensWithoutContractionExpansion'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('diffTokenRecords'), source('alignDiffTokens'), source('renderDiffText'), source('diffHL'), source('buildAnswerSilhouette'), source('zeroNgCounts')].join('\n'), context);
+vm.runInContext([source('expandContractions'), source('answerTokens'), source('answerTokensWithoutContractionExpansion'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('diffTokenRecords'), source('alignDiffTokens'), source('renderDiffText'), source('diffHL'), source('buildAnswerSilhouette'), source('zeroNgCounts'), source('hasContext'), source('cardContextHTML'), source('cardDetailsHTML')].join('\n'), context);
+for (const missing of [undefined, null, '', '   ']) {
+  const html=context.cardDetailsHTML({context:missing,ko:'원래 번역',en:'Original answer.'});
+  assert.match(html,/문맥 미등록/);
+  assert.ok(html.indexOf('data-card-field="context"')<html.indexOf('data-card-field="ko"'));
+  assert.ok(html.indexOf('data-card-field="ko"')<html.indexOf('data-card-field="en"'));
+}
+assert.match(context.cardDetailsHTML({context:'<script>alert(1)</script>',ko:'한국어',en:'English'}),/&lt;script&gt;/);
 const normalize = s => context.answerTokens(s).join(' ');
 const equivalent = [
   ["I'm ready!", 'I am ready.'], ["don't", 'do not'], ["won't", 'will not'],
@@ -56,6 +63,7 @@ assert.equal(context.buildAnswerSilhouette('Could you speak a little more slowly
 assert.equal(context.buildAnswerSilhouette('I went to the office yesterday.'), 'I w___ t_ t__ o_____ y________');
 assert.equal(context.buildAnswerSilhouette("She's already finished her work."), 'S___ a______ f_______ h__ w___');
 assert.equal(context.buildAnswerSilhouette('A I!'), 'A I');
+assert.equal(context.buildAnswerSilhouette('We could consider another option.'), 'W_ c____ c_______ a______ o_____');
 const resetCards = [{ ngCount: 4, stage: 2, dueAt: 123, lastTestedAt: 456 }, { ngCount: 0, stage: 1, dueAt: 789 }, { stage: 3, dueAt: 999 }];
 assert.equal(context.zeroNgCounts(resetCards), 1);
 assert.deepEqual(JSON.parse(JSON.stringify(resetCards)), [{ ngCount: 0, stage: 2, dueAt: 123, lastTestedAt: 456 }, { ngCount: 0, stage: 1, dueAt: 789 }, { stage: 3, dueAt: 999 }]);
@@ -110,7 +118,7 @@ console.log('Passed answer normalization, article-only option, and manual gradin
     findCard: id => fixtureCards.find(card => card.id === id), esc: context.esc
   };
   vm.createContext(sandbox);
-  vm.runInContext(['quizIsActive', 'canInspectCard', 'renderTestStatusModal', 'openEditModal'].map(source).join('\n'), sandbox);
+  vm.runInContext(['hasContext', 'cardContextHTML', 'quizIsActive', 'canInspectCard', 'renderTestStatusModal', 'openEditModal'].map(source).join('\n'), sandbox);
   const flatten = node => [node.innerHTML, node.textContent, node.value, ...node.children.map(flatten)].filter(Boolean).join(' ');
   sandbox.renderTestStatusModal();
   assert.match(flatten(getElement('testStatusContent')), /아직 답안을 제출한 문제가 없어요/);
