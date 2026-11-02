@@ -1,10 +1,11 @@
 
 /* Update-safe service worker */
-var CACHE_NAME = 'srs-app-v67';
+var CACHE_NAME = 'srs-app-v68';
 
 var ASSETS = [
   './index.html',
   './app.js',
+  './business-contexts.js',
   './sync-bootstrap.js',
   './manifest.json',
   './icons/icon-192.png',
@@ -44,6 +45,7 @@ self.addEventListener('fetch', function(event) {
   var isAppFile =
     url.pathname.endsWith('/index.html') ||
     url.pathname.endsWith('/app.js') ||
+    url.pathname.endsWith('/business-contexts.js') ||
     url.pathname.endsWith('/sync-bootstrap.js') ||
     url.pathname.endsWith('/manifest.json') ||
     url.pathname.endsWith('/');

@@ -630,7 +630,7 @@ for (const mobile of [false, true]) {
       await expect(page.locator('#allCardsList')).not.toContainText('미출제');
       await page.locator('#answerInput').fill('my draft');
       await page.locator('#editCurrentBtn').click();
-      await expect(page.locator('#editCardList input')).toHaveCount(2);
+      await expect(page.locator('#editCardList input')).toHaveCount(3);
       await page.locator('#editCardList input[data-field="en"]').fill('discarded');
       await page.locator('#editCardList input[data-field="en"]').press('Enter');
       await expect(page.locator('#diffPanel')).not.toBeVisible();

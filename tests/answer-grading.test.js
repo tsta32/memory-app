@@ -106,7 +106,7 @@ console.log('Passed answer normalization, article-only option, and manual gradin
   const sandbox = {
     $: getElement, document: { createElement: () => new Element() },
     sessionSubmittedIds: [], sessionCompletedIds: [], sessionMissedIds: [], sessionSkippedIds: [],
-    current: fixtureCards[1], notes: {}, editingSnapshots: [],
+    contextMode: false, pendingDiff: null, answerSettled: false, current: fixtureCards[1], notes: {}, editingSnapshots: [],
     findCard: id => fixtureCards.find(card => card.id === id), esc: context.esc
   };
   vm.createContext(sandbox);
