@@ -31,7 +31,7 @@ var currentIsRetry=false; // 현재 풀고 있는 카드가 세션 내 재도전
 var currentIsRetest=false;
 var advanceInputLockUntil=0;
 
-var acSort='added',acShowKo=true,acShowEn=true,acSearch='';
+var acSort='added',acShowKo=true,acShowEn=true,acShowContext=true,acSearch='';
 var acChapterFilter=null,acCheckedIds={};
 var acReverse=false; // 역순 여부
 var acBmOnly=false;  // 북마크만 보기
@@ -689,8 +689,8 @@ function updateQuizInspection(){
   var locked=contextMode&&current&&!pendingDiff&&!answerSettled;
   ['editCurrentBtn','quizAskBtn','quizNotesBtn'].forEach(function(id){$(id).disabled=!!locked;});
 }
-function cardContextHTML(card){
-  return '<div class="card-field fc-context" data-card-field="context"><span class="card-field-label">문맥</span>'+esc(hasContext(card)?card.context:'문맥 미등록')+'</div>';
+function cardContextHTML(card,visible){
+  return '<div class="card-field fc-context" data-card-field="context"'+(visible===false?' style="display:none;"':'')+'><span class="card-field-label">문맥</span>'+esc(hasContext(card)?card.context:'문맥 미등록')+'</div>';
 }
 function cardDetailsHTML(card){
   return cardContextHTML(card)+
@@ -834,7 +834,7 @@ function renderAllCards(){
     cb.addEventListener('change',function(){if(cb.checked)acCheckedIds[c.id]=true;else delete acCheckedIds[c.id];updateBulkBar();});
     cbDiv.appendChild(cb);
     var body=document.createElement('div');body.className='fc-body';
-    body.innerHTML=cardContextHTML(c);
+    body.innerHTML=cardContextHTML(c,acShowContext);
     body.innerHTML+='<div class="fc-ko card-field" data-card-field="ko" style="color:'+(acShowKo?'':'transparent')+';"><span class="card-field-label">한국어</span>'+esc(c.ko)+'</div>';
     body.innerHTML+='<div class="fc-en card-field" data-card-field="en" style="color:'+(acShowEn?'':'transparent')+';"><span class="card-field-label">영어</span>'+esc(c.en)+'</div>';
     var meta='<div class="fc-meta"><span class="due-tag '+st.cls+'">'+esc(st.text)+'</span>';
@@ -876,6 +876,12 @@ on('sortRecent','click',function(){acSort='recent';['sortAdded','sortNg','sortAl
 on('sortReverse','click',function(){acReverse=!acReverse;$('sortReverse').classList.toggle('active',acReverse);renderAllCards();});
 on('filterBm','click',function(){acBmOnly=!acBmOnly;$('filterBm').classList.toggle('active',acBmOnly);renderAllCards();});
 on('filterHasNote','click',function(){acHasNoteOnly=!acHasNoteOnly;$('filterHasNote').classList.toggle('active',acHasNoteOnly);renderAllCards();});
+on('toggleContext','click',function(){
+  acShowContext=!acShowContext;
+  $('toggleContext').classList.toggle('active',acShowContext);
+  $('toggleContext').setAttribute('aria-pressed',String(acShowContext));
+  $('allCardsList').querySelectorAll('.fc-context').forEach(function(el){el.style.display=acShowContext?'':'none';});
+});
 on('toggleKo','click',function(){
   acShowKo=!acShowKo;
   $('toggleKo').classList.toggle('active',acShowKo);
@@ -975,7 +981,7 @@ function renderMemCards(vis){
     var cbDiv=document.createElement('div');cbDiv.className='fc-cb';
     var body=document.createElement('div');body.className='fc-body';
     var st=reviewStatus(c);
-    body.innerHTML=cardContextHTML(c)+
+    body.innerHTML=cardContextHTML(c,acShowContext)+
       '<div class="fc-ko card-field" data-card-field="ko" data-mem="ko" style="color:'+(memShowKo?'':'transparent')+';"><span class="card-field-label">한국어</span>'+esc(c.ko)+'</div>'+
       '<div class="fc-en card-field" data-card-field="en" data-mem="en" style="color:'+(memShowEn?'var(--text-2)':'transparent')+';"><span class="card-field-label">영어</span>'+esc(c.en)+'</div>'+
       '<div class="fc-meta"><span class="due-tag '+st.cls+'">'+esc(st.text)+'</span>'+(c.ngCount?'<span class="due-tag ng-badge">재도전 '+c.ngCount+'회</span>':'')+'</div>';
@@ -1023,11 +1029,11 @@ function expandMemMode(){
   var card=pane.querySelector('.card');
   var children=card.children;
   // 보존할 요소: 카드목록, 빈상태, 한국어/영어 토글 버튼이 담긴 두 번째 줄
-  var keepIds=['allCardsList','allCardsEmpty','toggleKo','toggleEn'];
+  var keepIds=['allCardsList','allCardsEmpty','toggleContext','toggleKo','toggleEn'];
   for(var i=0;i<children.length;i++){
     var el=children[i];
     // 이 요소 안에 toggleKo/toggleEn이 있으면 남기기
-    if(el.querySelector&&(el.querySelector('#toggleKo')||el.querySelector('#toggleEn'))) continue;
+    if(el.querySelector&&(el.querySelector('#toggleContext')||el.querySelector('#toggleKo')||el.querySelector('#toggleEn'))) continue;
     // 직접 카드목록/빈상태면 남기기
     if(keepIds.indexOf(el.id)!==-1) continue;
     el.dataset.memHidden='1';
@@ -2401,8 +2407,17 @@ function skipRetestCard(){
   autoAdvanceToken++;
   var cardId=current.id;
   pendingDiff=null;$('diffPanel').style.display='none';$('nextBtn').style.display='none';$('skipRetestBtn').style.display='none';$('markCorrectBtn').style.display='none';$('answerInput').disabled=true;
-  abandonRetestId(cardId);
+  // Explicit stage-one skip advances this same card without recording another result.
+  // Reloading through the common loader clears hints/drafts and checkpoints stage two.
+  $('diffYour').textContent='';$('diffAns').textContent='';
   retestCorrectWaiting=false;retestPendingAction='';
+  if(currentRetestStage===1){
+    retestStages[cardId]=2;
+    retestQueue=retestQueue.filter(function(id){return id!==cardId;});
+    retestQueue.unshift(cardId);
+    loadNext();return;
+  }
+  abandonRetestId(cardId);
   $('footerHint').textContent='이 문제는 오답으로 두고 재출제에서 제외했습니다.';$('footerHint').style.color='var(--danger-text)';
   updateStats();
   // Move or finish in the same action; no stale transition callback can re-add this ID.

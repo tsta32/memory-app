@@ -211,3 +211,38 @@ console.log('Passed local checkpoint selection, atomic grading journal, and conf
   assert.deepEqual(Array.from(sandbox.retestUnresolvedIds), []);
 }
 console.log('Passed terminal retest exclusion and stale queue pruning checks.');
+
+// Stage-one skip promotes only the current card; terminal stage-two skip uses durable exclusions.
+{
+  const elements={};const $=id=>elements[id]||(elements[id]={style:{},textContent:'old answer'});
+  let loads=0;
+  const sandbox={ $,currentIsRetest:true,current:{id:1},pendingDiff:{y:'wrong',a:'answer'},answerSettled:false,
+    advanceInputLockUntil:0,autoAdvanceToken:0,currentRetestStage:1,retestStages:{1:1,2:1,3:1},
+    retestQueue:[2,1,3,1],retestUnresolvedIds:[1,2,3],retestCandidateIds:[1,2,3],retestAbandonedIds:[],
+    sessionQueue:[],retryQueue:[],retestCorrectWaiting:false,retestPendingAction:'',
+    sessionDoneCount:3,sessionMissedIds:[1,2,3],sessionCompletedIds:[1,2,3],streak:0,
+    updateStats(){},loadNext(){loads++;}
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(['pruneAbandonedRetests','abandonRetestId','skipRetestCard'].map(source).join('\n'),sandbox);
+  const history=()=>JSON.stringify([sandbox.sessionDoneCount,sandbox.sessionMissedIds,sandbox.sessionCompletedIds,sandbox.streak]);
+  const before=history();
+  sandbox.skipRetestCard();
+  assert.equal(sandbox.retestStages[1],2);
+  assert.deepEqual(Array.from(sandbox.retestQueue),[1,2,3]);
+  assert.deepEqual(Array.from(sandbox.retestUnresolvedIds),[1,2,3]);
+  assert.deepEqual(Array.from(sandbox.retestAbandonedIds),[]);
+  assert.equal($('diffYour').textContent,'');assert.equal($('diffAns').textContent,'');
+  sandbox.skipRetestCard();assert.equal(loads,1,'duplicate clicks cannot skip the fresh second stage');
+  sandbox.currentRetestStage=2;sandbox.pendingDiff={y:'wrong again'};sandbox.answerSettled=false;
+  sandbox.skipRetestCard();
+  assert.deepEqual(Array.from(sandbox.retestAbandonedIds),[1]);
+  assert.deepEqual(Array.from(sandbox.retestQueue),[2,3]);
+  assert.deepEqual(Array.from(sandbox.retestUnresolvedIds),[2,3]);
+  assert.equal(sandbox.retestStages[1],undefined);
+  assert.equal(history(),before,'skip does not grade another answer or change history');
+  assert.equal(loads,2);
+}
+assert.match(context.cardContextHTML({context:'저장된 문맥'},false),/display:none/);
+assert.doesNotMatch(context.cardContextHTML({context:'저장된 문맥'},true),/display:none/);
+console.log('Passed stage-aware retest skipping, duplicate action protection and context display checks.');

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { skipRetestCompletely } = require('./retest-helpers');
 const { items } = require('../../business-contexts');
 
 async function openFixture(browser, {all=false, count=1, index=0, contextOptions={}, savedContext}={}) {
@@ -131,7 +132,7 @@ async function expectFieldOrder(scope) {
 }
 
 for (const stage of [1,2]) {
-  test(`context retest silhouette matches the shared example and skipping stage ${stage} ends the last card`,async({browser})=>{
+  test(`context retest silhouette matches the shared example and skipping from stage ${stage} passes through stage two to end the last card`,async({browser})=>{
     const {page,context,errors,workers}=await openFixture(browser,{index:44});
     try {
       await start(page);
@@ -148,7 +149,7 @@ for (const stage of [1,2]) {
       }
       const before=await saved(page);
       await submitContext(page,'Wrong again.');
-      await page.locator('#skipRetestBtn').click();
+      await skipRetestCompletely(page);
       await expect(page.locator('#doneScreen')).toBeVisible();
       expect(await saved(page)).toEqual(before);
       const checkpoint=await page.evaluate(()=>JSON.parse(localStorage.getItem('memory_study_session_v1')));
@@ -172,7 +173,7 @@ test('context retest repeats misses, purges a skipped card from every queue, and
     await expect(page.locator('#koreanText')).toHaveText(items[0].context);
     await submitContext(page,'Wrong again.');await page.locator('#nextBtn').tap();
     await expect(page.locator('#koreanText')).toHaveText(items[1].context);
-    await submitContext(page,'Wrong again.');await page.locator('#skipRetestBtn').tap();
+    await submitContext(page,'Wrong again.');await skipRetestCompletely(page,'tap');
     await expect(page.locator('#koreanText')).toHaveText(items[2].context);
     const snap=await page.evaluate(()=>JSON.parse(localStorage.getItem('memory_study_session_v1')));
     expect(snap.state.retestAbandonedIds).toEqual([2]);
@@ -188,14 +189,14 @@ test('context retest repeats misses, purges a skipped card from every queue, and
     await page.reload();await expect(page.locator('#koreanText')).toHaveText(items[2].context);
     await submitContext(page,items[2].en);await page.locator('#nextBtn').tap();
     await expect(page.locator('#koreanText')).toHaveText(items[0].context);
-    await submitContext(page,'Wrong.');await page.locator('#skipRetestBtn').tap();
+    await submitContext(page,'Wrong.');await skipRetestCompletely(page,'tap');
     await expect(page.locator('#koreanText')).toHaveText(items[2].context);
     await expect(page.locator('#boxBadge')).toContainText('2단계');
     await expect(page.locator('#hintText')).toBeHidden();
     await submitContext(page,'Wrong.');await page.locator('#nextBtn').tap();
     await expect(page.locator('#boxBadge')).toContainText('1단계');
     await expect(page.locator('#hintText')).toBeVisible();
-    await submitContext(page,'Wrong.');await page.locator('#skipRetestBtn').tap();
+    await submitContext(page,'Wrong.');await skipRetestCompletely(page,'tap');
     await expect(page.locator('#doneScreen')).toBeVisible();
     expect(errors).toEqual([]);expect(workers).toEqual([]);
   } finally {await context.close();}

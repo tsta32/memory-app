@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { skipRetestCompletely } = require('./retest-helpers');
 
 const TEST_CARD_ID = 42001;
 const BLOCKED_WORKERS = new Set([
@@ -428,7 +429,7 @@ test('two-stage retest repeats misses, returns to stage one after a stage-two er
   } finally { await app.context.close(); }
 });
 
-test('retest skip removes stage-one and stage-two misses once and finishes after the last card', async ({ browser }) => {
+test('retest skip advances stage one, removes stage two once and finishes after the last card', async ({ browser }) => {
   const app = await openApp(browser, 'I went home.', {}, [{ en: 'She ate lunch.' }], 0);
   try {
     await app.page.locator('#startBtn').click();
@@ -445,7 +446,7 @@ test('retest skip removes stage-one and stage-two misses once and finishes after
     await enterAnswerAndCheck(app.page, 'I go home.');
     await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
     await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
-    await app.page.locator('#skipRetestBtn').evaluate(button => { button.click(); button.click(); });
+    await skipRetestCompletely(app.page,'double');
     await app.page.keyboard.press('Enter');
     await app.page.waitForTimeout(380);
     await expect(app.page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
@@ -464,7 +465,7 @@ test('retest skip removes stage-one and stage-two misses once and finishes after
     await enterAnswerAndCheck(app.page, 'She ate lunch yesterday.');
     await expect(app.page.locator('#skipRetestBtn')).toBeVisible();
     await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
-    await app.page.locator('#skipRetestBtn').click();
+    await skipRetestCompletely(app.page);
     await app.page.locator('#doneScreen').waitFor({ state: 'visible' });
     await expect(app.page.locator('#doneSummary')).toContainText('오답 재출제 완료');
     const afterRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
@@ -541,7 +542,7 @@ test('retest removes manual-correct and only offers skip on submitted wrong resu
     await expect(app.page.locator('#markCorrectBtn')).toBeHidden();
     await expect(app.page.locator('#diffYour')).toContainText('내 답변');
     await expect(app.page.locator('#diffAns')).toContainText('모범 답안');
-    await app.page.locator('#skipRetestBtn').click();
+    await skipRetestCompletely(app.page);
     await expect(app.page.locator('#doneScreen')).toBeVisible();
     const afterRetest = await app.page.evaluate(() => ({ cards: localStorage.getItem('srs_cards_v2'), errors: localStorage.getItem('srs_error_history_v1'), settings: localStorage.getItem('srs_settings_v1') }));
     expect(afterRetest).toEqual(beforeRetest);
@@ -730,7 +731,7 @@ for (const mobile of [false, true]) {
 
 for (const stage of [1, 2]) {
  for (const activation of ['Enter', 'tap']) {
-  test(`abandoned retests: ${activation} on skip exits stage ${stage} without taking the retry action`, async ({ browser }) => {
+  test(`abandoned retests: ${activation} on skip advances or exits stage ${stage} without taking the retry action`, async ({ browser }) => {
     const app = await openApp(browser, 'Original answer.', {}, 0, 0, {
       contextOptions: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
     });
@@ -746,8 +747,7 @@ for (const stage of [1, 2]) {
         await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 2단계');
       }
       await page.waitForTimeout(320); await enterAnswerAndCheck(page, 'Wrong again.');
-      if (activation === 'Enter') {await page.locator('#skipRetestBtn').focus(); await page.locator('#skipRetestBtn').press('Enter');}
-      else await page.locator('#skipRetestBtn').tap();
+      await skipRetestCompletely(page,activation);
       await expect(page.locator('#doneScreen')).toBeVisible();
       expect(await page.evaluate(() => JSON.parse(localStorage.getItem('memory_study_session_v1')).status)).toBe('ended');
       expect(await page.evaluate(() => ['srs_cards_v2','srs_error_history_v1','srs_settings_v1'].map(k => localStorage.getItem(k)))).toEqual(original);
@@ -775,7 +775,7 @@ test('abandoned retests: mobile taps purge every queue and survive stale restore
     await expect(page.locator('#boxBadge')).toHaveText('오답 재출제 · 1단계');
     const original = await data();
     await page.waitForTimeout(320); await enterAnswerAndCheck(page, 'Wrong again.');
-    await page.locator('#skipRetestBtn').tap();
+    await skipRetestCompletely(page,'tap');
     await expect(page.locator('#koreanText')).toHaveText('두 번째 재출제');
     const snapshot = await page.evaluate(() => JSON.parse(localStorage.getItem('memory_study_session_v1')));
     expect(snapshot.state.retestAbandonedIds).toEqual([TEST_CARD_ID]);
@@ -792,11 +792,11 @@ test('abandoned retests: mobile taps purge every queue and survive stale restore
     await page.reload(); await expect(page.locator('#quizScreen')).toBeVisible();
     await expect(page.locator('#koreanText')).toHaveText('두 번째 재출제');
     await page.waitForTimeout(320); await enterAnswerAndCheck(page, 'Wrong.');
-    await page.locator('#skipRetestBtn').evaluate(button => {button.click();button.click();});
+    await skipRetestCompletely(page,'double');
     await expect(page.locator('#koreanText')).toHaveText('세 번째 재출제');
     await page.reload();await expect(page.locator('#quizScreen')).toBeVisible();
     await expect(page.locator('#koreanText')).toHaveText('세 번째 재출제');
-    await page.waitForTimeout(320);await enterAnswerAndCheck(page,'Wrong.');await page.locator('#skipRetestBtn').tap();
+    await page.waitForTimeout(320);await enterAnswerAndCheck(page,'Wrong.');await skipRetestCompletely(page,'tap');
     await expect(page.locator('#doneScreen')).toBeVisible();expect(await data()).toEqual(original);
     await page.reload(); await page.locator('#memory-sync-local').click();
     await expect(page.locator('#setupScreen')).toBeVisible();await expect(page.locator('#quizScreen')).toBeHidden();
