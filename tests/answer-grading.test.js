@@ -16,7 +16,7 @@ function source(name) {
 const context = { GRAMMAR_OPTION_DEFAULTS: { article: true }, ARTICLE_WORDS: { a: 1, an: 1, the: 1 } };
 context.esc = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 vm.createContext(context);
-vm.runInContext([source('expandContractions'), source('answerTokens'), source('answerTokensWithoutContractionExpansion'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('diffTokenRecords'), source('alignDiffTokens'), source('renderDiffText'), source('diffHL'), source('buildAnswerSilhouette'), source('zeroNgCounts'), source('hasContext'), source('cardContextHTML'), source('cardDetailsHTML')].join('\n'), context);
+vm.runInContext([source('expandContractions'), source('answerTokens'), source('answerTokensWithoutContractionExpansion'), source('articleFiltered'), source('deterministicGrade'), source('normalizeGrammarOptions'), source('diffTokenRecords'), source('alignDiffTokens'), source('renderDiffText'), source('diffHL'), source('buildAnswerSilhouette'), source('zeroNgCounts'), source('hasContext'), source('cardContextHTML'), source('cardDetailsHTML'), source('priorityLabel'), source('priorityBadge')].join('\n'), context);
 for (const missing of [undefined, null, '', '   ']) {
   const html=context.cardDetailsHTML({context:missing,ko:'원래 번역',en:'Original answer.'});
   assert.match(html,/문맥 미등록/);
@@ -118,7 +118,7 @@ console.log('Passed answer normalization, article-only option, and manual gradin
     findCard: id => fixtureCards.find(card => card.id === id), esc: context.esc
   };
   vm.createContext(sandbox);
-  vm.runInContext(['hasContext', 'cardContextHTML', 'quizIsActive', 'canInspectCard', 'renderTestStatusModal', 'openEditModal'].map(source).join('\n'), sandbox);
+  vm.runInContext(['priorityLabel','priorityOptions','hasContext', 'cardContextHTML', 'quizIsActive', 'canInspectCard', 'renderTestStatusModal', 'openEditModal'].map(source).join('\n'), sandbox);
   const flatten = node => [node.innerHTML, node.textContent, node.value, ...node.children.map(flatten)].filter(Boolean).join(' ');
   sandbox.renderTestStatusModal();
   assert.match(flatten(getElement('testStatusContent')), /아직 답안을 제출한 문제가 없어요/);

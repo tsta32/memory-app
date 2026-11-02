@@ -27,6 +27,7 @@ async function openFixture(browser, {all=false, count=1, index=0, contextOptions
 }
 async function saved(page){return page.evaluate(()=>JSON.parse(localStorage.getItem('srs_cards_v2')));}
 async function start(page,practice=false){
+  await page.locator('#quizPriorityMode').selectOption('all');
   await page.locator('#quizPromptMode').selectOption('context');
   await page.locator(practice?'#practiceBtn':'#startBtn').click();
   await expect(page.locator('#quizScreen')).toBeVisible();
