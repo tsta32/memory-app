@@ -943,8 +943,8 @@ var items=[
   {
     "key": "business-general-067",
     "source_line": 67,
-    "en": "I'll share the presentation slides.",
-    "ko": "제가 발표 슬라이드를 공유하겠습니다.",
+    "en": "I'll share the presentation materials.",
+    "ko": "제가 발표 자료를 공유하겠습니다.",
     "context": "발표슬라이드 공유예고",
     "ko_before": "발표 자료를 공유하겠습니다.",
     "priority": "important",

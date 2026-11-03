@@ -66,7 +66,7 @@
 | 64 | This is the key point for today. | 오늘핵심 강조표현 |
 | 65 | That concludes my presentation. | 내발표 종료알림 |
 | 66 | Please feel free to ask questions. | 자유질문 권유 |
-| 67 | I'll share the presentation slides. | 발표슬라이드 공유예고 |
+| 67 | I'll share the presentation materials. | 발표슬라이드 공유예고 |
 | 68 | I’ll explain this part again later. | 해당부분 추후재설명약속 |
 | 69 | I’ll pause the screen sharing for a moment. | 화면공유 일시중단예고 |
 | 70 | Please let me know if you can't see the screen. | 화면미표시 알림요청 |

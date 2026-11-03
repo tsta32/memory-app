@@ -267,7 +267,7 @@ var items=[
     "context": "자유질문 권유"
   },
   {
-    "en": "I'll share the presentation slides.",
+    "en": "I'll share the presentation materials.",
     "context": "발표슬라이드 공유예고"
   },
   {
