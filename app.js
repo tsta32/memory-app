@@ -420,7 +420,17 @@ window.addEventListener('pageshow',function(){if(quizIsActive())persistStudySess
 document.addEventListener('visibilitychange',function(){persistStudySession();});
 
 /* ---------- persistence ---------- */
-function saveCards(){return studyWriteData(CARDS_KEY,JSON.stringify({cards:cards,nextId:nextCardId}));}
+var cardEnvelope={},cardBaseline=null;
+function saveCards(automatic){
+  var next=Object.assign({},cardEnvelope,{cards:cards,nextId:nextCardId});
+  if(window.CardOverrides&&!automatic&&cardBaseline)next=window.CardOverrides.track(cardBaseline,next,getEditDevice());
+  cards=next.cards;cardEnvelope=next;
+  var ok=studyWriteData(CARDS_KEY,JSON.stringify(next));
+  if(ok)cardBaseline=JSON.parse(JSON.stringify(next));
+  return ok;
+}
+function getEditDevice(){var k='memory_edit_device_v1',v=localStorage.getItem(k);if(!v){v=crypto.randomUUID();localStorage.setItem(k,v);}return v;}
+
 function saveChapters(){try{localStorage.setItem(CHAPTERS_KEY,JSON.stringify({chapters:chapters,nextId:nextChapterId}));}catch(e){}}
 function normalizeGrammarOptions(saved){
   var out=Object.assign({},GRAMMAR_OPTION_DEFAULTS);
@@ -508,7 +518,7 @@ function recordAnswerErrors(cardId,referenceAnswer,actualAnswer,errors){
 }
 function loadAll(){
   try{var cr=localStorage.getItem(CHAPTERS_KEY);if(cr){var cp=JSON.parse(cr);if(cp&&Array.isArray(cp.chapters)){chapters=cp.chapters;nextChapterId=cp.nextId||(chapters.reduce(function(m,c){return Math.max(m,c.id);},0)+1);}}}catch(e){}
-  try{var raw=localStorage.getItem(CARDS_KEY);if(raw){var p=JSON.parse(raw);if(p&&Array.isArray(p.cards)){cards=p.cards;cards.forEach(function(c){if(typeof c.everAnswered!=='boolean')c.everAnswered=(c.stage||0)>0;if(typeof c.ngCount!=='number')c.ngCount=0;if(typeof c.chapterId==='undefined')c.chapterId=null;if(typeof c.lastTestedAt==='undefined')c.lastTestedAt=0;});nextCardId=p.nextId||(cards.reduce(function(m,c){return Math.max(m,c.id);},0)+1);}}}catch(e){}
+  try{var raw=localStorage.getItem(CARDS_KEY);if(raw){var p=JSON.parse(raw);if(p&&Array.isArray(p.cards)){cardEnvelope=p;cardBaseline=JSON.parse(JSON.stringify(p));cards=p.cards;cards.forEach(function(c){if(typeof c.everAnswered!=='boolean')c.everAnswered=(c.stage||0)>0;if(typeof c.ngCount!=='number')c.ngCount=0;if(typeof c.chapterId==='undefined')c.chapterId=null;if(typeof c.lastTestedAt==='undefined')c.lastTestedAt=0;});nextCardId=p.nextId||(cards.reduce(function(m,c){return Math.max(m,c.id);},0)+1);}}}catch(e){}
   try{var sr=localStorage.getItem(SETTINGS_KEY);if(sr){var sp=JSON.parse(sr);if(sp){
     if(typeof sp.volume==='number')settings.volume=sp.volume;
     if(typeof sp.newCardRatio==='number')settings.newCardRatio=sp.newCardRatio;
@@ -571,7 +581,7 @@ function setTab(which){
   if(which!=='tabAllCards'&&memExpanded) collapseMemMode();
   if(which==='tabAllCards')renderAllCards();
   if(which==='tabAdd')refreshAddSelects();
-  if(which==='tabSettings')renderSettingsPane();
+  if(which==='tabSettings'){renderSettingsPane();renderCardEditConflicts();}
 }
 TABS.forEach(function(t){on(t.btn,'click',function(){setTab(t.btn);});});
 
@@ -736,7 +746,7 @@ on('quizPriorityMode','change',refreshSetupInfo);on('quizPromptMode','change',re
 on('acPriorityFilter','change',renderAllCards);on('movePriorityFilter','change',renderMoveCardList);
 on('selectedQuizBtn','click',function(){var ids=Object.keys(acCheckedIds).map(Number);if(!ids.length||quizIsActive())return;setTab('tabQuiz');startSessionWith(false,ids);});
 function cardContextHTML(card,visible){
-  return '<div class="card-field fc-context" data-card-field="context"'+(visible===false?' style="display:none;"':'')+'><span class="card-field-label">문맥</span>'+esc(hasContext(card)?card.context:'문맥 미등록')+'</div>';
+  return '<div class="card-field fc-context" data-card-field="context"'+(visible===false?' style="display:none;"':'')+'><span class="card-field-label">문맥</span>'+esc(card.contextNeedsReview?'새 영어에 맞는 문맥 검토 필요':hasContext(card)?card.context:'문맥 미등록')+'</div>';
 }
 function cardDetailsHTML(card){
   return cardContextHTML(card)+
@@ -1222,7 +1232,7 @@ function openEditModal(ids){
     var contextLabel=document.createElement('label');contextLabel.textContent='문맥';contextLabel.htmlFor='edit-context-'+id;
     var contextInput=document.createElement('input');contextInput.id='edit-context-'+id;contextInput.type='text';contextInput.value=c.context||'';
     contextInput.dataset.id=id;contextInput.dataset.field='context';
-    contextInput.placeholder='어떤 업무 상황에서 무엇을 말하려고 하는지';contextInput.style.marginBottom='10px';
+    contextInput.placeholder='소재 + 목적 (영어 변경 시 문맥도 검토)';contextInput.style.marginBottom='10px';
     var priorityLabelEl=document.createElement('label');priorityLabelEl.textContent='등급';priorityLabelEl.htmlFor='edit-priority-'+id;
     var priorityInput=document.createElement('select');priorityInput.id='edit-priority-'+id;priorityInput.dataset.id=id;priorityInput.dataset.field='priority';priorityInput.innerHTML=priorityOptions(c.priority);
     wrap.appendChild(priorityLabelEl);wrap.appendChild(priorityInput);
@@ -1312,7 +1322,11 @@ on('editConfirmApply','click',function(){
     var c=findCard(d.id);if(!c||!canInspectCard(d.id))return;
     if(d.koChanged)c.ko=d.newKo;
     if(d.enChanged)c.en=d.newEn;
-    if(d.contextChanged){c.context=d.newContext;c.contextUserEdited=true;}
+    if(d.enChanged&&!d.contextChanged&&!c.contextUserEdited&&window.BusinessPriority.business(c,chapters)){
+      var matching=window.BusinessContexts.items.find(function(x){return x.en===d.newEn;});
+      c.context=matching?matching.context:'';c.contextNeedsReview=!matching;
+    }
+    if(d.contextChanged){c.context=d.newContext;c.contextUserEdited=true;delete c.contextNeedsReview;}
     if(d.priorityChanged&&window.BusinessPriority.valid(d.newPriority))c.priority=d.newPriority;
   });
   saveCards();
@@ -1526,7 +1540,7 @@ on('bulkAddBtn','click',function(){
     targetCards.forEach(function(c){removedIds[c.id]=true;});
     cards=cards.filter(function(c){return c.chapterId!==chId;});
     parsed.forEach(function(item){cards.push({id:nextCardId++,ko:item.ko,en:item.en,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0});});
-    Object.keys(removedIds).forEach(function(id){delete notes[id];});
+    // Deleted cards and their notes remain in the backup/history for recovery.
     saveNotes(); saveCards(); $('bulkInput').value='';
     $('bulkResult').textContent='완료: '+chapterName+' 챕터를 '+parsed.length+'개 카드로 교체했습니다. 다른 챕터는 유지되었습니다.'+(skipped?' (형식이 맞지 않아 건너뛴 줄 '+skipped+'개)':'');
     $('bulkResult').style.color='var(--success-text)';
@@ -2645,6 +2659,30 @@ function loadApiKeyUI(){
   $('apiKeyStatus').style.color='var(--success-text)';
 }
 /* ---------- 데이터 백업 / 복원 ---------- */
+function renderCardEditConflicts(){
+  var host=$('cardEditConflicts');if(!host||!window.CardOverrides)return;
+  host.textContent='';
+  var conflicts=cardEnvelope.editConflicts||[],identities=cardEnvelope.identityConflicts||[];
+  if(conflicts.length||identities.length){var title=document.createElement('p');title.textContent='수정 충돌 '+(conflicts.length+identities.length)+'건 · 양쪽 이력은 보존되어 있습니다.';host.appendChild(title);}
+  conflicts.forEach(function(conflict){
+    var box=document.createElement('div'),label=document.createElement('p');label.textContent='카드 '+conflict.cardId+' · '+conflict.field;box.appendChild(label);
+    var values=conflict.field==='$presence'?[{value:false,label:'삭제 상태 유지'},{value:true,label:'카드 복원'}]:conflict.variants.map(function(e){return {value:e.value,label:String(e.value)+' ('+e.device+')'};});
+    values.forEach(function(v){var button=document.createElement('button');button.type='button';button.textContent=v.label;button.onclick=function(){
+      cardEnvelope=window.CardOverrides.resolve(cardEnvelope,conflict.entity,conflict.field,v.value,getEditDevice());
+      cards=cardEnvelope.cards;saveCards(true);renderCardEditConflicts();renderAllCards();renderMoveCardList();refreshSetupInfo();
+    };box.appendChild(button);});host.appendChild(box);
+  });
+  identities.forEach(function(c){var p=document.createElement('p');p.textContent='카드 ID '+c.cardId+'의 독립 추가 충돌: 두 카드 모두 백업에 보존되었습니다. 백업을 내려받아 별도 ID로 검토해 주세요.';host.appendChild(p);});
+}
+on('templatePatchExport','click',function(){
+  var status=$('templateRepoStatus');
+  try{
+    var payload=window.CardOverrides.patch(Object.assign({},cardEnvelope,{cards:cards}),window.BusinessPriority.items);
+    var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='memory-app-template-patch.json';a.click();URL.revokeObjectURL(url);
+    status.textContent='내보내기 완료 · GitHub 미반영 (인증된 로컬 반영 필요)';
+  }catch(e){status.textContent='내보내기 실패 · '+e.message+' · 앱 수정 데이터는 유지됩니다.';}
+});
 on('backupBtn','click',function(){
   var currentSettingsRaw=localStorage.getItem(SETTINGS_KEY);
   var settingsForBackup=buildSettingsObject(currentSettingsRaw);
@@ -3271,8 +3309,12 @@ var studyNavigation=performance.getEntriesByType('navigation')[0];
 studyDiagnostic(document.wasDiscarded?'boot-discarded':studyNavigation&&studyNavigation.type==='reload'?'boot-reload':'boot-navigation');
 replayStudyWrites(recoveredStudy);
 loadAll();
-if(window.BusinessPriority&&window.BusinessPriority.migrate(cards,chapters))saveCards();
-if(window.BusinessContexts&&window.BusinessContexts.fillMissing(cards,chapters))saveCards();
+if(window.CardOverrides){
+  cardEnvelope=window.CardOverrides.defaults(Object.assign({},cardEnvelope,{cards:cards,nextId:nextCardId}),window.BusinessPriority.items,window.BusinessContexts.isDefault);
+  cards=cardEnvelope.cards;saveCards(true);
+}
+if(window.BusinessPriority&&window.BusinessPriority.migrate(cards,chapters))saveCards(true);
+if(window.BusinessContexts&&window.BusinessContexts.fillMissing(cards,chapters))saveCards(true);
 // 저장된 정렬/출제순서 버튼 활성화 상태 복원
 (function(){
   // 전체문장 정렬

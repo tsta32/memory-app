@@ -378,7 +378,7 @@ test('local app documents its assets without contacting sync or grading Workers'
   try {
     const loaded = await testApp.page.evaluate(() => ({
       title: document.title,
-      appScript: Array.from(document.scripts).some(script => script.src.endsWith('/app.js')),
+      appScript: Array.from(document.scripts).some(script => new URL(script.src).pathname.endsWith('/app.js')),
       stylesheets: document.styleSheets.length,
       background: getComputedStyle(document.body).backgroundColor
     }));

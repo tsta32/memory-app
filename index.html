@@ -391,6 +391,12 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
           <button type="button" id="backupBtn" style="flex:1;font-weight:700;border-color:var(--success);color:var(--success-text);">⬇ 백업 다운로드</button>
           <button type="button" id="restoreBtn" style="flex:1;font-weight:700;border-color:var(--accent);color:var(--accent-text);">⬆ 백업 복원</button>
         </div>
+        <div style="margin-top:12px;">
+          <button type="button" id="templatePatchExport">GitHub 반영 파일 내보내기</button>
+          <p id="templateRepoStatus" class="muted">앱에 저장됨 · GitHub 자동 반영 미지원</p>
+          <p class="muted">다운로드한 파일은 인증된 로컬 반영 도구로 검토 후 적용합니다. 브라우저에는 GitHub 쓰기 인증정보가 없습니다.</p>
+          <div id="cardEditConflicts"></div>
+        </div>
         <input type="file" id="restoreFile" accept=".json" style="display:none;" />
         <p class="muted" id="backupStatus" style="min-height:16px;"></p>
       </div>
@@ -813,8 +819,9 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
 <!-- toast -->
 <div id="memToast" style="display:none;position:fixed;bottom:max(env(safe-area-inset-bottom),20px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.75);color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;white-space:nowrap;z-index:400;pointer-events:none;"></div>
 
-<script src="business-contexts.js?v=73"></script>
-<script src="business-priorities.js?v=73"></script>
-<script src="sync-bootstrap.js?v=73"></script>
+<script src="business-contexts.js?v=74"></script>
+<script src="business-priorities.js?v=74"></script>
+<script src="card-overrides.js?v=74"></script>
+<script src="sync-bootstrap.js?v=74"></script>
 </body>
 </html>

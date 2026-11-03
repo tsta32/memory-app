@@ -86,6 +86,16 @@ function mergePlainArrays(localRaw,remoteRaw){
   return JSON.stringify(mergeRecordArrays(local,remote,true));
 }
 function mergeDataValue(key,localRaw,remoteRaw,preferLocal,unionRecords){
+  if(key==='srs_cards_v2'&&window.CardOverrides){
+    try{
+      var l=JSON.parse(localRaw||'{"cards":[]}'),r=JSON.parse(remoteRaw||'{"cards":[]}');
+      if(Array.isArray(l.cards)&&Array.isArray(r.cards)){
+        window.CardOverrides.seed(l,window.BusinessPriority.items,window.BusinessContexts.isDefault);
+        window.CardOverrides.seed(r,window.BusinessPriority.items,window.BusinessContexts.isDefault);
+        return JSON.stringify(window.CardOverrides.merge(l,r,preferLocal));
+      }
+    }catch(e){console.warn('[Memory sync] Card edit merge failed; keeping local data.',e);return localRaw||remoteRaw;}
+  }
   if(key==='srs_settings_v1')return mergeSettings(localRaw,remoteRaw,preferLocal);
   if(!unionRecords)return preferLocal?localRaw:remoteRaw;
   if(key==='srs_cards_v2')return mergeWrappedRecords(localRaw,remoteRaw,'cards');
@@ -159,7 +169,7 @@ function installStorageHooks(){
   Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal();};
 }
 function loadApp(){
-  var s=document.createElement('script');s.src='app.js?v=73';
+  var s=document.createElement('script');s.src='app.js?v=74';
   s.onerror=function(){console.error('[Memory sync] Could not load app.js');};
   document.body.appendChild(s);
 }
@@ -168,7 +178,7 @@ function applyRemote(d){
   // Old/unknown snapshots cannot prove completeness: preserve local values on conflicts.
   var merged=mergeSnapshots(current,remote,!isComplete,!isComplete);
   // Preserve locally edited contexts when an older complete snapshot carries defaults.
-  if(window.BusinessContexts&&merged.srs_cards_v2&&current.srs_cards_v2){
+  if(!window.CardOverrides&&window.BusinessContexts&&merged.srs_cards_v2&&current.srs_cards_v2){
     try{
       var incomingCards=JSON.parse(merged.srs_cards_v2),localCards=JSON.parse(current.srs_cards_v2);
       var scopedChapters=JSON.parse(merged.srs_chapters_v1||'{"chapters":[]}');

@@ -1,13 +1,14 @@
 
 /* Update-safe service worker */
-var CACHE_NAME = 'srs-app-v73';
+var CACHE_NAME = 'srs-app-v74';
 
 var ASSETS = [
   './index.html',
-  './app.js?v=73',
-  './business-contexts.js?v=73',
-  './business-priorities.js?v=73',
-  './sync-bootstrap.js?v=73',
+  './app.js?v=74',
+  './business-contexts.js?v=74',
+  './business-priorities.js?v=74',
+  './sync-bootstrap.js?v=74',
+  './card-overrides.js?v=74',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
@@ -49,6 +50,7 @@ self.addEventListener('fetch', function(event) {
     url.pathname.endsWith('/business-contexts.js') ||
     url.pathname.endsWith('/business-priorities.js') ||
     url.pathname.endsWith('/sync-bootstrap.js') ||
+    url.pathname.endsWith('/card-overrides.js') ||
     url.pathname.endsWith('/manifest.json') ||
     url.pathname.endsWith('/');
 

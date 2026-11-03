@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test:unit": "node tests/answer-grading.test.js && node tests/business-contexts.test.js && node tests/business-priorities.test.js",
+    "test:unit": "node tests/answer-grading.test.js && node tests/business-contexts.test.js && node tests/business-priorities.test.js && node tests/card-overrides.test.js",
     "test:browser": "playwright test",
     "test": "npm run test:unit && npm run test:browser"
   },
