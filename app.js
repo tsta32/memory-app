@@ -1623,10 +1623,10 @@ function renderEssentialCoverage(){
   listRoot.textContent='';areasRoot.textContent='';
   var records=essential.map(function(c){return {card:c,meta:api.identify(c)};}).sort(function(a,b){return ((a.meta&&a.meta.source_line)||1e9)-((b.meta&&b.meta.source_line)||1e9)||a.card.id-b.card.id;});
   var areaCards={},covered={};(api.coverageAreas||[]).forEach(function(a){areaCards[a.id]=[];a.purposes.forEach(function(p){covered[p[0]]=false;});});
-  records.forEach(function(rec){var m=rec.meta,verified=!!(m&&String(m.en).trim().toLowerCase()===String(rec.card.en||'').trim().toLowerCase());
+  records.forEach(function(rec){var m=rec.meta,verified=!!(m&&String(m.en).trim().toLowerCase()===String(rec.card.en||'').trim().toLowerCase()&&String(m.ko||'').trim()===String(rec.card.ko||'').trim()&&String(m.context||'').trim()===String(rec.card.context||'').trim());
     var classified=!!(verified&&m.reason&&Array.isArray(m.coverageAreas)&&m.coverageAreas.length&&Array.isArray(m.coveragePurposes)&&m.coveragePurposes.length);
     var item=addText(listRoot,'article','', 'coverage-item');
-    addText(item,'strong',(rec.card.en||'(영어 문장 없음)')+' · '+(m?m.key:'분류 검토 필요'));
+    addText(item,'strong',(rec.card.en||'(영어 문장 없음)')+' · '+(classified?m.key:'분류 검토 필요'));
     addText(item,'div','문맥: '+(rec.card.context||'없음'));
     addText(item,'div','한국어: '+(rec.card.ko||'없음'));
     if(!classified)addText(item,'div','분류 검토 필요'+(m&&!verified?' · 영어 수정 후 분류 재검토':'') ,'coverage-missing');
