@@ -4,7 +4,9 @@
     "test:browser": "playwright test",
     "test": "npm run test:unit && npm run test:browser",
     "sync:app-templates": "node scripts/sync-app-templates.cjs sync",
-    "sync:app-templates:setup": "node scripts/sync-app-templates.cjs setup"
+    "sync:app-templates:setup": "node scripts/sync-app-templates.cjs setup",
+    "sync:app-templates:local": "node scripts/sync-app-templates.cjs sync",
+    "sync:app-templates:verify-local": "node scripts/sync-app-templates.cjs verify-local"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0"

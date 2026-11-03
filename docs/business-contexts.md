@@ -67,4 +67,4 @@ npm run sync:app-templates
 
 템플릿 파일에 기존 로컬 편집이 있거나 현재 템플릿 값이 스냅샷의 기준값과 다르면 안전하게 중단한다. 동기화 충돌, 수정된 영어의 미검토 문맥, 여러 카드가 같은 템플릿 키를 가리키는 경우에도 아무 템플릿을 쓰지 않는다. 템플릿에 연결되지 않은 다른 챕터 카드 변경은 일반업무 템플릿에 추가하지 않고 건수만 보고한다. 완전 스냅샷 조회·인증·네트워크 실패 시 저장된 이전 스냅샷을 최신값처럼 사용하지 않으며 템플릿도 변경하지 않는다.
 
-비교만 하려면 `npm run sync:app-templates -- --dry-run`을 사용한다. 출력에는 카드 문구나 동기화 코드 대신 변경·삭제·충돌 건수만 나온다. 변경이 있으면 개인 설정 디렉터리에 `latest-app-snapshot.json` 권한 `0600`으로 저장한다. Cloudflare Worker 코드는 수정하지 않는다.
+비교만 하려면 `npm run sync:app-templates -- --dry-run`을 사용한다. Codex 네트워크에서 Worker 접속이 실패하면 일반 Linux 터미널에서 같은 체크아웃을 열고 `npm run sync:app-templates:local`을 실행한 뒤 `npm run sync:app-templates:verify-local`로 완료 영수증을 확인한다. 영수증은 로컬 동기화 비밀값의 HMAC 서명을 가지며 `latest-app-snapshot.json`의 SHA-256과 조회 시작 시 Git 커밋에 묶인다. 비밀값 자체는 영수증에 들어가지 않는다. 실패·중단·dry-run 영수증은 실제 동기화 성공으로 검증되지 않는다. 출력에는 카드 문구나 동기화 코드 대신 변경·삭제·충돌 건수만 나온다. 변경이 있으면 개인 설정 디렉터리에 `latest-app-snapshot.json` 권한 `0600`으로 저장한다. Cloudflare Worker 코드는 수정하지 않는다.
