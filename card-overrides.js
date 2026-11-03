@@ -97,11 +97,11 @@ function defaults(state,templates,isDefault){
  });return state;
 }
 function patch(state,templates){
- if((state.editConflicts||[]).length||(state.identityConflicts||[]).length)throw new Error('수정 충돌을 먼저 확인·해결해 주세요.');
+ if((state.editConflicts||[]).length||(state.identityConflicts||[]).length)throw new Error('CONFLICT: resolve card edit or identity conflicts before template export');
  var changes=[];
- state.cards.forEach(function(c){var t=template(c,templates),edited=history(state).some(function(e){return e.entity===key(c);});if(!edited)return;if(c.contextNeedsReview)throw new Error('수정된 영어의 문맥을 먼저 검토해 주세요.');var after={en:c.en,ko:c.ko,context:c.context||'',priority:c.priority||'supplementary'};if(!t||['en','ko','context','priority'].some(function(f){return after[f]!==t[f];}))changes.push({key:t?t.key:'user-'+key(c),operation:'upsert',before:t?{en:t.en,ko:t.ko,context:t.context,priority:t.priority}:null,after:after});});
+ state.cards.forEach(function(c){var t=template(c,templates),edited=history(state).some(function(e){return e.entity===key(c);});if(!edited)return;if(c.contextNeedsReview)throw new Error('CONFLICT: modified English has no reviewed context');var after={en:c.en,ko:c.ko,context:c.context||'',priority:c.priority||'supplementary'};var assessment=c.priorityAssessment;if(assessment&&assessment.version===1&&assessment.en===c.en&&assessment.ko===c.ko&&assessment.context===c.context&&assessment.priority===after.priority)after.priorityAssessment=clone(assessment);var assessmentChanged=!!(after.priorityAssessment&&(!t||t.reason!==after.priorityAssessment.reason||!same(t.coverageAreas||[],after.priorityAssessment.coverageAreas||[])||!same(t.coveragePurposes||[],after.priorityAssessment.coveragePurposes||[])));if(!t||['en','ko','context','priority'].some(function(f){return after[f]!==t[f];})||assessmentChanged)changes.push({key:t?t.key:'user-'+key(c),operation:'upsert',before:t?{en:t.en,ko:t.ko,context:t.context,priority:t.priority}:null,after:after});});
  (state.deletedCards||[]).forEach(function(d){var t=template(d.card,templates);if(t)changes.push({key:t.key,operation:'delete',before:{en:t.en,ko:t.ko,context:t.context,priority:t.priority}});});
- if(new Set(changes.map(function(c){return c.key;})).size!==changes.length)throw new Error('같은 템플릿의 여러 수정·삭제가 충돌합니다. 먼저 검토해 주세요.');
+ if(new Set(changes.map(function(c){return c.key;})).size!==changes.length)throw new Error('CONFLICT: multiple edited cards map to the same template key');
  return {kind:'memory-app-template-patch',version:1,createdAt:Date.now(),changes:changes};
 }
 var api={fields:fields,key:key,seed:seed,track:track,merge:merge,project:project,resolve:resolve,defaults:defaults,patch:patch};

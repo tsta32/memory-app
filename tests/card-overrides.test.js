@@ -10,6 +10,7 @@ for(const f of ['id','stage','dueAt','ngCount','firstCorrectAt'])assert.equal(fr
 const assessment={version:1,en:card.en,ko:card.ko,context:card.context,priority:'essential',reason:'업무상 보편적이고 후속 진행에 필요하다.',coverageAreas:['communication'],coveragePurposes:['communication.questions.invite']};
 const assessed=edit(base,{priorityAssessment:assessment},'assessment-device');
 assert.deepEqual(o.merge(assessed,base,false).cards[0].priorityAssessment,assessment,'user classification metadata persists through a stale template sync');
+const assessmentPatch=o.patch(assessed,templates);assert.deepEqual(assessmentPatch.changes[0].after.priorityAssessment,assessment,'reviewed classification accompanies a template sync even when card text is unchanged');
 const alternateAssessment={...assessment,reason:'다른 기준'};
 const assessmentConflict=o.merge(assessed,edit(base,{priorityAssessment:alternateAssessment},'other-assessment-device'),false);
 assert.ok(assessmentConflict.editConflicts.some(x=>x.field==='priorityAssessment'),'concurrent assessment edits are surfaced as conflicts');
@@ -52,12 +53,12 @@ const priorTranslation={cards:[{...structuredClone(card),ko:templates[0].ko_befo
 assert.equal(o.defaults(structuredClone(priorTranslation),templates,contexts.isDefault).cards[0].ko,templates[0].ko,'known former default translation receives current template value');
 const editedPriorTranslation=structuredClone(priorTranslation);editedPriorTranslation.editHistory=[{id:'manual-ko',entity:o.key(card),cardId:card.id,templateKey:templates[0].key,field:'ko',value:templates[0].ko_before,parents:[],at:1,device:'a',origin:'user'}];
 assert.equal(o.defaults(editedPriorTranslation,templates,contexts.isDefault).cards[0].ko,templates[0].ko_before,'explicit translation edit is preserved');
-assert.throws(()=>o.patch(both,templates),/충돌/);const patch=o.patch(a,templates);assert.equal(patch.changes[0].after.en,'My changed English.');
+assert.throws(()=>o.patch(both,templates),/CONFLICT/);const patch=o.patch(a,templates);assert.equal(patch.changes[0].after.en,'My changed English.');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{apply}=require('../scripts/apply-template-patch.cjs');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'template-patch-'));
 try{
  for(const file of ['general_business_english_literal_ko.json','business-contexts.js','business-priorities.js'])fs.copyFileSync(path.join(__dirname,'..',file),path.join(temp,file));
- assert.equal(apply(temp,patch).status,'validated-only');assert.equal(apply(temp,patch,true).status,'written-locally');
+ assert.equal(apply(temp,patch).status,'validated-only');const backupRoot=path.join(temp,'backups'),written=apply(temp,patch,true,backupRoot);assert.equal(written.status,'written-locally');assert.equal(fs.readdirSync(written.backupPath).length,3);
  assert.equal(JSON.parse(fs.readFileSync(path.join(temp,'general_business_english_literal_ko.json'))).items[0].en,'My changed English.');
  assert.throws(()=>apply(temp,patch,true),/CONFLICT/);
  assert.throws(()=>apply(temp,{...patch,kind:'invalid'}),/Invalid/);

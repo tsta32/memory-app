@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 // Authenticated writes happen only through the user's local Git installation.
-const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
-function apply(repo,patch,write=false){
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),cp=require('node:child_process');
+function apply(repo,patch,write=false,backupRoot=path.join(os.homedir(),'.config','memory-app','template-backups')){
  if(patch.kind!=='memory-app-template-patch'||patch.version!==1||!Array.isArray(patch.changes))throw new Error('Invalid patch format');
  const sourcePath=path.join(repo,'general_business_english_literal_ko.json'),source=JSON.parse(fs.readFileSync(sourcePath,'utf8'));
  const contextsPath=path.join(repo,'business-contexts.js'),prioritiesPath=path.join(repo,'business-priorities.js');
@@ -23,12 +23,27 @@ function apply(repo,patch,write=false){
  const readArray=(text,name)=>JSON.parse(text.match(new RegExp('var '+name+'=([\\s\\S]*?);\\n'))[1]);
  const oldContexts=readArray(contexts,'previousContexts'),priorityRows=readArray(priorities,'items');
  const newPrevious=source.items.map(row=>{const index=oldRows.findIndex(r=>r.businessTemplateKey===row.businessTemplateKey);return index<0?null:oldContexts[index];});
- const newPriority=source.items.map(row=>Object.assign({},priorityRows.find(r=>r.key===row.businessTemplateKey)||{key:row.businessTemplateKey,source_line:row.source_line,ko_before:row.ko_before,purpose:row.businessTemplateKey,criteria:[],reason:'사용자가 앱에서 검토한 기준 데이터.'},{en:row.en,ko:row.ko_after,context:row.context,priority:row.priority}));
+ const newPriority=source.items.map(row=>{
+  const old=priorityRows.find(r=>r.key===row.businessTemplateKey),change=patch.changes.find(c=>c.key===row.businessTemplateKey&&c.operation==='upsert');
+  const item=Object.assign({},old||{key:row.businessTemplateKey,source_line:row.source_line,ko_before:row.ko_before,criteria:[]},{en:row.en,ko:row.ko_after,context:row.context,priority:row.priority});
+  if(!old){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
+  if(change){const a=change.after,assessment=a.priorityAssessment,validAssessment=assessment&&assessment.version===1&&assessment.en===a.en&&assessment.ko===a.ko&&assessment.context===a.context&&assessment.priority===a.priority&&String(assessment.reason||'').trim()&&Array.isArray(assessment.coverageAreas)&&assessment.coverageAreas.length&&Array.isArray(assessment.coveragePurposes)&&assessment.coveragePurposes.length;
+   if(validAssessment){item.reason=assessment.reason;item.coverageAreas=assessment.coverageAreas.slice();item.coveragePurposes=assessment.coveragePurposes.slice();}
+   else if(['en','ko','context'].some(f=>a[f]!==change.before[f])||(a.priority==='essential'&&change.before.priority!=='essential')){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
+  }
+  return item;
+ });
  const replace=(text,name,value)=>text.replace(new RegExp('var '+name+'=[\\s\\S]*?;\\n'),'var '+name+'='+JSON.stringify(value,null,2)+';\n');
  contexts=replace(replace(contexts,'items',source.items.map(r=>({en:r.en,context:r.context}))),'previousContexts',newPrevious);
  priorities=replace(priorities,'items',newPriority);
- if(write){fs.writeFileSync(sourcePath,JSON.stringify(source,null,2)+'\n');fs.writeFileSync(contextsPath,contexts);fs.writeFileSync(prioritiesPath,priorities);}
- return {status:write?'written-locally':'validated-only',changes:patch.changes.length};
+ const outputs=new Map([[sourcePath,JSON.stringify(source,null,2)+'\n'],[contextsPath,contexts],[prioritiesPath,priorities]]);
+ let backupPath=null;
+ if(write&&patch.changes.length){fs.mkdirSync(backupRoot,{recursive:true,mode:0o700});const stat=fs.lstatSync(backupRoot);if(stat.isSymbolicLink()||!stat.isDirectory())throw Error('Unsafe template backup directory');fs.chmodSync(backupRoot,0o700);backupPath=path.join(backupRoot,new Date().toISOString().replace(/[:.]/g,'-')+'-'+process.pid);fs.mkdirSync(backupPath,{mode:0o700});
+  outputs.forEach((_,file)=>fs.copyFileSync(file,path.join(backupPath,path.basename(file)),fs.constants.COPYFILE_EXCL));
+  const temporary=[];try{outputs.forEach((content,file)=>{const tmp=path.join(path.dirname(file),'.'+path.basename(file)+'.'+crypto.randomUUID()+'.tmp');temporary.push([file,tmp]);fs.writeFileSync(tmp,content,{mode:fs.statSync(file).mode&0o777,flag:'wx'});});temporary.forEach(([file,tmp])=>fs.renameSync(tmp,file));}
+  catch(error){for(const [file] of temporary){const backup=path.join(backupPath,path.basename(file));if(fs.existsSync(backup))fs.copyFileSync(backup,file);}for(const [,tmp] of temporary)if(fs.existsSync(tmp))fs.unlinkSync(tmp);throw error;}
+ }
+ return {status:write?(patch.changes.length?'written-locally':'no-changes'):'validated-only',changes:patch.changes.length,backupPath};
 }
 if(require.main===module){
  try{
