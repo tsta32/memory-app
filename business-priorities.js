@@ -190,6 +190,7 @@ var items=[
     "context": "상대화면 공유요청",
     "ko_before": "화면을 공유해 주시겠어요?",
     "priority": "important",
+    "legacyPriorityDefaults": ["essential"],
     "purpose": "화면 공유 요청",
     "criteria": [
       1
@@ -360,6 +361,7 @@ var items=[
     "context": "다음안건 전환제안",
     "ko_before": "다음 항목으로 넘어가겠습니다.",
     "priority": "important",
+    "legacyPriorityDefaults": ["essential"],
     "purpose": "다음 항목 진행 제안",
     "criteria": [
       1,
@@ -519,6 +521,7 @@ var items=[
     "context": "누락사항 확인질문",
     "ko_before": "제가 놓친 내용이 있나요?",
     "priority": "important",
+    "legacyPriorityDefaults": ["essential"],
     "purpose": "누락 확인",
     "criteria": [
       1,
@@ -1931,6 +1934,7 @@ var items=[
     "context": "업무파일 갱신완료알림",
     "ko_before": "파일을 업데이트했습니다.",
     "priority": "essential",
+    "legacyPriorityDefaults": ["important"],
     "purpose": "파일 수정 완료 보고",
     "criteria": [1, 2],
     "reason": "수정한 파일 상태를 명시해 자료 작업의 완료와 전달 여부를 상대가 판단하게 한다. 파일 자체의 변경 완료는 다른 업무 전반에 쓰이는 진행 알림과 구별되며, 다음 조치에 필요한 산출물 상태를 직접 보고한다.",
@@ -2222,6 +2226,7 @@ var items=[
     "context": "문제원인 조사중보고",
     "ko_before": "현재 원인을 파악 중입니다.",
     "priority": "essential",
+    "legacyPriorityDefaults": ["important"],
     "purpose": "문제 원인 조사 보고",
     "criteria": [1, 2],
     "reason": "문제가 발생한 뒤 원인을 조사 중이라고 알리면 상대의 해결 기대와 후속 대응을 조율할 수 있다. 원인을 아직 단정하지 않으면서 문제 대응의 핵심 단계를 분명히 보고하는 표현이다.",
@@ -2285,6 +2290,7 @@ var items=[
     "context": "현재업무 계획대로진행보고",
     "ko_before": "현재까지는 계획대로 진행 중입니다.",
     "priority": "essential",
+    "legacyPriorityDefaults": ["important"],
     "purpose": "계획 대비 진행 보고",
     "criteria": [1, 2],
     "reason": "업무가 계획대로 진행 중이라는 상태를 간결하게 알려 일정 점검과 협업자의 판단을 돕는다. 진행 정상 여부는 단순 업데이트 약속이나 지연 통보로 대체되지 않는 대표적인 상태 보고다.",
@@ -2327,6 +2333,7 @@ var items=[
     "context": "오늘완료 불가가능성알림",
     "ko_before": "오늘 안에 끝내기 어려울 것 같습니다.",
     "priority": "essential",
+    "legacyPriorityDefaults": ["important"],
     "purpose": "당일 완료 위험 보고",
     "criteria": [1, 2],
     "reason": "오늘 끝내지 못할 가능성을 미리 알려 마감 기대와 대체 계획을 조정하게 한다. 이미 발생한 일반 지연 보고와 달리 완료 전 위험을 앞서 알리는 목적이 뚜렷하다.",
@@ -2774,6 +2781,8 @@ var items=[
 // Keep recognition of previously shipped contexts for cards with edited English.
 var legacyContexts=(typeof module==='object'&&module.exports?require('./business-contexts'):root.BusinessContexts).previousContexts;
 var names=['영어업무(일반)','업무대화 일반','업무대화(일반)'];
+// Historic repository defaults before the audited tier revision. Migration accepts these only when card text is unchanged and no direct user edit exists.
+var legacyPriorityDefaults={"business-general-013":["essential"],"business-general-027":["essential"],"business-general-037":["essential"],"business-general-142":["important"],"business-general-163":["important"],"business-general-167":["important"],"business-general-170":["important"]};
 var selectionCriteria=[{"id":"work-frequency","label":"실제 직장에서 자주 사용되는가?"},{"id":"importance","label":"대체하기 어려울 만큼 중요하며, 없으면 업무 진행에 영향이 있는가?"},{"id":"versatility","label":"하나의 표현으로 여러 업무 상황에 대응할 수 있는가?"},{"id":"impact","label":"표현을 모르면 업무 진행이나 조율이 실질적으로 어려워지는가?"},{"id":"low-overlap","label":"기존 필수 표현과 의사소통 목적이 중복되지 않는가?"},{"id":"workflow-balance","label":"업무 시작부터 완료까지 전체 과정을 균형 있게 다루는가?"}];
 var coverageAreas=[{"id":"communication","label":"기본 대화·의사소통","purposes":[["communication.conversation.start","대화 시작 전 가능 여부 확인"],["communication.pause.request","잠시 대기 요청"],["communication.clarification.repeat","상대 발언 반복 요청"],["communication.clarification.slow","설명 속도 조정 요청"],["communication.clarification.explain","불명확한 부분의 추가 설명 요청"],["communication.understanding.check","상대 설명 이해 여부 확인"],["communication.questions.invite","질문 요청"],["communication.help.request","업무 도움 요청"]]},{"id":"meeting","label":"회의 진행","purposes":[["meeting.open","회의 시작"],["meeting.agenda.transition","안건·항목 전환"],["meeting.discussion.close","논의 종료"],["meeting.summary","논의 요약"]]},{"id":"decision","label":"의견 교환·의사결정","purposes":[["decision.opinion.request","상대 의견 질문"],["decision.opinion.agree","상대 의견 동의"],["decision.option.alternative","대안 검토 제안"],["decision.uncertainty.express","불확실성 표현"],["decision.method.confirm","진행 방안 동의 확인"],["decision.task.order","작업 순서 설정"]]},{"id":"schedule","label":"일정·기한 조정","purposes":[["schedule.deadline.ask","업무 기한 확인"],["schedule.adjust","일정 변경 조정"],["schedule.time.propose","가능 시간 제안 요청"],["schedule.time.accept","제안 시간 수락"],["schedule.time.decline","제안 시간 거절"],["schedule.deadline.extend","기한 연장 요청"]]},{"id":"materials","label":"자료·이메일","purposes":[["materials.file.attach","파일 첨부·전달"],["materials.file.access.problem","파일 접근 장애 보고"],["materials.review.request","자료 검토·의견 요청"],["materials.file.update","수정 파일 완료 보고"],["materials.file.resend","수정 자료 재전달"],["materials.email.receipt","이메일 수신 확인"]]},{"id":"collaboration","label":"업무 지시·협업","purposes":[["collaboration.owner.identify","업무 담당자 확인"],["collaboration.task.delegate","업무 수행 요청"],["collaboration.help.request","업무 지원 요청"],["collaboration.approval.request","업무 승인 요청"],["collaboration.owner.handoff","담당자에게 전달"]]},{"id":"progress","label":"진행 상황 보고","purposes":[["progress.check.and.reply","확인 후 회신 약속"],["progress.status.normal","계획 대비 정상 진행 보고"],["progress.status.update","진행 상황 후속 보고"],["progress.status.delay","예상보다 지연 보고"],["progress.status.risk","당일 완료 위험 보고"]]},{"id":"problem","label":"문제 발생·해결","purposes":[["problem.report","문제·장애 보고"],["problem.cause.investigate","문제 원인 조사 보고"],["problem.fix.request","문제 해결 조치 요청"],["problem.correction.resubmit","수정 후 재제출"]]},{"id":"completion","label":"완료·결과 보고","purposes":[["completion.file","수정 파일 완료 보고"],["completion.deliver","결과물 전달"],["completion.summary","논의·작업 결과 요약"],["completion.task.general","일반 업무 완료 보고"]]},{"id":"courtesy","label":"감사·사과","purposes":[["courtesy.interruption.apology","대화 중 끼어들기 사과"],["courtesy.thanks","도움 감사"],["courtesy.impact.apology","불편 초래 사과"]]}];
 var labels={essential:'필수',important:'중요',supplementary:'보조'};
@@ -2817,6 +2826,6 @@ function progress(cards,chapters,time){
   out.unclassified=scoped.filter(function(c){return !valid(c.priority);}).length;
   out.importantAllowed=out.essential.passed===out.essential.total&&out.essential.due===0;return out;
 }
-var api={items:items,selectionCriteria:selectionCriteria,coverageAreas:coverageAreas,labels:labels,valid:valid,business:business,passed:passed,identify:identify,migrate:migrate,plan:plan,progress:progress};
+var api={items:items,selectionCriteria:selectionCriteria,coverageAreas:coverageAreas,legacyPriorityDefaults:legacyPriorityDefaults,labels:labels,valid:valid,business:business,passed:passed,identify:identify,migrate:migrate,plan:plan,progress:progress};
 if(typeof module==='object'&&module.exports)module.exports=api;else root.BusinessPriority=api;
 })(typeof window!=='undefined'?window:globalThis);

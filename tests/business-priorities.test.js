@@ -2,6 +2,8 @@ const assert=require('node:assert/strict');
 const p=require('../business-priorities');const source=require('../general_business_english_literal_ko.json');
 assert.equal(p.items.length,200);assert.equal(new Set(p.items.map(x=>x.key)).size,200);
 assert.equal(p.selectionCriteria.length,6);assert.equal(p.coverageAreas.length,10);
+assert.deepEqual(Object.keys(p.legacyPriorityDefaults).sort(),['business-general-013','business-general-027','business-general-037','business-general-142','business-general-163','business-general-167','business-general-170'].sort());
+for(const [key,grades]of Object.entries(p.legacyPriorityDefaults)){const row=p.items.find(x=>x.key===key);assert.deepEqual(row.legacyPriorityDefaults,grades);assert.ok(grades.every(x=>p.valid(x)&&x!==row.priority));}
 const essential=p.items.filter(x=>x.priority==='essential');
 assert.equal(essential.length,40);
 assert.equal(new Set(essential.map(x=>x.purpose)).size,essential.length,'no duplicate essential purpose group');

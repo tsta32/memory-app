@@ -169,7 +169,7 @@ function installStorageHooks(){
   Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal();};
 }
 function loadApp(){
-  var s=document.createElement('script');s.src='app.js?v=78';
+  var s=document.createElement('script');s.src='app.js?v=79';
   s.onerror=function(){console.error('[Memory sync] Could not load app.js');};
   document.body.appendChild(s);
 }
