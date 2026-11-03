@@ -18,6 +18,19 @@ const addition=structuredClone(base);addition.cards.push({id:6,en:'Added.',ko:'�
 assert.equal(o.merge(added,base,false).cards.length,2);
 const addedB=structuredClone(base);addedB.cards.push({id:6,en:'Another add.',ko:'다른추가',stage:0});const collision=o.merge(added,o.track(base,addedB,'b'),false);assert.equal(collision.identityConflicts.length,1);
 let defaulted=o.defaults(structuredClone(base),templates,contexts.isDefault);const updated=structuredClone(templates);updated[0].context='현재대화 시간질문';defaulted=o.defaults(defaulted,updated,contexts.isDefault);assert.equal(defaulted.cards[0].context,updated[0].context);
+// Priority assessment updates are template defaults; a directly edited priority is protected.
+{
+ const row=templates.find(x=>x.key==='business-general-142');
+ const beforeReview={...structuredClone(row),priority:'important'};
+ const oldBaseline={cards:[{id:142,en:row.en,ko:row.ko,context:row.context,priority:'important',businessTemplateKey:row.key,chapterId:9,stage:6,dueAt:777,ngCount:9}],nextId:143,templateBaselines:{[row.key]:{en:row.en,ko:row.ko,context:row.context,priority:'important'}}};
+ const auto=o.defaults(structuredClone(oldBaseline),templates,contexts.isDefault);assert.equal(auto.cards[0].priority,'essential');assert.equal(auto.cards[0].stage,6);assert.equal(auto.cards[0].dueAt,777);assert.equal(auto.cards[0].ngCount,9);
+ const edited=o.track(oldBaseline,{...structuredClone(oldBaseline),cards:[{...oldBaseline.cards[0],priority:'supplementary'}]},'priority-device');
+ assert.equal(o.defaults(edited,templates,contexts.isDefault).cards[0].priority,'supplementary','user-selected priority remains above new template default');
+ const contentEdited=o.track(oldBaseline,{...structuredClone(oldBaseline),cards:[{...oldBaseline.cards[0],en:'My rewritten file update.'}]},'content-device');
+ assert.equal(o.defaults(contentEdited,templates,contexts.isDefault).cards[0].priority,'important','template grade change is held for a user-rewritten English card');
+ const translationEdited=o.track(oldBaseline,{...structuredClone(oldBaseline),cards:[{...oldBaseline.cards[0],ko:'수정 번역'}]},'translation-device');
+ assert.equal(o.defaults(translationEdited,templates,contexts.isDefault).cards[0].priority,'important','template grade change is held for a user-rewritten translation');
+}
 const preserved=o.defaults(structuredClone(a),updated,contexts.isDefault);assert.equal(preserved.cards[0].en,'My changed English.');assert.equal(preserved.cards[0].context,'업무문구 변경알림');
 const legacyContext='이번건의 작업순서를 정하고싶다고 말하려고 할 때.';
 const changedEnglish=templates.find(x=>x.key==='business-general-181');

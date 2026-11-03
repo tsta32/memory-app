@@ -4,7 +4,7 @@
 var items=[
   {
     "en": "Are you available to talk now?",
-    "context": "현재대화 가능여부질문"
+    "context": "현재대화 가능여부확인"
   },
   {
     "en": "Can you see my screen?",
@@ -140,7 +140,7 @@ var items=[
   },
   {
     "en": "I want to make sure I understood correctly.",
-    "context": "이해내용 정확성확인의향"
+    "context": "상대설명 이해확인"
   },
   {
     "en": "So, do you mean that...?",
@@ -160,7 +160,7 @@ var items=[
   },
   {
     "en": "I'm not sure about that yet.",
-    "context": "해당사항 확신유보표현"
+    "context": "해당사항 불확실성표명"
   },
   {
     "en": "I’ll check and reply.",
@@ -688,7 +688,7 @@ var items=[
   },
   {
     "en": "I’ll provide an update.",
-    "context": "진행상황 갱신공유약속"
+    "context": "업무진행 후속보고"
   },
   {
     "en": "I've completed about half of it.",
@@ -724,7 +724,7 @@ var items=[
   },
   {
     "en": "I'd like to set the order of the tasks.",
-    "context": "작업순서 결정희망"
+    "context": "작업순서 설정의향"
   },
   {
     "en": "Who is responsible for this task?",
@@ -1036,6 +1036,26 @@ var legacyDefaults=[
   {
     "en": "Could you handle this task?",
     "context": "상대방에게 이 업무의 담당을 요청하려고 할 때."
+  },
+  {
+    "en": "Are you available to talk now?",
+    "context": "현재대화 가능여부확인"
+  },
+  {
+    "en": "I want to make sure I understood correctly.",
+    "context": "상대설명 이해확인"
+  },
+  {
+    "en": "I'm not sure about that yet.",
+    "context": "해당사항 불확실성표명"
+  },
+  {
+    "en": "I’ll provide an update.",
+    "context": "업무진행 후속보고"
+  },
+  {
+    "en": "I'd like to set the order of the tasks.",
+    "context": "작업순서 설정의향"
   }
 ];
 function isDefault(en,context){

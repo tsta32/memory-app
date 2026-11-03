@@ -1,6 +1,6 @@
 | 번호 | 영어 원문 | 새 문맥 |
 | --- | --- | --- |
-| 1 | Are you available to talk now? | 현재대화 가능여부질문 |
+| 1 | Are you available to talk now? | 현재대화 가능여부확인 |
 | 2 | Can you see my screen? | 공유화면 표시확인 |
 | 3 | Can you see the materials? | 제시자료 표시확인 |
 | 4 | Can you hear me? | 내음성 수신확인 |
@@ -34,12 +34,12 @@
 | 32 | Can I add one thing? | 추가발언 허락요청 |
 | 33 | Sorry to interrupt. | 발언중단 사과표현 |
 | 34 | May I interrupt for a moment? | 잠시개입 허락요청 |
-| 35 | I want to make sure I understood correctly. | 이해내용 정확성확인의향 |
+| 35 | I want to make sure I understood correctly. | 상대설명 이해확인 |
 | 36 | So, do you mean that...? | 상대발언 의미확인 |
 | 37 | Did I miss anything? | 누락사항 확인질문 |
 | 38 | Could you explain that part a little more? | 해당부분 추가설명요청 |
 | 39 | Could you give an example? | 설명예시 요청 |
-| 40 | I'm not sure about that yet. | 해당사항 확신유보표현 |
+| 40 | I'm not sure about that yet. | 해당사항 불확실성표명 |
 | 41 | I’ll check and reply. | 문의내용 확인후회신 |
 | 42 | I agree with that. | 상대의견 동의표현 |
 | 43 | I think that's a good idea. | 상대제안 긍정평가 |
@@ -171,7 +171,7 @@
 | 169 | I need one more day to complete it. | 업무완료 하루추가필요안내 |
 | 170 | I may not be able to finish today. | 오늘완료 불가가능성알림 |
 | 171 | Could we extend the deadline? | 업무기한 연장요청 |
-| 172 | I’ll provide an update. | 진행상황 갱신공유약속 |
+| 172 | I’ll provide an update. | 업무진행 후속보고 |
 | 173 | I've completed about half of it. | 업무진행 절반완료보고 |
 | 174 | It's almost done. | 업무완료 임박보고 |
 | 175 | I’ll notify you as soon as it’s complete. | 업무완료 즉시통보약속 |
@@ -180,7 +180,7 @@
 | 178 | We need to review this part again. | 해당부분 재검토필요안내 |
 | 179 | The next step is testing. | 다음단계 테스트안내 |
 | 180 | I’ll prioritize this task. | 해당업무 우선처리약속 |
-| 181 | I'd like to set the order of the tasks. | 작업순서 결정희망 |
+| 181 | I'd like to set the order of the tasks. | 작업순서 설정의향 |
 | 182 | Who is responsible for this task? | 업무담당자 질문 |
 | 183 | I’ll take responsibility for this task. | 해당업무 책임수락 |
 | 184 | Could you handle this task? | 업무담당 요청 |

@@ -8,7 +8,7 @@
       "en": "Are you available to talk now?",
       "ko_before": "지금 대화(통화) 가능하신가요?",
       "ko_after": "지금 대화할 수 있으신가요?",
-      "context": "현재대화 가능여부질문",
+      "context": "현재대화 가능여부확인",
       "priority": "essential",
       "businessTemplateKey": "business-general-001"
     },
@@ -117,7 +117,7 @@
       "ko_before": "화면을 공유해 주시겠어요?",
       "ko_after": "화면을 공유해 주시겠어요?",
       "context": "상대화면 공유요청",
-      "priority": "essential",
+      "priority": "important",
       "businessTemplateKey": "business-general-013"
     },
     {
@@ -243,7 +243,7 @@
       "ko_before": "다음 항목으로 넘어가겠습니다.",
       "ko_after": "우리 다음 항목으로 넘어갑시다.",
       "context": "다음안건 전환제안",
-      "priority": "essential",
+      "priority": "important",
       "businessTemplateKey": "business-general-027"
     },
     {
@@ -314,7 +314,7 @@
       "en": "I want to make sure I understood correctly.",
       "ko_before": "제가 올바르게 이해했는지 확인하고 싶습니다.",
       "ko_after": "제가 올바르게 이해했는지 확실히 하고 싶습니다.",
-      "context": "이해내용 정확성확인의향",
+      "context": "상대설명 이해확인",
       "priority": "essential",
       "businessTemplateKey": "business-general-035"
     },
@@ -333,7 +333,7 @@
       "ko_before": "제가 놓친 내용이 있나요?",
       "ko_after": "제가 놓친 것이 있나요?",
       "context": "누락사항 확인질문",
-      "priority": "essential",
+      "priority": "important",
       "businessTemplateKey": "business-general-037"
     },
     {
@@ -359,7 +359,7 @@
       "en": "I'm not sure about that yet.",
       "ko_before": "지금은 답을 확실히 모르겠습니다.",
       "ko_after": "저는 아직 그것에 대해 확신이 없습니다.",
-      "context": "해당사항 확신유보표현",
+      "context": "해당사항 불확실성표명",
       "priority": "essential",
       "businessTemplateKey": "business-general-040"
     },
@@ -1278,7 +1278,7 @@
       "ko_before": "파일을 업데이트했습니다.",
       "ko_after": "제가 파일을 업데이트했습니다.",
       "context": "업무파일 갱신완료알림",
-      "priority": "important",
+      "priority": "essential",
       "businessTemplateKey": "business-general-142"
     },
     {
@@ -1467,7 +1467,7 @@
       "ko_before": "현재 원인을 파악 중입니다.",
       "ko_after": "제가 원인을 조사하고 있습니다.",
       "context": "문제원인 조사중보고",
-      "priority": "important",
+      "priority": "essential",
       "businessTemplateKey": "business-general-163"
     },
     {
@@ -1503,7 +1503,7 @@
       "ko_before": "현재까지는 계획대로 진행 중입니다.",
       "ko_after": "지금까지 작업은 계획대로 진행되고 있습니다.",
       "context": "현재업무 계획대로진행보고",
-      "priority": "important",
+      "priority": "essential",
       "businessTemplateKey": "business-general-167"
     },
     {
@@ -1530,7 +1530,7 @@
       "ko_before": "오늘 안에 끝내기 어려울 것 같습니다.",
       "ko_after": "저는 오늘 끝내지 못할 수도 있습니다.",
       "context": "오늘완료 불가가능성알림",
-      "priority": "important",
+      "priority": "essential",
       "businessTemplateKey": "business-general-170"
     },
     {
@@ -1547,7 +1547,7 @@
       "en": "I’ll provide an update.",
       "ko_before": "진행 상황을 공유하겠습니다.",
       "ko_after": "갱신하겠습니다.",
-      "context": "진행상황 갱신공유약속",
+      "context": "업무진행 후속보고",
       "priority": "essential",
       "businessTemplateKey": "business-general-172"
     },
@@ -1628,7 +1628,7 @@
       "en": "I'd like to set the order of the tasks.",
       "ko_before": "우선순위를 확인하고 싶습니다.",
       "ko_after": "작업의 순서를 정하고 싶습니다.",
-      "context": "작업순서 결정희망",
+      "context": "작업순서 설정의향",
       "priority": "essential",
       "businessTemplateKey": "business-general-181"
     },

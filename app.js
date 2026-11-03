@@ -427,6 +427,7 @@ function saveCards(automatic){
   cards=next.cards;cardEnvelope=next;
   var ok=studyWriteData(CARDS_KEY,JSON.stringify(next));
   if(ok)cardBaseline=JSON.parse(JSON.stringify(next));
+  if(ok&&$('essentialCoveragePanel')&&$('essentialCoveragePanel').closest('.pane')?.classList.contains('active'))renderEssentialCoverage();
   return ok;
 }
 function getEditDevice(){var k='memory_edit_device_v1',v=localStorage.getItem(k);if(!v){v=crypto.randomUUID();localStorage.setItem(k,v);}return v;}
@@ -1606,8 +1607,41 @@ function deleteChapter(ch){
 function renderSettingsPane(){
   $('volumeSlider').value=settings.volume;$('volumeValue').textContent=settings.volume+'%';
   $('ratioValue').textContent=settings.newCardRatio+'문제당 1개';renderChapterManager();
-  renderGrammarOptions();renderGrammarErrorStats();
+  renderGrammarOptions();renderGrammarErrorStats();renderEssentialCoverage();
   loadApiKeyUI();
+}
+function renderEssentialCoverage(){
+  var api=window.BusinessPriority;if(!api)return;
+  var summary=$('essentialCoverageSummary'),criteriaRoot=$('essentialSelectionCriteria'),listRoot=$('essentialList'),areasRoot=$('essentialCoverageAreas');
+  if(!summary||!criteriaRoot||!listRoot||!areasRoot)return;
+  function addText(parent,tag,text,className){var node=document.createElement(tag);node.textContent=String(text||'');if(className)node.className=className;parent.appendChild(node);return node;}
+  var scoped=cards.filter(function(c){return api.business(c,chapters);}),counts={essential:0,important:0,supplementary:0,unclassified:0};
+  scoped.forEach(function(c){if(api.valid(c.priority))counts[c.priority]++;else counts.unclassified++;});
+  var essential=scoped.filter(function(c){return c.priority==='essential';});
+  summary.textContent='현재 앱 카드 기준 · 필수 '+counts.essential+'개 · 중요 '+counts.important+'개 · 보조 '+counts.supplementary+'개'+(counts.unclassified?' · 미분류 '+counts.unclassified+'개':'')+' (전체 '+scoped.length+'개, 카드 중복 없이 집계)';
+  criteriaRoot.textContent='';(api.selectionCriteria||[]).forEach(function(x){addText(criteriaRoot,'li',x.label);});
+  listRoot.textContent='';areasRoot.textContent='';
+  var records=essential.map(function(c){return {card:c,meta:api.identify(c)};}).sort(function(a,b){return ((a.meta&&a.meta.source_line)||1e9)-((b.meta&&b.meta.source_line)||1e9)||a.card.id-b.card.id;});
+  var areaCards={},covered={};(api.coverageAreas||[]).forEach(function(a){areaCards[a.id]=[];a.purposes.forEach(function(p){covered[p[0]]=false;});});
+  records.forEach(function(rec){var m=rec.meta,verified=!!(m&&String(m.en).trim().toLowerCase()===String(rec.card.en||'').trim().toLowerCase());
+    var classified=!!(verified&&m.reason&&Array.isArray(m.coverageAreas)&&m.coverageAreas.length&&Array.isArray(m.coveragePurposes)&&m.coveragePurposes.length);
+    var item=addText(listRoot,'article','', 'coverage-item');
+    addText(item,'strong',(rec.card.en||'(영어 문장 없음)')+' · '+(m?m.key:'분류 검토 필요'));
+    addText(item,'div','문맥: '+(rec.card.context||'없음'));
+    addText(item,'div','한국어: '+(rec.card.ko||'없음'));
+    if(!classified)addText(item,'div','분류 검토 필요'+(m&&!verified?' · 영어 수정 후 분류 재검토':'') ,'coverage-missing');
+    else addText(item,'div','선정 이유: '+m.reason);
+    if(classified){
+      m.coverageAreas.forEach(function(id){if(areaCards[id])areaCards[id].push(rec);});m.coveragePurposes.forEach(function(id){if(Object.prototype.hasOwnProperty.call(covered,id))covered[id]=true;});
+    }
+  });
+  if(!records.length)addText(listRoot,'p','현재 필수 등급 카드가 없습니다.');
+  (api.coverageAreas||[]).forEach(function(a){var box=addText(areasRoot,'article','', 'coverage-area');addText(box,'strong',a.label+' · '+areaCards[a.id].length+'개 필수 표현');
+    var names=areaCards[a.id].map(function(r){return r.card.en;});addText(box,'div',names.length?'표현: '+names.join(' / '):'해당 분류가 등록된 필수 표현 없음');
+    var missing=a.purposes.filter(function(p){return !covered[p[0]];}).map(function(p){return p[1];});
+    addText(box,'div',missing.length?'미커버 목적: '+missing.join(' · '):'등록 목적 모두 커버');
+  });
+  if(records.some(function(r){return !r.meta||r.meta.en.trim().toLowerCase()!==String(r.card.en||'').trim().toLowerCase()||!r.meta.reason||!r.meta.coverageAreas||!r.meta.coveragePurposes;}))addText(areasRoot,'p','분류 검토가 필요한 필수 표현이 있어 미커버 목적은 잠정 집계입니다.','coverage-missing');
 }
 function renderGrammarOptions(){
   settings.grammarOptions=normalizeGrammarOptions(settings.grammarOptions);

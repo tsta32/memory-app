@@ -7,7 +7,7 @@ var items=[
     "source_line": 1,
     "en": "Are you available to talk now?",
     "ko": "지금 대화할 수 있으신가요?",
-    "context": "현재대화 가능여부질문",
+    "context": "현재대화 가능여부확인",
     "ko_before": "지금 대화(통화) 가능하신가요?",
     "priority": "essential",
     "purpose": "대화 가능 여부",
@@ -15,7 +15,13 @@ var items=[
       1,
       3
     ],
-    "reason": "대화 시작 전 상대의 여유를 확인하며 통화·방문·즉석 문의에 두루 쓰이므로 특정 주간 가능 여부(94)보다 대표성이 높다."
+    "reason": "대화 시작 전 상대의 여유를 확인하며 통화·방문·즉석 문의에 두루 쓰이므로 특정 주간 가능 여부(94)보다 대표성이 높다.",
+    "coverageAreas": [
+      "communication"
+    ],
+    "coveragePurposes": [
+      "communication.conversation.start"
+    ]
   },
   {
     "key": "business-general-002",
@@ -114,7 +120,13 @@ var items=[
       1,
       3
     ],
-    "reason": "확인·준비·연결 등 여러 이유로 잠시 기다려 달라고 할 수 있어 특정 조치를 약속하는 표현보다 넓게 재사용된다."
+    "reason": "확인·준비·연결 등 여러 이유로 잠시 기다려 달라고 할 수 있어 특정 조치를 약속하는 표현보다 넓게 재사용된다.",
+    "coverageAreas": [
+      "communication"
+    ],
+    "coveragePurposes": [
+      "communication.pause.request"
+    ]
   },
   {
     "key": "business-general-010",
@@ -141,7 +153,13 @@ var items=[
       1,
       3
     ],
-    "reason": "못 듣거나 놓친 말을 복구하는 직접적인 요청으로 원인 설명(5·6)만으로 해결되지 않는 의사소통을 회복한다."
+    "reason": "못 듣거나 놓친 말을 복구하는 직접적인 요청으로 원인 설명(5·6)만으로 해결되지 않는 의사소통을 회복한다.",
+    "coverageAreas": [
+      "communication"
+    ],
+    "coveragePurposes": [
+      "communication.clarification.repeat"
+    ]
   },
   {
     "key": "business-general-012",
@@ -156,7 +174,13 @@ var items=[
       1,
       3
     ],
-    "reason": "발화를 다시 듣는 것(11)과 달리 이후 설명의 속도를 바꿔 달라는 요청이며 통화·교육·회의에 두루 적용된다."
+    "reason": "발화를 다시 듣는 것(11)과 달리 이후 설명의 속도를 바꿔 달라는 요청이며 통화·교육·회의에 두루 적용된다.",
+    "coverageAreas": [
+      "communication"
+    ],
+    "coveragePurposes": [
+      "communication.clarification.slow"
+    ]
   },
   {
     "key": "business-general-013",
@@ -165,12 +189,12 @@ var items=[
     "ko": "화면을 공유해 주시겠어요?",
     "context": "상대화면 공유요청",
     "ko_before": "화면을 공유해 주시겠어요?",
-    "priority": "essential",
+    "priority": "important",
     "purpose": "화면 공유 요청",
     "criteria": [
       1
     ],
-    "reason": "온라인 업무에서 자료·오류·작업 내용을 함께 확인하기 위한 직접 요청이며 자기 화면 공유 통보(14)와는 역할이 다르다."
+    "reason": "화면 공유 요청은 온라인 회의에서 유용하지만 사용 환경이 제한적이고 파일·링크 전달 등 대체 수단이 있다. 일반 업무 전반에서 놓치면 진행이 막히는 핵심 표현보다 중요 등급이 적절하다."
   },
   {
     "key": "business-general-014",
@@ -335,13 +359,13 @@ var items=[
     "ko": "우리 다음 항목으로 넘어갑시다.",
     "context": "다음안건 전환제안",
     "ko_before": "다음 항목으로 넘어가겠습니다.",
-    "priority": "essential",
+    "priority": "important",
     "purpose": "다음 항목 진행 제안",
     "criteria": [
       1,
       3
     ],
-    "reason": "회의 안건·점검 항목·교육 순서를 넘길 때 쓰이며 슬라이드(62)나 시간 부족(74)에 한정하지 않아 대표로 삼는다."
+    "reason": "다음 항목으로 넘어가자는 말은 회의·발표의 진행자 역할에 치우친다. 안건 순서를 조율할 때 유용하지만 대부분의 업무 상황에서 필수적으로 필요한 표현은 아니다."
   },
   {
     "key": "business-general-028",
@@ -368,7 +392,13 @@ var items=[
       1,
       3
     ],
-    "reason": "설명 뒤 질문을 받는 직접적이고 폭넓은 표현으로 중간 점검(61)·자유 질문(66)·비동기 문의(151)를 포괄하는 기본형이다."
+    "reason": "설명 뒤 질문을 받는 직접적이고 폭넓은 표현으로 중간 점검(61)·자유 질문(66)·비동기 문의(151)를 포괄하는 기본형이다.",
+    "coverageAreas": [
+      "communication"
+    ],
+    "coveragePurposes": [
+      "communication.questions.invite"
+    ]
   },
   {
     "key": "business-general-030",
@@ -395,7 +425,13 @@ var items=[
       1,
       3
     ],
-    "reason": "대안·계획·결과물에 대한 상대의 견해를 직접 물으며 회의용 comments 질문(30)보다 대화·협업 전반에 쓰기 쉽다."
+    "reason": "대안·계획·결과물에 대한 상대의 견해를 직접 물으며 회의용 comments 질문(30)보다 대화·협업 전반에 쓰기 쉽다.",
+    "coverageAreas": [
+      "decision"
+    ],
+    "coveragePurposes": [
+      "decision.opinion.request"
+    ]
   },
   {
     "key": "business-general-032",
@@ -422,7 +458,13 @@ var items=[
       1,
       3
     ],
-    "reason": "끼어들며 예의를 표시하는 관용적 문구로 회의·통화·상담에서 쓰며 허락 질문(34)보다 즉시 발언에 연결하기 쉽다."
+    "reason": "끼어들며 예의를 표시하는 관용적 문구로 회의·통화·상담에서 쓰며 허락 질문(34)보다 즉시 발언에 연결하기 쉽다.",
+    "coverageAreas": [
+      "courtesy"
+    ],
+    "coveragePurposes": [
+      "courtesy.interruption.apology"
+    ]
   },
   {
     "key": "business-general-034",
@@ -441,7 +483,7 @@ var items=[
     "source_line": 35,
     "en": "I want to make sure I understood correctly.",
     "ko": "제가 올바르게 이해했는지 확실히 하고 싶습니다.",
-    "context": "이해내용 정확성확인의향",
+    "context": "상대설명 이해확인",
     "ko_before": "제가 올바르게 이해했는지 확인하고 싶습니다.",
     "priority": "essential",
     "purpose": "이해 확인",
@@ -449,7 +491,13 @@ var items=[
       1,
       3
     ],
-    "reason": "상대의 설명을 정확히 이해했는지 점검하겠다는 목적을 명확히 하며 미완성 인용형(36)보다 독립적으로 쓸 수 있다."
+    "reason": "상대의 설명을 정확히 이해했는지 점검하겠다는 목적을 명확히 하며 미완성 인용형(36)보다 독립적으로 쓸 수 있다.",
+    "coverageAreas": [
+      "communication"
+    ],
+    "coveragePurposes": [
+      "communication.understanding.check"
+    ]
   },
   {
     "key": "business-general-036",
@@ -470,13 +518,13 @@ var items=[
     "ko": "제가 놓친 것이 있나요?",
     "context": "누락사항 확인질문",
     "ko_before": "제가 놓친 내용이 있나요?",
-    "priority": "essential",
+    "priority": "important",
     "purpose": "누락 확인",
     "criteria": [
       1,
       3
     ],
-    "reason": "논의·체크리스트·보고에서 놓친 내용이 있는지 묻는 범용 질문이며 의미가 같은 긴 변형(188) 대신 대표로 삼는다."
+    "reason": "놓친 내용이 있는지 확인하는 질문은 검토에 유용하다. 다만 질문 요청·추가 설명 요청으로 목적을 보완할 수 있고, 일반적인 의사소통에서 반드시 필요한 독립 목적은 아니므로 중요 등급으로 조정한다."
   },
   {
     "key": "business-general-038",
@@ -491,7 +539,13 @@ var items=[
       1,
       3
     ],
-    "reason": "이해되지 않은 부분을 더 설명해 달라고 직접 요청하며 예시 요청(39)처럼 설명 방식을 한 가지로 제한하지 않는다."
+    "reason": "이해되지 않은 부분을 더 설명해 달라고 직접 요청하며 예시 요청(39)처럼 설명 방식을 한 가지로 제한하지 않는다.",
+    "coverageAreas": [
+      "communication"
+    ],
+    "coveragePurposes": [
+      "communication.clarification.explain"
+    ]
   },
   {
     "key": "business-general-039",
@@ -510,7 +564,7 @@ var items=[
     "source_line": 40,
     "en": "I'm not sure about that yet.",
     "ko": "저는 아직 그것에 대해 확신이 없습니다.",
-    "context": "해당사항 확신유보표현",
+    "context": "해당사항 불확실성표명",
     "ko_before": "지금은 답을 확실히 모르겠습니다.",
     "priority": "essential",
     "purpose": "불확실성 전달",
@@ -518,7 +572,13 @@ var items=[
       1,
       3
     ],
-    "reason": "근거·계획·판단에 아직 확신이 없음을 유보적으로 말할 수 있어 원인 미확정(164) 등 특정 대상 보고보다 넓다."
+    "reason": "근거·계획·판단에 아직 확신이 없음을 유보적으로 말할 수 있어 원인 미확정(164) 등 특정 대상 보고보다 넓다.",
+    "coverageAreas": [
+      "decision"
+    ],
+    "coveragePurposes": [
+      "decision.uncertainty.express"
+    ]
   },
   {
     "key": "business-general-041",
@@ -533,7 +593,13 @@ var items=[
       1,
       3
     ],
-    "reason": "즉답 대신 확인과 후속 회신을 함께 약속해 대화·메시지·이메일을 연결하며 거의 같은 120과 일정 한정형 107 대신 대표로 삼는다."
+    "reason": "즉답 대신 확인과 후속 회신을 함께 약속해 대화·메시지·이메일을 연결하며 거의 같은 120과 일정 한정형 107 대신 대표로 삼는다.",
+    "coverageAreas": [
+      "progress"
+    ],
+    "coveragePurposes": [
+      "progress.check.and.reply"
+    ]
   },
   {
     "key": "business-general-042",
@@ -548,7 +614,13 @@ var items=[
       1,
       3
     ],
-    "reason": "의견·판단에 동의한다는 입장을 직접 전달하며 아이디어 칭찬(43)보다 평가 대상을 넓게 잡을 수 있다."
+    "reason": "의견·판단에 동의한다는 입장을 직접 전달하며 아이디어 칭찬(43)보다 평가 대상을 넓게 잡을 수 있다.",
+    "coverageAreas": [
+      "decision"
+    ],
+    "coveragePurposes": [
+      "decision.opinion.agree"
+    ]
   },
   {
     "key": "business-general-043",
@@ -587,7 +659,13 @@ var items=[
       1,
       3
     ],
-    "reason": "기존 방안을 단정적으로 거부하지 않고 다른 선택지도 검토하자고 제안해 일정·기술·절차 등 다양한 논의에 적용된다."
+    "reason": "기존 방안을 단정적으로 거부하지 않고 다른 선택지도 검토하자고 제안해 일정·기술·절차 등 다양한 논의에 적용된다.",
+    "coverageAreas": [
+      "decision"
+    ],
+    "coveragePurposes": [
+      "decision.option.alternative"
+    ]
   },
   {
     "key": "business-general-046",
@@ -734,7 +812,13 @@ var items=[
       1,
       3
     ],
-    "reason": "사안의 담당자를 물어 업무 연결점을 찾으며 this task로 대상을 좁힌 중복 표현(182)보다 다양한 대상에 쓰기 쉽다."
+    "reason": "사안의 담당자를 물어 업무 연결점을 찾으며 this task로 대상을 좁힌 중복 표현(182)보다 다양한 대상에 쓰기 쉽다.",
+    "coverageAreas": [
+      "collaboration"
+    ],
+    "coveragePurposes": [
+      "collaboration.owner.identify"
+    ]
   },
   {
     "key": "business-general-058",
@@ -749,7 +833,13 @@ var items=[
       1,
       3
     ],
-    "reason": "업무를 언제까지 끝내야 하는지 묻는 핵심 질문으로 자료 발송 시점(137)보다 범위가 넓다."
+    "reason": "업무를 언제까지 끝내야 하는지 묻는 핵심 질문으로 자료 발송 시점(137)보다 범위가 넓다.",
+    "coverageAreas": [
+      "schedule"
+    ],
+    "coveragePurposes": [
+      "schedule.deadline.ask"
+    ]
   },
   {
     "key": "business-general-059",
@@ -956,7 +1046,15 @@ var items=[
       1,
       3
     ],
-    "reason": "논의·문서·설명 내용을 간단히 정리할 때 쓰며 전송 약속까지 포함하는 50보다 즉석 대화에서 범용적이다."
+    "reason": "논의·문서·설명 내용을 간단히 정리할 때 쓰며 전송 약속까지 포함하는 50보다 즉석 대화에서 범용적이다.",
+    "coverageAreas": [
+      "meeting",
+      "completion"
+    ],
+    "coveragePurposes": [
+      "meeting.summary",
+      "completion.summary"
+    ]
   },
   {
     "key": "business-general-076",
@@ -1019,7 +1117,13 @@ var items=[
       1,
       3
     ],
-    "reason": "회의뿐 아니라 작업 논의·면담을 오늘 여기서 마칠 때 쓰며 거의 같은 49와 회의 한정형 54 대신 대표로 삼는다."
+    "reason": "회의뿐 아니라 작업 논의·면담을 오늘 여기서 마칠 때 쓰며 거의 같은 49와 회의 한정형 54 대신 대표로 삼는다.",
+    "coverageAreas": [
+      "meeting"
+    ],
+    "coveragePurposes": [
+      "meeting.discussion.close"
+    ]
   },
   {
     "key": "business-general-081",
@@ -1034,7 +1138,13 @@ var items=[
       1,
       3
     ],
-    "reason": "회의·납기·작업 일정의 변경 가능성을 폭넓게 물으며 구체적 이동 방향이나 분량을 고정하지 않는다."
+    "reason": "회의·납기·작업 일정의 변경 가능성을 폭넓게 물으며 구체적 이동 방향이나 분량을 고정하지 않는다.",
+    "coverageAreas": [
+      "schedule"
+    ],
+    "coveragePurposes": [
+      "schedule.adjust"
+    ]
   },
   {
     "key": "business-general-082",
@@ -1049,7 +1159,13 @@ var items=[
       1,
       3
     ],
-    "reason": "상대가 제안한 시간을 수락하는 관용적인 회신으로 단순 시작 준비 질문과 다르고, 반대 의사인 83으로 대체할 수 없다."
+    "reason": "상대가 제안한 시간을 수락하는 관용적인 회신으로 단순 시작 준비 질문과 다르고, 반대 의사인 83으로 대체할 수 없다.",
+    "coverageAreas": [
+      "schedule"
+    ],
+    "coveragePurposes": [
+      "schedule.time.accept"
+    ]
   },
   {
     "key": "business-general-083",
@@ -1064,7 +1180,13 @@ var items=[
       1,
       3
     ],
-    "reason": "제안한 시간을 받아들일 수 없음을 이유를 꾸미지 않고 전달한다. 충돌 이유를 단정하는 105·106보다 넓고 수락(82)과는 반대 목적이다."
+    "reason": "제안한 시간을 받아들일 수 없음을 이유를 꾸미지 않고 전달한다. 충돌 이유를 단정하는 105·106보다 넓고 수락(82)과는 반대 목적이다.",
+    "coverageAreas": [
+      "schedule"
+    ],
+    "coveragePurposes": [
+      "schedule.time.decline"
+    ]
   },
   {
     "key": "business-general-084",
@@ -1211,7 +1333,13 @@ var items=[
       1,
       3
     ],
-    "reason": "상대에게 가장 편한 시간을 개방적으로 물어 일정 조율을 시작하며 새 시간(92)·여러 후보(96)로 답을 제한하지 않는다."
+    "reason": "상대에게 가장 편한 시간을 개방적으로 물어 일정 조율을 시작하며 새 시간(92)·여러 후보(96)로 답을 제한하지 않는다.",
+    "coverageAreas": [
+      "schedule"
+    ],
+    "coveragePurposes": [
+      "schedule.time.propose"
+    ]
   },
   {
     "key": "business-general-096",
@@ -1417,7 +1545,15 @@ var items=[
     "criteria": [
       1
     ],
-    "reason": "업무 파일 전달에서 첨부 사실을 간결하게 명시하는 관용적 안내로 수정본(132) 등 상태를 덧붙인 변형보다 기본형이다."
+    "reason": "업무 파일 전달에서 첨부 사실을 간결하게 명시하는 관용적 안내로 수정본(132) 등 상태를 덧붙인 변형보다 기본형이다.",
+    "coverageAreas": [
+      "materials",
+      "completion"
+    ],
+    "coveragePurposes": [
+      "materials.file.attach",
+      "completion.deliver"
+    ]
   },
   {
     "key": "business-general-113",
@@ -1444,7 +1580,15 @@ var items=[
       1,
       3
     ],
-    "reason": "문서·견적·보고서 등 받은 파일을 사용할 수 없음을 직접 알려 조치를 유도하며 링크·편집 권한 한정형보다 기본적인 장애 보고다."
+    "reason": "문서·견적·보고서 등 받은 파일을 사용할 수 없음을 직접 알려 조치를 유도하며 링크·편집 권한 한정형보다 기본적인 장애 보고다.",
+    "coverageAreas": [
+      "materials",
+      "problem"
+    ],
+    "coveragePurposes": [
+      "materials.file.access.problem",
+      "problem.report"
+    ]
   },
   {
     "key": "business-general-115",
@@ -1543,7 +1687,13 @@ var items=[
       1,
       3
     ],
-    "reason": "문서·기획안·작업물을 검토하고 의견을 달라는 행동과 결과를 함께 요청하며 첨부·문서 위치를 고정하는 변형보다 넓다."
+    "reason": "문서·기획안·작업물을 검토하고 의견을 달라는 행동과 결과를 함께 요청하며 첨부·문서 위치를 고정하는 변형보다 넓다.",
+    "coverageAreas": [
+      "materials"
+    ],
+    "coveragePurposes": [
+      "materials.review.request"
+    ]
   },
   {
     "key": "business-general-123",
@@ -1780,10 +1930,18 @@ var items=[
     "ko": "제가 파일을 업데이트했습니다.",
     "context": "업무파일 갱신완료알림",
     "ko_before": "파일을 업데이트했습니다.",
-    "priority": "important",
-    "purpose": "파일 업데이트",
-    "criteria": [],
-    "reason": "파일을 갱신했다는 사실을 전달하는 실용적인 자료 관리 안내다."
+    "priority": "essential",
+    "purpose": "파일 수정 완료 보고",
+    "criteria": [1, 2],
+    "reason": "수정한 파일 상태를 명시해 자료 작업의 완료와 전달 여부를 상대가 판단하게 한다. 파일 자체의 변경 완료는 다른 업무 전반에 쓰이는 진행 알림과 구별되며, 다음 조치에 필요한 산출물 상태를 직접 보고한다.",
+    "coverageAreas": [
+      "materials",
+      "completion"
+    ],
+    "coveragePurposes": [
+      "materials.file.update",
+      "completion.file"
+    ]
   },
   {
     "key": "business-general-143",
@@ -1930,7 +2088,13 @@ var items=[
       1,
       3
     ],
-    "reason": "상대의 도움에 감사를 표하며 협조·문제 해결·지원에 두루 쓰이므로 시간·참석·확인 등 사유별 감사 대신 대표로 삼는다."
+    "reason": "상대의 도움에 감사를 표하며 협조·문제 해결·지원에 두루 쓰이므로 시간·참석·확인 등 사유별 감사 대신 대표로 삼는다.",
+    "coverageAreas": [
+      "courtesy"
+    ],
+    "coveragePurposes": [
+      "courtesy.thanks"
+    ]
   },
   {
     "key": "business-general-155",
@@ -1957,7 +2121,13 @@ var items=[
       1,
       3
     ],
-    "reason": "문제 처리·지연·실수로 끼친 불편에 폭넓게 사과하며 회신 지연(118)·혼란(157) 등 사유별 문구보다 일반적인 대표다."
+    "reason": "문제 처리·지연·실수로 끼친 불편에 폭넓게 사과하며 회신 지연(118)·혼란(157) 등 사유별 문구보다 일반적인 대표다.",
+    "coverageAreas": [
+      "courtesy"
+    ],
+    "coveragePurposes": [
+      "courtesy.impact.apology"
+    ]
   },
   {
     "key": "business-general-157",
@@ -1996,7 +2166,17 @@ var items=[
       1,
       3
     ],
-    "reason": "문서·계획·요청 등을 고쳐 다시 보내겠다는 복구 행동을 약속하며 재심사를 전제하는 197보다 전달 대상과 절차가 넓다."
+    "reason": "문서·계획·요청 등을 고쳐 다시 보내겠다는 복구 행동을 약속하며 재심사를 전제하는 197보다 전달 대상과 절차가 넓다.",
+    "coverageAreas": [
+      "materials",
+      "problem",
+      "completion"
+    ],
+    "coveragePurposes": [
+      "materials.file.resend",
+      "problem.correction.resubmit",
+      "completion.deliver"
+    ]
   },
   {
     "key": "business-general-160",
@@ -2041,10 +2221,16 @@ var items=[
     "ko": "제가 원인을 조사하고 있습니다.",
     "context": "문제원인 조사중보고",
     "ko_before": "현재 원인을 파악 중입니다.",
-    "priority": "important",
-    "purpose": "문제 조사 상태",
-    "criteria": [],
-    "reason": "원인을 조사하고 있다는 상태를 분명히 하는 문제 대응 상황별 표현이다."
+    "priority": "essential",
+    "purpose": "문제 원인 조사 보고",
+    "criteria": [1, 2],
+    "reason": "문제가 발생한 뒤 원인을 조사 중이라고 알리면 상대의 해결 기대와 후속 대응을 조율할 수 있다. 원인을 아직 단정하지 않으면서 문제 대응의 핵심 단계를 분명히 보고하는 표현이다.",
+    "coverageAreas": [
+      "problem"
+    ],
+    "coveragePurposes": [
+      "problem.cause.investigate"
+    ]
   },
   {
     "key": "business-general-164",
@@ -2071,7 +2257,13 @@ var items=[
       1,
       3
     ],
-    "reason": "작업·검토·승인 등이 예상보다 오래 걸림을 과도한 사유 단정 없이 알리며 일정 지연(166)·오늘 미완료(170)보다 넓다."
+    "reason": "작업·검토·승인 등이 예상보다 오래 걸림을 과도한 사유 단정 없이 알리며 일정 지연(166)·오늘 미완료(170)보다 넓다.",
+    "coverageAreas": [
+      "progress"
+    ],
+    "coveragePurposes": [
+      "progress.status.delay"
+    ]
   },
   {
     "key": "business-general-166",
@@ -2092,10 +2284,16 @@ var items=[
     "ko": "지금까지 작업은 계획대로 진행되고 있습니다.",
     "context": "현재업무 계획대로진행보고",
     "ko_before": "현재까지는 계획대로 진행 중입니다.",
-    "priority": "important",
-    "purpose": "계획대로 진행 보고",
-    "criteria": [],
-    "reason": "업무가 계획대로라는 긍정적인 현황을 보고하는 데 유용하나 진행 점검 상황에 한정된다."
+    "priority": "essential",
+    "purpose": "계획 대비 진행 보고",
+    "criteria": [1, 2],
+    "reason": "업무가 계획대로 진행 중이라는 상태를 간결하게 알려 일정 점검과 협업자의 판단을 돕는다. 진행 정상 여부는 단순 업데이트 약속이나 지연 통보로 대체되지 않는 대표적인 상태 보고다.",
+    "coverageAreas": [
+      "progress"
+    ],
+    "coveragePurposes": [
+      "progress.status.normal"
+    ]
   },
   {
     "key": "business-general-168",
@@ -2128,10 +2326,16 @@ var items=[
     "ko": "저는 오늘 끝내지 못할 수도 있습니다.",
     "context": "오늘완료 불가가능성알림",
     "ko_before": "오늘 안에 끝내기 어려울 것 같습니다.",
-    "priority": "important",
-    "purpose": "예상보다 지연 보고",
-    "criteria": [],
-    "reason": "오늘 완료하지 못할 수도 있다는 특정 시점의 위험을 알리는 변형이다."
+    "priority": "essential",
+    "purpose": "당일 완료 위험 보고",
+    "criteria": [1, 2],
+    "reason": "오늘 끝내지 못할 가능성을 미리 알려 마감 기대와 대체 계획을 조정하게 한다. 이미 발생한 일반 지연 보고와 달리 완료 전 위험을 앞서 알리는 목적이 뚜렷하다.",
+    "coverageAreas": [
+      "progress"
+    ],
+    "coveragePurposes": [
+      "progress.status.risk"
+    ]
   },
   {
     "key": "business-general-171",
@@ -2146,14 +2350,20 @@ var items=[
       1,
       3
     ],
-    "reason": "지연 사실을 알리는 것(165)과 달리 마감일 변경이라는 상대의 조치를 직접 요청해 작업·검토·제출에 두루 쓰인다."
+    "reason": "지연 사실을 알리는 것(165)과 달리 마감일 변경이라는 상대의 조치를 직접 요청해 작업·검토·제출에 두루 쓰인다.",
+    "coverageAreas": [
+      "schedule"
+    ],
+    "coveragePurposes": [
+      "schedule.deadline.extend"
+    ]
   },
   {
     "key": "business-general-172",
     "source_line": 172,
     "en": "I’ll provide an update.",
     "ko": "갱신하겠습니다.",
-    "context": "진행상황 갱신공유약속",
+    "context": "업무진행 후속보고",
     "ko_before": "진행 상황을 공유하겠습니다.",
     "priority": "essential",
     "purpose": "진행 상황 업데이트 약속",
@@ -2161,7 +2371,13 @@ var items=[
       1,
       3
     ],
-    "reason": "특정 사건을 고정하지 않고 업무 현황을 알려주겠다고 약속하며 일정·완료·결정 알림(97·175·198)보다 대상이 넓다."
+    "reason": "특정 사건을 고정하지 않고 업무 현황을 알려주겠다고 약속하며 일정·완료·결정 알림(97·175·198)보다 대상이 넓다.",
+    "coverageAreas": [
+      "progress"
+    ],
+    "coveragePurposes": [
+      "progress.status.update"
+    ]
   },
   {
     "key": "business-general-173",
@@ -2264,7 +2480,7 @@ var items=[
     "source_line": 181,
     "en": "I'd like to set the order of the tasks.",
     "ko": "작업의 순서를 정하고 싶습니다.",
-    "context": "작업순서 결정희망",
+    "context": "작업순서 설정의향",
     "ko_before": "우선순위를 확인하고 싶습니다.",
     "priority": "essential",
     "purpose": "작업 순서 설정",
@@ -2272,7 +2488,13 @@ var items=[
       1,
       3
     ],
-    "reason": "여러 업무의 처리 순서를 정하겠다는 의사를 전달하는 표현이다."
+    "reason": "여러 업무의 처리 순서를 정하겠다는 의사를 전달하는 표현이다.",
+    "coverageAreas": [
+      "decision"
+    ],
+    "coveragePurposes": [
+      "decision.task.order"
+    ]
   },
   {
     "key": "business-general-182",
@@ -2311,7 +2533,13 @@ var items=[
       1,
       3
     ],
-    "reason": "상대에게 업무를 맡아줄 수 있는지 정중히 요청하며 잠깐 도움 요청(186)과 달리 일의 수행 책임을 부탁한다."
+    "reason": "상대에게 업무를 맡아줄 수 있는지 정중히 요청하며 잠깐 도움 요청(186)과 달리 일의 수행 책임을 부탁한다.",
+    "coverageAreas": [
+      "collaboration"
+    ],
+    "coveragePurposes": [
+      "collaboration.task.delegate"
+    ]
   },
   {
     "key": "business-general-185",
@@ -2338,7 +2566,15 @@ var items=[
       1,
       3
     ],
-    "reason": "동료에게 잠시 도와 달라고 직접 정중히 요청해 다양한 문제 해결에 쓸 수 있으며 필요 상태만 말하는 185 대신 대표로 삼는다."
+    "reason": "동료에게 잠시 도와 달라고 직접 정중히 요청해 다양한 문제 해결에 쓸 수 있으며 필요 상태만 말하는 185 대신 대표로 삼는다.",
+    "coverageAreas": [
+      "communication",
+      "collaboration"
+    ],
+    "coveragePurposes": [
+      "communication.help.request",
+      "collaboration.help.request"
+    ]
   },
   {
     "key": "business-general-187",
@@ -2377,7 +2613,13 @@ var items=[
       1,
       3
     ],
-    "reason": "업무 방안대로 진행해도 되는지 상대의 동의를 확인하며 단순 진행 선언(190)과 달리 허락·합의가 필요한 시점에 쓰인다."
+    "reason": "업무 방안대로 진행해도 되는지 상대의 동의를 확인하며 단순 진행 선언(190)과 달리 허락·합의가 필요한 시점에 쓰인다.",
+    "coverageAreas": [
+      "decision"
+    ],
+    "coveragePurposes": [
+      "decision.method.confirm"
+    ]
   },
   {
     "key": "business-general-190",
@@ -2439,7 +2681,13 @@ var items=[
     "criteria": [
       1
     ],
-    "reason": "상대에게 승인을 직접 요청하는 기본형으로 필요성 안내(193)·결과 보고(195·196)와 달리 다음 업무를 가능하게 하는 행동을 구한다."
+    "reason": "상대에게 승인을 직접 요청하는 기본형으로 필요성 안내(193)·결과 보고(195·196)와 달리 다음 업무를 가능하게 하는 행동을 구한다.",
+    "coverageAreas": [
+      "collaboration"
+    ],
+    "coveragePurposes": [
+      "collaboration.approval.request"
+    ]
   },
   {
     "key": "business-general-195",
@@ -2514,12 +2762,20 @@ var items=[
       1,
       3
     ],
-    "reason": "직접 처리할 수 없는 문의·요청·자료를 담당자에게 연결하겠다는 건설적인 약속으로 단순 담당 부인(199)보다 다음 행동을 명확히 한다."
+    "reason": "직접 처리할 수 없는 문의·요청·자료를 담당자에게 연결하겠다는 건설적인 약속으로 단순 담당 부인(199)보다 다음 행동을 명확히 한다.",
+    "coverageAreas": [
+      "collaboration"
+    ],
+    "coveragePurposes": [
+      "collaboration.owner.handoff"
+    ]
   }
 ];
 // Keep recognition of previously shipped contexts for cards with edited English.
 var legacyContexts=(typeof module==='object'&&module.exports?require('./business-contexts'):root.BusinessContexts).previousContexts;
 var names=['영어업무(일반)','업무대화 일반','업무대화(일반)'];
+var selectionCriteria=[{"id":"work-frequency","label":"실제 직장에서 자주 사용되는가?"},{"id":"importance","label":"대체하기 어려울 만큼 중요하며, 없으면 업무 진행에 영향이 있는가?"},{"id":"versatility","label":"하나의 표현으로 여러 업무 상황에 대응할 수 있는가?"},{"id":"impact","label":"표현을 모르면 업무 진행이나 조율이 실질적으로 어려워지는가?"},{"id":"low-overlap","label":"기존 필수 표현과 의사소통 목적이 중복되지 않는가?"},{"id":"workflow-balance","label":"업무 시작부터 완료까지 전체 과정을 균형 있게 다루는가?"}];
+var coverageAreas=[{"id":"communication","label":"기본 대화·의사소통","purposes":[["communication.conversation.start","대화 시작 전 가능 여부 확인"],["communication.pause.request","잠시 대기 요청"],["communication.clarification.repeat","상대 발언 반복 요청"],["communication.clarification.slow","설명 속도 조정 요청"],["communication.clarification.explain","불명확한 부분의 추가 설명 요청"],["communication.understanding.check","상대 설명 이해 여부 확인"],["communication.questions.invite","질문 요청"],["communication.help.request","업무 도움 요청"]]},{"id":"meeting","label":"회의 진행","purposes":[["meeting.open","회의 시작"],["meeting.agenda.transition","안건·항목 전환"],["meeting.discussion.close","논의 종료"],["meeting.summary","논의 요약"]]},{"id":"decision","label":"의견 교환·의사결정","purposes":[["decision.opinion.request","상대 의견 질문"],["decision.opinion.agree","상대 의견 동의"],["decision.option.alternative","대안 검토 제안"],["decision.uncertainty.express","불확실성 표현"],["decision.method.confirm","진행 방안 동의 확인"],["decision.task.order","작업 순서 설정"]]},{"id":"schedule","label":"일정·기한 조정","purposes":[["schedule.deadline.ask","업무 기한 확인"],["schedule.adjust","일정 변경 조정"],["schedule.time.propose","가능 시간 제안 요청"],["schedule.time.accept","제안 시간 수락"],["schedule.time.decline","제안 시간 거절"],["schedule.deadline.extend","기한 연장 요청"]]},{"id":"materials","label":"자료·이메일","purposes":[["materials.file.attach","파일 첨부·전달"],["materials.file.access.problem","파일 접근 장애 보고"],["materials.review.request","자료 검토·의견 요청"],["materials.file.update","수정 파일 완료 보고"],["materials.file.resend","수정 자료 재전달"],["materials.email.receipt","이메일 수신 확인"]]},{"id":"collaboration","label":"업무 지시·협업","purposes":[["collaboration.owner.identify","업무 담당자 확인"],["collaboration.task.delegate","업무 수행 요청"],["collaboration.help.request","업무 지원 요청"],["collaboration.approval.request","업무 승인 요청"],["collaboration.owner.handoff","담당자에게 전달"]]},{"id":"progress","label":"진행 상황 보고","purposes":[["progress.check.and.reply","확인 후 회신 약속"],["progress.status.normal","계획 대비 정상 진행 보고"],["progress.status.update","진행 상황 후속 보고"],["progress.status.delay","예상보다 지연 보고"],["progress.status.risk","당일 완료 위험 보고"]]},{"id":"problem","label":"문제 발생·해결","purposes":[["problem.report","문제·장애 보고"],["problem.cause.investigate","문제 원인 조사 보고"],["problem.fix.request","문제 해결 조치 요청"],["problem.correction.resubmit","수정 후 재제출"]]},{"id":"completion","label":"완료·결과 보고","purposes":[["completion.file","수정 파일 완료 보고"],["completion.deliver","결과물 전달"],["completion.summary","논의·작업 결과 요약"],["completion.task.general","일반 업무 완료 보고"]]},{"id":"courtesy","label":"감사·사과","purposes":[["courtesy.interruption.apology","대화 중 끼어들기 사과"],["courtesy.thanks","도움 감사"],["courtesy.impact.apology","불편 초래 사과"]]}];
 var labels={essential:'필수',important:'중요',supplementary:'보조'};
 function valid(value){return Object.prototype.hasOwnProperty.call(labels,value);}
 function business(card,chapters){return chapters.some(function(ch){return ch.id===card.chapterId&&names.indexOf(ch.name)!==-1;});}
@@ -2561,6 +2817,6 @@ function progress(cards,chapters,time){
   out.unclassified=scoped.filter(function(c){return !valid(c.priority);}).length;
   out.importantAllowed=out.essential.passed===out.essential.total&&out.essential.due===0;return out;
 }
-var api={items:items,labels:labels,valid:valid,business:business,passed:passed,identify:identify,migrate:migrate,plan:plan,progress:progress};
+var api={items:items,selectionCriteria:selectionCriteria,coverageAreas:coverageAreas,labels:labels,valid:valid,business:business,passed:passed,identify:identify,migrate:migrate,plan:plan,progress:progress};
 if(typeof module==='object'&&module.exports)module.exports=api;else root.BusinessPriority=api;
 })(typeof window!=='undefined'?window:globalThis);

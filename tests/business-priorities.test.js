@@ -1,8 +1,12 @@
 const assert=require('node:assert/strict');
 const p=require('../business-priorities');const source=require('../general_business_english_literal_ko.json');
 assert.equal(p.items.length,200);assert.equal(new Set(p.items.map(x=>x.key)).size,200);
+assert.equal(p.selectionCriteria.length,6);assert.equal(p.coverageAreas.length,10);
 const essential=p.items.filter(x=>x.priority==='essential');
+assert.equal(essential.length,40);
 assert.equal(new Set(essential.map(x=>x.purpose)).size,essential.length,'no duplicate essential purpose group');
+assert.ok(essential.every(x=>x.reason&&x.coverageAreas?.length&&x.coveragePurposes?.length),'each default essential item has authored reason and coverage');
+for(const area of p.coverageAreas){assert.ok(area.purposes.length);for(const id of area.purposes.map(x=>x[0]))assert.ok(typeof id==='string');}
 for(const [i,row]of p.items.entries()){
   assert.equal(row.en,source.items[i].en);assert.equal(row.ko,source.items[i].ko_after);assert.equal(row.context,source.items[i].context);
   assert.equal(row.priority,source.items[i].priority);assert.ok(p.valid(row.priority));assert.ok(row.reason.length>20);

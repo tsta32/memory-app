@@ -44,9 +44,31 @@ test('all 200 cards migrate by source rather than id/order, preserve user fields
     const saved=await data(page);expect(saved.cards).toHaveLength(200);expect(saved.nextId).toBe(1000);
     const counts={essential:0,important:0,supplementary:0};
     for(const c of saved.cards){const row=policy.items[c.id-100];expect(c.en).toBe(row.en);expect(c.priority).toBe(row.priority);expect(c.businessTemplateKey).toBe(row.key);expect(c.ko).toBe('사용자 번역 '+(c.id-100));expect(c.context).toBe('저장 문맥 '+(c.id-100));expect(c.stage).toBe(9);expect(c.ngCount).toBe(7);expect(c.firstCorrectAt).toBeUndefined();counts[c.priority]++;}
-    expect(counts).toEqual({essential:39,important:128,supplementary:33});
-    await expect(page.locator('#priorityProgress')).toContainText('필수: 0 / 39');
+    expect(counts).toEqual({essential:40,important:127,supplementary:33});
+    await expect(page.locator('#priorityProgress')).toContainText('필수: 0 / 40');
     await expect(page.locator('#priorityProgress')).toContainText('과거 정답이 불명확');healthy(app);
+  }finally{await app.context.close();}
+});
+
+for(const mobile of [false,true])test(`settings coverage is derived from live cards and refreshes after user edits (${mobile?'mobile':'desktop'})`,async({browser})=>{
+  const app=await open(browser,{all:true,mobile});const{page}=app;
+  try{
+    await page.locator('#tabSettings').click();
+    await expect(page.locator('#essentialCoverageSummary')).toContainText('필수 40개 · 중요 127개 · 보조 33개');
+    await expect(page.locator('#essentialList')).toContainText('I’m investigating the cause.');
+    await page.locator('#tabAllCards').click();await page.locator('#allCardsSearch').fill(policy.items[1].en);
+    await page.locator('#allCardsList .fc-row input[type="checkbox"]').check();await page.locator('#editBulkBtn').click();
+    await page.locator('#editCardList select[data-field="priority"]').selectOption('essential');
+    await page.locator('#editCardList input[data-field="en"]').fill('Could you check my display?');
+    await page.locator('#editCardList input[data-field="context"]').fill('화면확인 요청');
+    await page.locator('#editSaveBtn').click();await page.locator('#editConfirmApply').click();
+    await page.locator('#tabSettings').click();
+    await expect(page.locator('#essentialCoverageSummary')).toContainText('필수 41개 · 중요 126개 · 보조 33개');
+    await expect(page.locator('#essentialList')).toContainText('Could you check my display?');
+    await expect(page.locator('#essentialList')).toContainText('화면확인 요청');
+    await expect(page.locator('#essentialList')).toContainText('분류 검토 필요');
+    const stored=(await data(page)).cards.find(c=>c.id===101);expect(stored).toMatchObject({priority:'essential',en:'Could you check my display?',context:'화면확인 요청',stage:9,ngCount:7});
+    healthy(app);
   }finally{await app.context.close();}
 });
 
