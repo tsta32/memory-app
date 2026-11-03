@@ -1,13 +1,13 @@
 
 /* Update-safe service worker */
-var CACHE_NAME = 'srs-app-v72';
+var CACHE_NAME = 'srs-app-v73';
 
 var ASSETS = [
   './index.html',
-  './app.js',
-  './business-contexts.js',
-  './business-priorities.js',
-  './sync-bootstrap.js',
+  './app.js?v=73',
+  './business-contexts.js?v=73',
+  './business-priorities.js?v=73',
+  './sync-bootstrap.js?v=73',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
@@ -26,7 +26,7 @@ self.addEventListener('activate', function(event) {
     caches.keys().then(function(keys) {
       return Promise.all(
         keys.filter(function(key) {
-          return key !== CACHE_NAME;
+          return key.indexOf('srs-app-v') === 0 && key !== CACHE_NAME;
         }).map(function(key) {
           return caches.delete(key);
         })

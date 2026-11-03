@@ -1312,7 +1312,7 @@ on('editConfirmApply','click',function(){
     var c=findCard(d.id);if(!c||!canInspectCard(d.id))return;
     if(d.koChanged)c.ko=d.newKo;
     if(d.enChanged)c.en=d.newEn;
-    if(d.contextChanged)c.context=d.newContext;
+    if(d.contextChanged){c.context=d.newContext;c.contextUserEdited=true;}
     if(d.priorityChanged&&window.BusinessPriority.valid(d.newPriority))c.priority=d.newPriority;
   });
   saveCards();
@@ -1475,7 +1475,7 @@ on('bulkAddBtn','click',function(){
   if($('bulkAddBtn').dataset.inputMode==='manual'){
     var ko=$('manualKoInput').value.trim(), en=$('manualEnInput').value.trim(), context=$('manualContextInput').value.trim();
     if(!ko||!en){fb.textContent='한국어와 영어를 모두 입력해주세요.';fb.style.color='var(--danger-text)';return;}
-    cards.push({id:nextCardId++,ko:ko,en:en,context:context,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0});
+    cards.push({id:nextCardId++,ko:ko,en:en,context:context,contextUserEdited:true,chapterId:chId,stage:0,dueAt:now(),bookmarked:false,everAnswered:false,ngCount:0});
     saveCards();$('manualContextInput').value='';$('manualKoInput').value='';$('manualEnInput').value='';
     fb.textContent='✓ 1개 추가';fb.style.color='var(--success-text)';refreshSetupInfo();renderAllCards();renderMoveCardList();$('manualContextInput').focus();return;
   }

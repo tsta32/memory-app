@@ -159,7 +159,7 @@ function installStorageHooks(){
   Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal();};
 }
 function loadApp(){
-  var s=document.createElement('script');s.src='app.js';
+  var s=document.createElement('script');s.src='app.js?v=73';
   s.onerror=function(){console.error('[Memory sync] Could not load app.js');};
   document.body.appendChild(s);
 }
@@ -167,6 +167,17 @@ function applyRemote(d){
   var remote=snapshotData(d),isComplete=completeSnapshot(d),current=snapshot();
   // Old/unknown snapshots cannot prove completeness: preserve local values on conflicts.
   var merged=mergeSnapshots(current,remote,!isComplete,!isComplete);
+  // Preserve locally edited contexts when an older complete snapshot carries defaults.
+  if(window.BusinessContexts&&merged.srs_cards_v2&&current.srs_cards_v2){
+    try{
+      var incomingCards=JSON.parse(merged.srs_cards_v2),localCards=JSON.parse(current.srs_cards_v2);
+      var scopedChapters=JSON.parse(merged.srs_chapters_v1||'{"chapters":[]}');
+      if(Array.isArray(incomingCards.cards)&&Array.isArray(localCards.cards)&&Array.isArray(scopedChapters.chapters)){
+        window.BusinessContexts.preserveUserContexts(incomingCards.cards,localCards.cards,scopedChapters.chapters);
+        merged.srs_cards_v2=JSON.stringify(incomingCards);
+      }
+    }catch(e){/* Existing validation and storage behavior handles malformed snapshots. */}
+  }
   applyingRemote=true;
   try{DATA_KEYS.forEach(function(k){
     if(Object.prototype.hasOwnProperty.call(merged,k))localStorage.setItem(k,merged[k]);

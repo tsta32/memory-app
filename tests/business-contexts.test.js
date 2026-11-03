@@ -52,3 +52,32 @@ assert.deepEqual(sourceBefore,oldSource,'only source context fields change');
 assert.deepEqual(previousContexts,oldSource.items.map(x=>x.context));
 const priorities=require('../business-priorities');
 oldSource.items.forEach((x,i)=>{assert.equal(priorities.identify({en:'Edited English',context:x.context}).key,priorities.items[i].key);});
+
+// Reported production variant must migrate, without interpreting arbitrary prose as a default.
+{
+  const index=items.findIndex(x=>x.en==='When do we need to finish this?');
+  const old='그 일의 대응기한을 물으려고 할 때.';
+  const row={...before[index],context:old,priority:'important',businessTemplateKey:'business-general-058'};
+  const snapshot=structuredClone(row);
+  assert.equal(fillMissing([row],chapters),true);
+  assert.equal(row.context,'업무기한 질문');
+  assert.deepEqual({...row,context:old},snapshot);
+  for(const context of [old,previousContexts[index]]){
+    const custom={...snapshot,context,contextUserEdited:true},copy=structuredClone(custom);
+    assert.equal(fillMissing([custom],chapters),false);assert.deepEqual(custom,copy);
+  }
+  const unknown={...snapshot,context:'내가 직접 작성한 기한을 물으려고 할 때.'};
+  const copy=structuredClone(unknown);assert.equal(fillMissing([unknown],chapters),false);assert.deepEqual(unknown,copy);
+  assert.equal(fillMissing([row],chapters),false);
+}
+console.log('Passed observed production default, explicit user-edit protection, unknown prose retention and idempotence.');
+
+{
+  const {preserveUserContexts}=require('../business-contexts');
+  const local=items.slice(0,4).map((x,i)=>({...before[i],context:i===0?previousContexts[0]:i===1?'':i===2?'나의 문맥':x.context,...(i===0?{contextUserEdited:true}:{})}));
+  const remote=items.slice(0,4).map((x,i)=>({...before[i],context:previousContexts[i],stage:8,dueAt:999,ngCount:20}));
+  const remoteBefore=structuredClone(remote);
+  preserveUserContexts(remote,local,chapters);
+  remote.slice(0,3).forEach((x,i)=>{assert.equal(x.context,local[i].context);const {context,contextUserEdited,...rest}=x;const {context:old,...original}=remoteBefore[i];assert.deepEqual(rest,original);});
+  assert.deepEqual(remote[3],remoteBefore[3]);
+}

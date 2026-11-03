@@ -232,7 +232,7 @@ for(const mobile of [false,true]) {
       const custom='긴문맥확인: 회의에서 동료에게 오늘 논의할 업무를 시작하기 전에 대화할 시간이 있는지 확인하려고 할 때.';
       await page.locator('#editCardList input[data-field="context"]').fill(custom);
       await page.locator('#editSaveBtn').click();await page.locator('#editConfirmApply').click();
-      expect((await saved(page)).cards[0]).toEqual({...original,context:custom});
+      expect((await saved(page)).cards[0]).toEqual({...original,context:custom,contextUserEdited:true});
       await page.locator('#moveCardSearch').fill(custom);await expectFieldOrder(managed);
       await expect(managed.locator('.fc-context')).toContainText(custom);
       expect(await managed.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);

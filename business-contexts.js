@@ -1006,19 +1006,42 @@ var previousContexts=[
   "업무 문의나 요청을 받았지만 그 일은 내 담당 영역이 아니라고 설명하려고 할 때.",
   "내가 받은 업무 내용이나 요청을 담당자에게 전달하겠다고 말하려고 할 때."
 ];
+// Observed defaults outside the repository-authored v1 set. Never infer ownership
+// from sentence endings: an unrecognized sentence may be a user's own prompt.
+var legacyDefaults=[
+  {en:'When do we need to finish this?',context:'그 일의 대응기한을 물으려고 할 때.'}
+];
+function isDefault(en,context){
+  var i=items.findIndex(function(x){return x.en===en;});
+  return i!==-1&&(context===previousContexts[i]||legacyDefaults.some(function(x){return x.en===en&&x.context===context;}));
+}
 function fillMissing(cards,chapters){
   var ids=chapters.filter(function(c){return ['업무대화 일반','업무대화(일반)','영어업무(일반)'].indexOf(c.name)!==-1;}).map(function(c){return c.id;});
-  var byEnglish=new Map(items.map(function(x,i){return [x.en,{context:x.context,previous:previousContexts[i]}];}));
+  var byEnglish=new Map(items.map(function(x){return [x.en,x.context];}));
   var changed=false;
   cards.forEach(function(c){
-    var entry=byEnglish.get(c.en);
-    if(ids.indexOf(c.chapterId)!==-1 && entry && (c.context==null || c.context===entry.previous)){
-      c.context=entry.context;changed=true;
+    if(ids.indexOf(c.chapterId)===-1||!byEnglish.has(c.en)||c.contextUserEdited===true)return;
+    var latest=byEnglish.get(c.en);
+    if(c.context==null||isDefault(c.en,c.context)){
+      if(c.context!==latest){c.context=latest;changed=true;}
     }
   });
   return changed;
 }
-var api={items:items,previousContexts:previousContexts,fillMissing:fillMissing};
+// A complete older cloud snapshot may replace records before app initialization.
+// Carry only an identifiable user's context forward; leave all other remote fields alone.
+function preserveUserContexts(incoming,local,chapters){
+  var ids=chapters.filter(function(c){return ['업무대화 일반','업무대화(일반)','영어업무(일반)'].indexOf(c.name)!==-1;}).map(function(c){return c.id;});
+  var byId=new Map(local.map(function(c){return [c.id,c];}));
+  incoming.forEach(function(c){
+    var prior=byId.get(c.id),template=items.find(function(x){return x.en===c.en;});
+    if(!prior||prior.en!==c.en||!template||ids.indexOf(c.chapterId)===-1||c.contextUserEdited===true)return;
+    var localIsUser=prior.contextUserEdited===true||(typeof prior.context==='string'&&prior.context!==template.context&&!isDefault(prior.en,prior.context));
+    var remoteIsDefault=c.context==null||c.context===template.context||isDefault(c.en,c.context);
+    if(localIsUser&&remoteIsDefault){c.context=prior.context;if(prior.contextUserEdited===true)c.contextUserEdited=true;}
+  });
+}
+var api={items:items,previousContexts:previousContexts,legacyDefaults:legacyDefaults,isDefault:isDefault,preserveUserContexts:preserveUserContexts,fillMissing:fillMissing};
 if(typeof module==='object'&&module.exports)module.exports=api;
 else root.BusinessContexts=api;
 })(typeof window!=='undefined'?window:globalThis);
