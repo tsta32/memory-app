@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const { items, previousContexts, fillMissing } = require('../business-contexts');
+const priorities=require('../business-priorities');
 const source = require('../general_business_english_literal_ko.json');
 assert.equal(items.length, source.count);
 assert.equal(items.length, 200);
@@ -45,12 +46,13 @@ const edits=oldSource.items.map((x,i)=>({...before[i],context:i%2?'':x.context+'
 const editsBefore=JSON.parse(JSON.stringify(edits));
 assert.equal(fillMissing(edits,chapters),false);
 assert.deepEqual(edits,editsBefore);
-const sourceBefore=JSON.parse(JSON.stringify(source));
-sourceBefore.items.forEach((x,i)=>{x.context=oldSource.items[i].context;});
-assert.deepEqual(sourceBefore,oldSource,'only source context fields change');
+for (const [i,row] of source.items.entries()) {
+  assert.equal(row.context,items[i].context,'each reviewed source context matches runtime data');
+  assert.equal(row.businessTemplateKey,priorities.items[i].key);
+  assert.equal(row.en,items[i].en);
+}
 
 assert.deepEqual(previousContexts,oldSource.items.map(x=>x.context));
-const priorities=require('../business-priorities');
 oldSource.items.forEach((x,i)=>{assert.equal(priorities.identify({en:'Edited English',context:x.context}).key,priorities.items[i].key);});
 
 // Reported production variant must migrate, without interpreting arbitrary prose as a default.

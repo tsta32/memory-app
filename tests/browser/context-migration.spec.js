@@ -74,9 +74,9 @@ test.describe('service worker cache migration',()=>{
    await expect.poll(async()=>{try{return await page.evaluate(async()=>!!(await navigator.serviceWorker.getRegistration())?.active);}catch{return false;}}).toBe(true);
    await expect.poll(async()=>{try{return await page.evaluate(async()=>await caches.keys());}catch{return ['srs-app-v72'];}}).not.toContain('srs-app-v72');
    await page.reload();await page.locator('#memory-sync-local').click();await expect(page.locator('#chapterSelectList')).toContainText('영어업무(일반)');
-   expect(await page.evaluate(async()=>await caches.keys())).toContain('srs-app-v74');
+   expect(await page.evaluate(async()=>await caches.keys())).toContain('srs-app-v75');
    expect(await page.evaluate(async()=>await (await caches.match('./user-note')).text())).toBe('keep');
-   const response=await page.evaluate(async()=>{const r=await caches.match('./business-contexts.js?v=74');return r&&r.text();});expect(response).toContain('그 일의 대응기한을 물으려고 할 때.');
+   const response=await page.evaluate(async()=>{const r=await caches.match('./business-contexts.js?v=75');return r&&r.text();});expect(response).toContain('업무기한 질문');
    await verify(page,cards,data);
   }finally{await context.close();}
  });

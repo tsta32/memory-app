@@ -180,7 +180,7 @@
 | 178 | We need to review this part again. | 해당부분 재검토필요안내 |
 | 179 | The next step is testing. | 다음단계 테스트안내 |
 | 180 | I’ll prioritize this task. | 해당업무 우선처리약속 |
-| 181 | I'd like to confirm the priority. | 업무우선순위 확인의향 |
+| 181 | I'd like to set the order of the tasks. | 작업순서 결정희망 |
 | 182 | Who is responsible for this task? | 업무담당자 질문 |
 | 183 | I’ll take responsibility for this task. | 해당업무 책임수락 |
 | 184 | Could you handle this task? | 업무담당 요청 |

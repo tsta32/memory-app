@@ -7,7 +7,7 @@
       "source_line": 1,
       "en": "Are you available to talk now?",
       "ko_before": "지금 대화(통화) 가능하신가요?",
-      "ko_after": "지금 이야기할 수 있으신가요?",
+      "ko_after": "지금 대화할 수 있으신가요?",
       "context": "현재대화 가능여부질문",
       "priority": "essential",
       "businessTemplateKey": "business-general-001"
@@ -52,7 +52,7 @@
       "source_line": 6,
       "en": "Your audio keeps cutting out.",
       "ko_before": "목소리가 끊깁니다.",
-      "ko_after": "당신의 음성이 계속 끊깁니다.",
+      "ko_after": "당신의 오디오가 계속 끊깁니다.",
       "context": "상대음성 반복끊김알림",
       "priority": "important",
       "businessTemplateKey": "business-general-006"
@@ -61,7 +61,7 @@
       "source_line": 7,
       "en": "I think your microphone is muted.",
       "ko_before": "음소거 상태이신 것 같습니다.",
-      "ko_after": "당신의 마이크가 음소거되어 있는 것 같습니다.",
+      "ko_after": "제 생각에는 당신의 마이크가 음소거된 것 같습니다.",
       "context": "상대마이크 음소거추정알림",
       "priority": "important",
       "businessTemplateKey": "business-general-007"
@@ -133,7 +133,7 @@
       "source_line": 15,
       "en": "I'll send the link in the chat.",
       "ko_before": "링크를 채팅에 보내겠습니다.",
-      "ko_after": "제가 채팅에 그 링크를 보내겠습니다.",
+      "ko_after": "제가 채팅에 링크를 보내겠습니다.",
       "context": "채팅링크 전송예고",
       "priority": "important",
       "businessTemplateKey": "business-general-015"
@@ -169,7 +169,7 @@
       "source_line": 19,
       "en": "Is everyone here?",
       "ko_before": "참석자들이 모두 들어왔나요?",
-      "ko_after": "모두 여기 있나요?",
+      "ko_after": "모두 여기 와 있나요?",
       "context": "참석인원 전원도착확인",
       "priority": "important",
       "businessTemplateKey": "business-general-019"
@@ -196,7 +196,7 @@
       "source_line": 22,
       "en": "Let’s begin today’s meeting.",
       "ko_before": "오늘 회의를 시작하겠습니다.",
-      "ko_after": "오늘의 회의를 시작합시다.",
+      "ko_after": "우리 오늘 회의를 시작합시다.",
       "context": "오늘회의 시작제안",
       "priority": "important",
       "businessTemplateKey": "business-general-022"
@@ -205,7 +205,7 @@
       "source_line": 23,
       "en": "Let’s review today’s agenda first.",
       "ko_before": "오늘 안건을 먼저 확인하겠습니다.",
-      "ko_after": "먼저 오늘의 안건을 검토합시다.",
+      "ko_after": "우리 오늘의 안건을 먼저 검토합시다.",
       "context": "오늘안건 우선검토제안",
       "priority": "important",
       "businessTemplateKey": "business-general-023"
@@ -214,7 +214,7 @@
       "source_line": 24,
       "en": "I'll share the progress first.",
       "ko_before": "먼저 진행 상황을 공유하겠습니다.",
-      "ko_after": "제가 먼저 진행 상황을 공유하겠습니다.",
+      "ko_after": "제가 진행 상황을 먼저 공유하겠습니다.",
       "context": "업무진행 우선공유예고",
       "priority": "important",
       "businessTemplateKey": "business-general-024"
@@ -232,7 +232,7 @@
       "source_line": 26,
       "en": "There are two key points.",
       "ko_before": "핵심은 두 가지입니다.",
-      "ko_after": "핵심적인 요점이 두 가지 있습니다.",
+      "ko_after": "두 가지 핵심 사항이 있습니다.",
       "context": "핵심사항 두가지안내",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-026"
@@ -241,7 +241,7 @@
       "source_line": 27,
       "en": "Let’s move to the next item.",
       "ko_before": "다음 항목으로 넘어가겠습니다.",
-      "ko_after": "다음 항목으로 넘어갑시다.",
+      "ko_after": "우리 다음 항목으로 넘어갑시다.",
       "context": "다음안건 전환제안",
       "priority": "essential",
       "businessTemplateKey": "business-general-027"
@@ -250,7 +250,7 @@
       "source_line": 28,
       "en": "Let’s discuss this part later.",
       "ko_before": "이 부분은 나중에 다시 논의하겠습니다.",
-      "ko_after": "이 부분은 나중에 논의합시다.",
+      "ko_after": "우리 이 부분은 나중에 논의합시다.",
       "context": "해당부분 추후논의제안",
       "priority": "important",
       "businessTemplateKey": "business-general-028"
@@ -277,7 +277,7 @@
       "source_line": 31,
       "en": "What do you think?",
       "ko_before": "어떻게 생각하세요?",
-      "ko_after": "어떻게 생각하시나요?",
+      "ko_after": "당신은 어떻게 생각하시나요?",
       "context": "업무방안 의견질문",
       "priority": "essential",
       "businessTemplateKey": "business-general-031"
@@ -313,7 +313,7 @@
       "source_line": 35,
       "en": "I want to make sure I understood correctly.",
       "ko_before": "제가 올바르게 이해했는지 확인하고 싶습니다.",
-      "ko_after": "제가 정확하게 이해했는지 확인하고 싶습니다.",
+      "ko_after": "제가 올바르게 이해했는지 확실히 하고 싶습니다.",
       "context": "이해내용 정확성확인의향",
       "priority": "essential",
       "businessTemplateKey": "business-general-035"
@@ -322,7 +322,7 @@
       "source_line": 36,
       "en": "So, do you mean that...?",
       "ko_before": "정리하면, 이 뜻인가요?",
-      "ko_after": "그러니까, ...라는 뜻인가요?",
+      "ko_after": "그러니까, 당신의 뜻은 ...라는 건가요?",
       "context": "상대발언 의미확인",
       "priority": "important",
       "businessTemplateKey": "business-general-036"
@@ -349,7 +349,7 @@
       "source_line": 39,
       "en": "Could you give an example?",
       "ko_before": "예를 하나 들어주시겠어요?",
-      "ko_after": "예를 하나 들어주시겠어요?",
+      "ko_after": "예시 하나를 들어주시겠어요?",
       "context": "설명예시 요청",
       "priority": "important",
       "businessTemplateKey": "business-general-039"
@@ -358,7 +358,7 @@
       "source_line": 40,
       "en": "I'm not sure about that yet.",
       "ko_before": "지금은 답을 확실히 모르겠습니다.",
-      "ko_after": "저는 아직 그것에 대해 확신하지 못합니다.",
+      "ko_after": "저는 아직 그것에 대해 확신이 없습니다.",
       "context": "해당사항 확신유보표현",
       "priority": "essential",
       "businessTemplateKey": "business-general-040"
@@ -394,7 +394,7 @@
       "source_line": 44,
       "en": "We need to verify that point.",
       "ko_before": "그 부분은 다시 확인할 필요가 있습니다.",
-      "ko_after": "우리는 그 점을 확인할 필요가 있습니다.",
+      "ko_after": "우리는 그 부분을 확인해야 합니다.",
       "context": "해당사항 검증필요안내",
       "priority": "important",
       "businessTemplateKey": "business-general-044"
@@ -403,7 +403,7 @@
       "source_line": 45,
       "en": "We could consider another option.",
       "ko_before": "다른 방법도 고려할 수 있습니다.",
-      "ko_after": "우리는 다른 선택지도 고려할 수 있습니다.",
+      "ko_after": "우리는 또 다른 선택지를 검토할 수 있습니다.",
       "context": "다른대안 검토제안",
       "priority": "essential",
       "businessTemplateKey": "business-general-045"
@@ -421,7 +421,7 @@
       "source_line": 47,
       "en": "We’re nearly out of time.",
       "ko_before": "시간이 거의 다 됐습니다.",
-      "ko_after": "우리에게 남은 시간이 거의 없습니다.",
+      "ko_after": "우리는 시간이 거의 다 되었습니다.",
       "context": "남은시간 소진임박알림",
       "priority": "important",
       "businessTemplateKey": "business-general-047"
@@ -430,7 +430,7 @@
       "source_line": 48,
       "en": "I'll take one last question.",
       "ko_before": "마지막 질문 하나만 받겠습니다.",
-      "ko_after": "마지막 질문 하나를 받겠습니다.",
+      "ko_after": "제가 마지막 질문 하나를 받겠습니다.",
       "context": "마지막질문 하나접수예고",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-048"
@@ -439,7 +439,7 @@
       "source_line": 49,
       "en": "Let's stop here for today.",
       "ko_before": "오늘은 여기까지 하겠습니다.",
-      "ko_after": "오늘은 여기서 멈춥시다.",
+      "ko_after": "우리 오늘은 여기서 멈춥시다.",
       "context": "오늘논의 중단제안",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-049"
@@ -457,7 +457,7 @@
       "source_line": 51,
       "en": "I'll share the meeting notes.",
       "ko_before": "회의록을 공유하겠습니다.",
-      "ko_after": "제가 회의 기록을 공유하겠습니다.",
+      "ko_after": "제가 회의록을 공유하겠습니다.",
       "context": "회의기록 공유예고",
       "priority": "important",
       "businessTemplateKey": "business-general-051"
@@ -466,7 +466,7 @@
       "source_line": 52,
       "en": "Let's set the next meeting.",
       "ko_before": "다음 회의 일정을 정하겠습니다.",
-      "ko_after": "다음 회의 일정을 정합시다.",
+      "ko_after": "우리 다음 회의를 설정합시다.",
       "context": "다음회의 일정설정제안",
       "priority": "important",
       "businessTemplateKey": "business-general-052"
@@ -484,7 +484,7 @@
       "source_line": 54,
       "en": "Let’s conclude the meeting.",
       "ko_before": "그럼 회의를 마치겠습니다.",
-      "ko_after": "회의를 마무리합시다.",
+      "ko_after": "우리 회의를 마무리합시다.",
       "context": "회의진행 종료제안",
       "priority": "important",
       "businessTemplateKey": "business-general-054"
@@ -493,7 +493,7 @@
       "source_line": 55,
       "en": "I'll check this after the meeting.",
       "ko_before": "이 내용은 회의 후에 확인하겠습니다.",
-      "ko_after": "제가 회의 후에 이것을 확인하겠습니다.",
+      "ko_after": "제가 이것을 회의 후에 확인하겠습니다.",
       "context": "해당사항 회의후확인약속",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-055"
@@ -502,7 +502,7 @@
       "source_line": 56,
       "en": "I’ll clarify who is responsible and the deadline.",
       "ko_before": "담당자와 기한을 정리하겠습니다.",
-      "ko_after": "누가 책임자인지와 마감일을 명확히 하겠습니다.",
+      "ko_after": "제가 책임자가 누구인지와 마감일을 명확히 하겠습니다.",
       "context": "담당자·기한 명확화약속",
       "priority": "important",
       "businessTemplateKey": "business-general-056"
@@ -556,7 +556,7 @@
       "source_line": 62,
       "en": "Let’s move to the next slide.",
       "ko_before": "다음 슬라이드를 보겠습니다.",
-      "ko_after": "다음 슬라이드로 넘어갑시다.",
+      "ko_after": "우리 다음 슬라이드로 넘어갑시다.",
       "context": "다음슬라이드 전환제안",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-062"
@@ -565,7 +565,7 @@
       "source_line": 63,
       "en": "You can see it in this document.",
       "ko_before": "이 자료에서 확인할 수 있습니다.",
-      "ko_after": "이 문서에서 그것을 볼 수 있습니다.",
+      "ko_after": "당신은 이 문서에서 그것을 볼 수 있습니다.",
       "context": "해당문서 내용확인안내",
       "priority": "important",
       "businessTemplateKey": "business-general-063"
@@ -574,7 +574,7 @@
       "source_line": 64,
       "en": "This is the key point for today.",
       "ko_before": "이것이 오늘의 핵심 내용입니다.",
-      "ko_after": "이것이 오늘의 핵심 요점입니다.",
+      "ko_after": "이것이 오늘의 핵심 사항입니다.",
       "context": "오늘핵심 강조표현",
       "priority": "important",
       "businessTemplateKey": "business-general-064"
@@ -592,7 +592,7 @@
       "source_line": 66,
       "en": "Please feel free to ask questions.",
       "ko_before": "질문은 편하게 해 주세요.",
-      "ko_after": "부담 갖지 말고 질문해 주세요.",
+      "ko_after": "질문하는 것을 편하게 생각해 주세요.",
       "context": "자유질문 권유",
       "priority": "important",
       "businessTemplateKey": "business-general-066"
@@ -610,7 +610,7 @@
       "source_line": 68,
       "en": "I’ll explain this part again later.",
       "ko_before": "이 부분은 조금 뒤에 다시 설명하겠습니다.",
-      "ko_after": "제가 이 부분을 나중에 다시 설명하겠습니다.",
+      "ko_after": "제가 이 부분을 조금 뒤에 다시 설명하겠습니다.",
       "context": "해당부분 추후재설명약속",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-068"
@@ -619,7 +619,7 @@
       "source_line": 69,
       "en": "I’ll pause the screen sharing for a moment.",
       "ko_before": "잠시 화면을 멈추겠습니다.",
-      "ko_after": "제가 잠시 화면 공유를 멈추겠습니다.",
+      "ko_after": "제가 잠시 화면 공유를 일시 중지하겠습니다.",
       "context": "화면공유 일시중단예고",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-069"
@@ -637,7 +637,7 @@
       "source_line": 71,
       "en": "Feel free to ask questions while I speak.",
       "ko_before": "제가 말하는 동안 질문하셔도 됩니다.",
-      "ko_after": "제가 말하는 동안 편하게 질문해 주세요.",
+      "ko_after": "제가 말하는 동안 자유롭게 질문해 주세요.",
       "context": "발표도중 자유질문권유",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-071"
@@ -655,7 +655,7 @@
       "source_line": 73,
       "en": "Is any part unclear?",
       "ko_before": "불명헌 부분이 있나요?",
-      "ko_after": "어떤 부분이라도 불명확한가요?",
+      "ko_after": "불명확한 부분이 있나요?",
       "context": "불명확부분 유무질문",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-073"
@@ -664,7 +664,7 @@
       "source_line": 74,
       "en": "We’re short on time, so let’s move on.",
       "ko_before": "시간 관계상 다음으로 넘어가겠습니다.",
-      "ko_after": "시간이 부족하므로 다음으로 넘어갑시다.",
+      "ko_after": "우리는 시간이 부족하니 다음으로 넘어갑시다.",
       "context": "시간부족 다음진행제안",
       "priority": "important",
       "businessTemplateKey": "business-general-074"
@@ -673,7 +673,7 @@
       "source_line": 75,
       "en": "Let me briefly summarize this.",
       "ko_before": "이 내용을 간단히 정리하겠습니다.",
-      "ko_after": "제가 이것을 간단히 요약하겠습니다.",
+      "ko_after": "제가 이것을 간단히 요약해 보겠습니다.",
       "context": "해당내용 간략요약예고",
       "priority": "essential",
       "businessTemplateKey": "business-general-075"
@@ -682,7 +682,7 @@
       "source_line": 76,
       "en": "Here is my understanding.",
       "ko_before": "제가 이해한 내용은 다음과 같습니다.",
-      "ko_after": "여기에 제가 이해한 내용이 있습니다.",
+      "ko_after": "제 이해는 다음과 같습니다.",
       "context": "내이해내용 제시",
       "priority": "important",
       "businessTemplateKey": "business-general-076"
@@ -700,7 +700,7 @@
       "source_line": 78,
       "en": "I'll check that.",
       "ko_before": "그 점은 확인해 보겠습니다.",
-      "ko_after": "제가 그것을 확인하겠습니다.",
+      "ko_after": "제가 그 점을 확인하겠습니다.",
       "context": "해당사항 확인약속",
       "priority": "important",
       "businessTemplateKey": "business-general-078"
@@ -709,7 +709,7 @@
       "source_line": 79,
       "en": "I'll answer that after the meeting.",
       "ko_before": "그 질문은 회의 후에 답변드리겠습니다.",
-      "ko_after": "제가 회의 후에 그것에 답변하겠습니다.",
+      "ko_after": "제가 그것에는 회의 후에 답변하겠습니다.",
       "context": "받은질문 회의후답변약속",
       "priority": "important",
       "businessTemplateKey": "business-general-079"
@@ -718,7 +718,7 @@
       "source_line": 80,
       "en": "Let’s end here for today.",
       "ko_before": "오늘은 여기까지 하겠습니다.",
-      "ko_after": "오늘은 여기서 끝냅시다.",
+      "ko_after": "우리 오늘은 여기서 끝냅시다.",
       "context": "오늘논의 종료제안",
       "priority": "essential",
       "businessTemplateKey": "business-general-080"
@@ -727,7 +727,7 @@
       "source_line": 81,
       "en": "Could we adjust the schedule?",
       "ko_before": "일정을 조정할 수 있을까요?",
-      "ko_after": "우리가 일정을 조정할 수 있을까요?",
+      "ko_after": "일정을 바꿀 수 있을까요?",
       "context": "업무일정 변경제안",
       "priority": "essential",
       "businessTemplateKey": "business-general-081"
@@ -736,7 +736,7 @@
       "source_line": 82,
       "en": "That time works for me.",
       "ko_before": "그 시간은 괜찮습니다.",
-      "ko_after": "그 시간은 저에게 괜찮습니다.",
+      "ko_after": "그 시간은 저에게 맞습니다.",
       "context": "제안시간 수락표현",
       "priority": "essential",
       "businessTemplateKey": "business-general-082"
@@ -763,7 +763,7 @@
       "source_line": 85,
       "en": "Could we start a little later?",
       "ko_before": "조금 늦게 시작해도 될까요?",
-      "ko_after": "우리가 조금 더 늦게 시작할 수 있을까요?",
+      "ko_after": "조금 더 늦게 시작할 수 있을까요?",
       "context": "시작시각 소폭연기요청",
       "priority": "important",
       "businessTemplateKey": "business-general-085"
@@ -772,7 +772,7 @@
       "source_line": 86,
       "en": "Could we postpone the meeting by 30 minutes?",
       "ko_before": "회의를 30분 미뤄도 될까요?",
-      "ko_after": "우리가 회의를 30분 미룰 수 있을까요?",
+      "ko_after": "회의를 30분 뒤로 미룰 수 있을까요?",
       "context": "회의시각 30분연기요청",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-086"
@@ -781,7 +781,7 @@
       "source_line": 87,
       "en": "Could we move the meeting to an earlier time?",
       "ko_before": "회의를 앞당길 수 있을까요?",
-      "ko_after": "우리가 회의를 더 이른 시간으로 옮길 수 있을까요?",
+      "ko_after": "회의를 더 이른 시간으로 옮길 수 있을까요?",
       "context": "회의시각 앞당김요청",
       "priority": "important",
       "businessTemplateKey": "business-general-087"
@@ -826,7 +826,7 @@
       "source_line": 92,
       "en": "Could you propose a new time?",
       "ko_before": "새로운 시간을 제안해 주시겠어요?",
-      "ko_after": "새로운 시간을 제안해 주시겠어요?",
+      "ko_after": "새로운 시간을 제안해 주실 수 있을까요?",
       "context": "새시간 제안요청",
       "priority": "important",
       "businessTemplateKey": "business-general-092"
@@ -853,7 +853,7 @@
       "source_line": 95,
       "en": "What time works best for you?",
       "ko_before": "언제가 가장 편하신가요?",
-      "ko_after": "어떤 시간이 당신에게 가장 괜찮나요?",
+      "ko_after": "어떤 시간이 당신에게 가장 잘 맞나요?",
       "context": "최적시간 질문",
       "priority": "essential",
       "businessTemplateKey": "business-general-095"
@@ -862,7 +862,7 @@
       "source_line": 96,
       "en": "Please tell me which times work for you.",
       "ko_before": "가능한 시간을 알려주세요.",
-      "ko_after": "어떤 시간들이 당신에게 괜찮은지 알려주세요.",
+      "ko_after": "어떤 시간들이 가능한지 알려주세요.",
       "context": "가능시간 알림요청",
       "priority": "important",
       "businessTemplateKey": "business-general-096"
@@ -871,7 +871,7 @@
       "source_line": 97,
       "en": "I’ll notify you once the schedule is confirmed.",
       "ko_before": "일정이 확정되면 알려드리겠습니다.",
-      "ko_after": "일정이 확정되면 제가 당신에게 알리겠습니다.",
+      "ko_after": "일정이 확정되는 즉시 제가 알려드리겠습니다.",
       "context": "업무일정 확정후통보약속",
       "priority": "important",
       "businessTemplateKey": "business-general-097"
@@ -943,7 +943,7 @@
       "source_line": 105,
       "en": "I have a scheduling conflict.",
       "ko_before": "일정이 겹칩니다.",
-      "ko_after": "저는 일정이 겹칩니다.",
+      "ko_after": "저는 일정이 겹치는 문제가 있습니다.",
       "context": "업무일정 중복알림",
       "priority": "important",
       "businessTemplateKey": "business-general-105"
@@ -961,7 +961,7 @@
       "source_line": 107,
       "en": "I’ll check my schedule and reply.",
       "ko_before": "일정 확인 후 답변드리겠습니다.",
-      "ko_after": "제가 일정을 확인하고 답변하겠습니다.",
+      "ko_after": "제가 제 일정을 확인하고 답변하겠습니다.",
       "context": "업무일정 확인후회신약속",
       "priority": "important",
       "businessTemplateKey": "business-general-107"
@@ -988,7 +988,7 @@
       "source_line": 110,
       "en": "Please check your email.",
       "ko_before": "이메일 확인 부탁드립니다.",
-      "ko_after": "이메일을 확인해 주세요.",
+      "ko_after": "당신의 이메일을 확인해 주세요.",
       "context": "이메일 확인요청",
       "priority": "important",
       "businessTemplateKey": "business-general-110"
@@ -1006,7 +1006,7 @@
       "source_line": 112,
       "en": "I've attached the file.",
       "ko_before": "자료를 첨부했습니다.",
-      "ko_after": "제가 그 파일을 첨부했습니다.",
+      "ko_after": "제가 파일을 첨부했습니다.",
       "context": "업무파일 첨부완료알림",
       "priority": "essential",
       "businessTemplateKey": "business-general-112"
@@ -1015,7 +1015,7 @@
       "source_line": 113,
       "en": "I'll send the file again.",
       "ko_before": "파일을 다시 보내드리겠습니다.",
-      "ko_after": "제가 그 파일을 다시 보내겠습니다.",
+      "ko_after": "제가 파일을 다시 보내드리겠습니다.",
       "context": "업무파일 재전송약속",
       "priority": "important",
       "businessTemplateKey": "business-general-113"
@@ -1024,7 +1024,7 @@
       "source_line": 114,
       "en": "I can't open the file.",
       "ko_before": "파일이 열리지 않습니다.",
-      "ko_after": "저는 그 파일을 열 수 없습니다.",
+      "ko_after": "저는 파일을 열 수 없습니다.",
       "context": "파일열기 불가알림",
       "priority": "essential",
       "businessTemplateKey": "business-general-114"
@@ -1033,7 +1033,7 @@
       "source_line": 115,
       "en": "I didn’t receive the attachment.",
       "ko_before": "첨부파일을 받지 못했습니다.",
-      "ko_after": "저는 첨부파일을 받지 못했습니다.",
+      "ko_after": "저는 첨부 파일을 받지 못했습니다.",
       "context": "첨부파일 미수신알림",
       "priority": "important",
       "businessTemplateKey": "business-general-115"
@@ -1051,7 +1051,7 @@
       "source_line": 117,
       "en": "Could you confirm that you received my email?",
       "ko_before": "메일을 받으셨는지 확인 부탁드립니다.",
-      "ko_after": "당신이 제 이메일을 받았는지 확인해 주시겠어요?",
+      "ko_after": "제 이메일을 받으셨는지 확인해 주실 수 있을까요?",
       "context": "내이메일 수신확인요청",
       "priority": "important",
       "businessTemplateKey": "business-general-117"
@@ -1105,7 +1105,7 @@
       "source_line": 123,
       "en": "I’m sending this for reference.",
       "ko_before": "참고용으로 보내드립니다.",
-      "ko_after": "참고를 위해 이것을 보내드립니다.",
+      "ko_after": "제가 이것을 참고용으로 보내고 있습니다.",
       "context": "전송자료 참고목적안내",
       "priority": "important",
       "businessTemplateKey": "business-general-123"
@@ -1114,7 +1114,7 @@
       "source_line": 124,
       "en": "Could you forward this to the relevant people?",
       "ko_before": "관련자에게 전달해 주시겠어요?",
-      "ko_after": "이것을 관련된 사람들에게 전달해 주시겠어요?",
+      "ko_after": "이것을 관련된 사람들에게 전달해 주실 수 있을까요?",
       "context": "관련자 전달요청",
       "priority": "important",
       "businessTemplateKey": "business-general-124"
@@ -1159,7 +1159,7 @@
       "source_line": 129,
       "en": "Please review the attached file for details.",
       "ko_before": "자세한 내용은 첨부파일을 확인해 주세요.",
-      "ko_after": "세부 사항을 위해 첨부된 파일을 검토해 주세요.",
+      "ko_after": "세부 사항을 위해 첨부 파일을 검토해 주세요.",
       "context": "첨부파일 세부내용검토요청",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-129"
@@ -1177,7 +1177,7 @@
       "source_line": 131,
       "en": "I'm sending the final version.",
       "ko_before": "최종 버전을 보내드립니다.",
-      "ko_after": "제가 최종 버전을 보내드립니다.",
+      "ko_after": "제가 최종 버전을 보내고 있습니다.",
       "context": "최종본 전송알림",
       "priority": "important",
       "businessTemplateKey": "business-general-131"
@@ -1195,7 +1195,7 @@
       "source_line": 133,
       "en": "I’ve highlighted the changes.",
       "ko_before": "변경 사항을 표시했습니다.",
-      "ko_after": "제가 변경 사항을 강조 표시했습니다.",
+      "ko_after": "제가 변경 사항들을 강조 표시했습니다.",
       "context": "변경사항 강조표시알림",
       "priority": "important",
       "businessTemplateKey": "business-general-133"
@@ -1213,7 +1213,7 @@
       "source_line": 135,
       "en": "Would you like me to send it in another format?",
       "ko_before": "다른 형식으로 보내드릴까요?",
-      "ko_after": "제가 그것을 다른 형식으로 보내드리기를 원하시나요?",
+      "ko_after": "제가 이것을 다른 형식으로 보내드릴까요?",
       "context": "다른파일형식 전송희망여부질문",
       "priority": "important",
       "businessTemplateKey": "business-general-135"
@@ -1231,7 +1231,7 @@
       "source_line": 137,
       "en": "When should I send the materials?",
       "ko_before": "자료를 언제까지 보내면 될까요?",
-      "ko_after": "제가 자료를 언제 보내야 하나요?",
+      "ko_after": "제가 자료들을 언제 보내야 하나요?",
       "context": "자료전송 시점질문",
       "priority": "important",
       "businessTemplateKey": "business-general-137"
@@ -1240,7 +1240,7 @@
       "source_line": 138,
       "en": "I’ll send it by the end of today.",
       "ko_before": "오늘 중으로 보내드리겠습니다.",
-      "ko_after": "제가 오늘이 끝날 때까지 그것을 보내겠습니다.",
+      "ko_after": "제가 오늘이 끝나기 전까지 그것을 보내겠습니다.",
       "context": "자료전송 오늘내약속",
       "priority": "important",
       "businessTemplateKey": "business-general-138"
@@ -1258,7 +1258,7 @@
       "source_line": 140,
       "en": "I'm preparing the materials.",
       "ko_before": "자료를 준비하고 있습니다.",
-      "ko_after": "제가 자료를 준비하고 있습니다.",
+      "ko_after": "제가 자료들을 준비하고 있습니다.",
       "context": "자료준비 진행보고",
       "priority": "important",
       "businessTemplateKey": "business-general-140"
@@ -1267,7 +1267,7 @@
       "source_line": 141,
       "en": "The materials aren't ready yet.",
       "ko_before": "아직 자료가 준비되지 않았습니다.",
-      "ko_after": "자료가 아직 준비되지 않았습니다.",
+      "ko_after": "자료들이 아직 준비되지 않았습니다.",
       "context": "자료준비 미완료알림",
       "priority": "important",
       "businessTemplateKey": "business-general-141"
@@ -1285,7 +1285,7 @@
       "source_line": 143,
       "en": "I'll send the link again.",
       "ko_before": "링크를 다시 보내드리겠습니다.",
-      "ko_after": "제가 링크를 다시 보내겠습니다.",
+      "ko_after": "제가 링크를 다시 보내드리겠습니다.",
       "context": "업무링크 재전송약속",
       "priority": "important",
       "businessTemplateKey": "business-general-143"
@@ -1294,7 +1294,7 @@
       "source_line": 144,
       "en": "I can't access the link.",
       "ko_before": "링크에 접근할 수 없습니다.",
-      "ko_after": "저는 그 링크에 접근할 수 없습니다.",
+      "ko_after": "저는 링크에 접근할 수 없습니다.",
       "context": "링크접속 불가알림",
       "priority": "important",
       "businessTemplateKey": "business-general-144"
@@ -1303,7 +1303,7 @@
       "source_line": 145,
       "en": "Could you verify the access permissions?",
       "ko_before": "접근 권한을 확인해 주시겠어요?",
-      "ko_after": "접근 권한을 확인해 주시겠어요?",
+      "ko_after": "접근 권한을 확인해 주실 수 있을까요?",
       "context": "접근권한 확인요청",
       "priority": "important",
       "businessTemplateKey": "business-general-145"
@@ -1348,7 +1348,7 @@
       "source_line": 150,
       "en": "Please let me know if you need more information.",
       "ko_before": "추가 자료가 필요하면 알려주세요.",
-      "ko_after": "더 많은 정보가 필요하면 저에게 알려주세요.",
+      "ko_after": "더 많은 정보가 필요하시면 저에게 알려주세요.",
       "context": "추가정보 필요시알림요청",
       "priority": "important",
       "businessTemplateKey": "business-general-150"
@@ -1357,7 +1357,7 @@
       "source_line": 151,
       "en": "Please let me know if you have any questions.",
       "ko_before": "문의 사항이 있으면 알려주세요.",
-      "ko_after": "질문이 있으면 저에게 알려주세요.",
+      "ko_after": "질문이 있으시면 저에게 알려주세요.",
       "context": "질문사항 발생시알림요청",
       "priority": "important",
       "businessTemplateKey": "business-general-151"
@@ -1375,7 +1375,7 @@
       "source_line": 153,
       "en": "Thank you for your quick reply.",
       "ko_before": "빠른 회신 감사합니다.",
-      "ko_after": "빠른 답변 감사합니다.",
+      "ko_after": "빠른 답변에 감사드립니다.",
       "context": "신속회신 감사표현",
       "priority": "important",
       "businessTemplateKey": "business-general-153"
@@ -1429,7 +1429,7 @@
       "source_line": 159,
       "en": "I’ll revise it and send it again.",
       "ko_before": "수정해서 다시 보내드리겠습니다.",
-      "ko_after": "제가 그것을 수정해서 다시 보내겠습니다.",
+      "ko_after": "제가 수정해서 다시 보내드리겠습니다.",
       "context": "해당자료 수정후재전송약속",
       "priority": "essential",
       "businessTemplateKey": "business-general-159"
@@ -1447,7 +1447,7 @@
       "source_line": 161,
       "en": "I’ll be more careful next time.",
       "ko_before": "다음부터 주의하겠습니다.",
-      "ko_after": "다음번에는 제가 더 주의하겠습니다.",
+      "ko_after": "제가 다음번에는 더 주의하겠습니다.",
       "context": "다음기회 주의약속",
       "priority": "important",
       "businessTemplateKey": "business-general-161"
@@ -1456,7 +1456,7 @@
       "source_line": 162,
       "en": "I'm checking the issue.",
       "ko_before": "문제를 확인하고 있습니다.",
-      "ko_after": "제가 그 문제를 확인하고 있습니다.",
+      "ko_after": "제가 문제를 확인하고 있습니다.",
       "context": "발생문제 확인중보고",
       "priority": "important",
       "businessTemplateKey": "business-general-162"
@@ -1474,7 +1474,7 @@
       "source_line": 164,
       "en": "I haven’t determined the exact cause yet.",
       "ko_before": "아직 정확한 원인은 모릅니다.",
-      "ko_after": "저는 아직 정확한 원인을 밝혀내지 못했습니다.",
+      "ko_after": "저는 정확한 원인을 아직 파악하지 못했습니다.",
       "context": "정확한원인 미파악보고",
       "priority": "important",
       "businessTemplateKey": "business-general-164"
@@ -1492,7 +1492,7 @@
       "source_line": 166,
       "en": "The schedule is slightly behind.",
       "ko_before": "일정이 조금 지연되고 있습니다.",
-      "ko_after": "일정이 약간 늦어지고 있습니다.",
+      "ko_after": "일정이 약간 뒤처져 있습니다.",
       "context": "업무일정 소폭지연보고",
       "priority": "important",
       "businessTemplateKey": "business-general-166"
@@ -1501,7 +1501,7 @@
       "source_line": 167,
       "en": "So far, the work is progressing as planned.",
       "ko_before": "현재까지는 계획대로 진행 중입니다.",
-      "ko_after": "지금까지 작업은 계획된 대로 진행되고 있습니다.",
+      "ko_after": "지금까지 작업은 계획대로 진행되고 있습니다.",
       "context": "현재업무 계획대로진행보고",
       "priority": "important",
       "businessTemplateKey": "business-general-167"
@@ -1519,7 +1519,7 @@
       "source_line": 169,
       "en": "I need one more day to complete it.",
       "ko_before": "완료까지 하루 더 필요합니다.",
-      "ko_after": "그것을 완료하기 위해 하루가 더 필요합니다.",
+      "ko_after": "저는 그것을 완료하려면 하루가 더 필요합니다.",
       "context": "업무완료 하루추가필요안내",
       "priority": "important",
       "businessTemplateKey": "business-general-169"
@@ -1528,7 +1528,7 @@
       "source_line": 170,
       "en": "I may not be able to finish today.",
       "ko_before": "오늘 안에 끝내기 어려울 것 같습니다.",
-      "ko_after": "저는 오늘 그것을 끝내지 못할 수도 있습니다.",
+      "ko_after": "저는 오늘 끝내지 못할 수도 있습니다.",
       "context": "오늘완료 불가가능성알림",
       "priority": "important",
       "businessTemplateKey": "business-general-170"
@@ -1546,7 +1546,7 @@
       "source_line": 172,
       "en": "I’ll provide an update.",
       "ko_before": "진행 상황을 공유하겠습니다.",
-      "ko_after": "제가 진행 상황을 알려드리겠습니다.",
+      "ko_after": "갱신하겠습니다.",
       "context": "진행상황 갱신공유약속",
       "priority": "essential",
       "businessTemplateKey": "business-general-172"
@@ -1555,7 +1555,7 @@
       "source_line": 173,
       "en": "I've completed about half of it.",
       "ko_before": "현재 절반 정도 완료했습니다.",
-      "ko_after": "저는 그것의 약 절반을 완료했습니다.",
+      "ko_after": "제가 그것의 약 절반을 완료했습니다.",
       "context": "업무진행 절반완료보고",
       "priority": "important",
       "businessTemplateKey": "business-general-173"
@@ -1564,7 +1564,7 @@
       "source_line": 174,
       "en": "It's almost done.",
       "ko_before": "거의 완료했습니다.",
-      "ko_after": "그것은 거의 완료되었습니다.",
+      "ko_after": "그것은 거의 끝났습니다.",
       "context": "업무완료 임박보고",
       "priority": "important",
       "businessTemplateKey": "business-general-174"
@@ -1573,7 +1573,7 @@
       "source_line": 175,
       "en": "I’ll notify you as soon as it’s complete.",
       "ko_before": "완료되면 바로 알려드리겠습니다.",
-      "ko_after": "그것이 완료되는 즉시 제가 당신에게 알리겠습니다.",
+      "ko_after": "제가 완료되는 즉시 알려드리겠습니다.",
       "context": "업무완료 즉시통보약속",
       "priority": "important",
       "businessTemplateKey": "business-general-175"
@@ -1591,7 +1591,7 @@
       "source_line": 177,
       "en": "We need to verify a few more things.",
       "ko_before": "추가 확인이 필요합니다.",
-      "ko_after": "우리는 몇 가지를 더 확인할 필요가 있습니다.",
+      "ko_after": "우리는 몇 가지를 더 확인해야 합니다.",
       "context": "추가사항 확인필요안내",
       "priority": "important",
       "businessTemplateKey": "business-general-177"
@@ -1600,7 +1600,7 @@
       "source_line": 178,
       "en": "We need to review this part again.",
       "ko_before": "이 부분은 다시 검토해야 합니다.",
-      "ko_after": "우리는 이 부분을 다시 검토할 필요가 있습니다.",
+      "ko_after": "우리는 이 부분을 다시 검토해야 합니다.",
       "context": "해당부분 재검토필요안내",
       "priority": "important",
       "businessTemplateKey": "business-general-178"
@@ -1618,17 +1618,17 @@
       "source_line": 180,
       "en": "I’ll prioritize this task.",
       "ko_before": "이 작업을 먼저 처리하겠습니다.",
-      "ko_after": "제가 이 작업을 우선적으로 처리하겠습니다.",
+      "ko_after": "제가 이 작업을 우선순위에 두겠습니다.",
       "context": "해당업무 우선처리약속",
       "priority": "important",
       "businessTemplateKey": "business-general-180"
     },
     {
       "source_line": 181,
-      "en": "I'd like to confirm the priority.",
+      "en": "I'd like to set the order of the tasks.",
       "ko_before": "우선순위를 확인하고 싶습니다.",
-      "ko_after": "저는 우선순위를 확인하고 싶습니다.",
-      "context": "업무우선순위 확인의향",
+      "ko_after": "작업의 순서를 정하고 싶습니다.",
+      "context": "작업순서 결정희망",
       "priority": "essential",
       "businessTemplateKey": "business-general-181"
     },
@@ -1636,7 +1636,7 @@
       "source_line": 182,
       "en": "Who is responsible for this task?",
       "ko_before": "이 작업의 담당자는 누구인가요?",
-      "ko_after": "누가 이 작업을 담당하나요?",
+      "ko_after": "이 작업을 누가 담당하나요?",
       "context": "업무담당자 질문",
       "priority": "supplementary",
       "businessTemplateKey": "business-general-182"
@@ -1654,7 +1654,7 @@
       "source_line": 184,
       "en": "Could you handle this task?",
       "ko_before": "이 작업을 맡아 주시겠어요?",
-      "ko_after": "이 작업을 처리해 주시겠어요?",
+      "ko_after": "이 업무를 맡아주시겠어요?",
       "context": "업무담당 요청",
       "priority": "essential",
       "businessTemplateKey": "business-general-184"
@@ -1699,7 +1699,7 @@
       "source_line": 189,
       "en": "Can we proceed with this method?",
       "ko_before": "이 방법으로 진행해도 될까요?",
-      "ko_after": "우리는 이 방법으로 진행할 수 있을까요?",
+      "ko_after": "우리가 이 방법으로 진행해도 될까요?",
       "context": "해당방법 진행가능여부확인",
       "priority": "essential",
       "businessTemplateKey": "business-general-189"
@@ -1717,7 +1717,7 @@
       "source_line": 191,
       "en": "I’ll make a decision after an internal review.",
       "ko_before": "내부 확인 후 결정하겠습니다.",
-      "ko_after": "제가 내부 검토 후에 결정을 내리겠습니다.",
+      "ko_after": "제가 내부 검토 후 결정을 내리겠습니다.",
       "context": "업무결정 내부검토후결정약속",
       "priority": "important",
       "businessTemplateKey": "business-general-191"
@@ -1726,7 +1726,7 @@
       "source_line": 192,
       "en": "I’ll confirm this with the person responsible.",
       "ko_before": "담당자에게 확인하겠습니다.",
-      "ko_after": "제가 이것을 담당자와 확인하겠습니다.",
+      "ko_after": "제가 담당자와 이것을 확인하겠습니다.",
       "context": "해당사항 담당자확인약속",
       "priority": "important",
       "businessTemplateKey": "business-general-192"
@@ -1771,7 +1771,7 @@
       "source_line": 197,
       "en": "I’ll revise it and resubmit it.",
       "ko_before": "수정 후 다시 제출하겠습니다.",
-      "ko_after": "제가 그것을 수정하고 다시 제출하겠습니다.",
+      "ko_after": "제가 수정 후 다시 제출하겠습니다.",
       "context": "제출자료 수정후재제출약속",
       "priority": "important",
       "businessTemplateKey": "business-general-197"
@@ -1780,7 +1780,7 @@
       "source_line": 198,
       "en": "I’ll notify you as soon as a decision is made.",
       "ko_before": "결정되면 바로 알려드리겠습니다.",
-      "ko_after": "결정이 내려지는 즉시 제가 당신에게 알리겠습니다.",
+      "ko_after": "제가 결정이 내려지는 즉시 알려드리겠습니다.",
       "context": "결정결과 즉시통보약속",
       "priority": "important",
       "businessTemplateKey": "business-general-198"
@@ -1789,7 +1789,7 @@
       "source_line": 199,
       "en": "This isn't my area of responsibility.",
       "ko_before": "이 부분은 제 담당이 아닙니다.",
-      "ko_after": "이것은 제가 책임지는 분야가 아닙니다.",
+      "ko_after": "이것은 제 책임 영역이 아닙니다.",
       "context": "담당영역 해당없음안내",
       "priority": "important",
       "businessTemplateKey": "business-general-199"

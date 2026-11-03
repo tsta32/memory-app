@@ -723,8 +723,8 @@ var items=[
     "context": "해당업무 우선처리약속"
   },
   {
-    "en": "I'd like to confirm the priority.",
-    "context": "업무우선순위 확인의향"
+    "en": "I'd like to set the order of the tasks.",
+    "context": "작업순서 결정희망"
   },
   {
     "en": "Who is responsible for this task?",
@@ -803,7 +803,7 @@ var items=[
     "context": "해당내용 담당자전달약속"
   }
 ];
-// Exact previous defaults are the only existing strings eligible for migration.
+// Exact previously shipped defaults are the only existing strings eligible for migration.
 var previousContexts=[
   "동료와 업무 이야기를 시작하기 전에 지금 대화할 여유가 있는지 물으려고 할 때.",
   "온라인 회의에서 공유 중인 내 화면이 상대방에게 보이는지 확인하려고 할 때.",
@@ -1009,7 +1009,34 @@ var previousContexts=[
 // Observed defaults outside the repository-authored v1 set. Never infer ownership
 // from sentence endings: an unrecognized sentence may be a user's own prompt.
 var legacyDefaults=[
-  {en:'When do we need to finish this?',context:'그 일의 대응기한을 물으려고 할 때.'}
+  {
+    "en": "When do we need to finish this?",
+    "context": "그 일의 대응기한을 물으려고 할 때."
+  },
+  {
+    "en": "I'm not sure about that yet.",
+    "context": "어떤것에 대해 아직 확신하지 못하고 있다는 입장을 전하려고 할 때."
+  },
+  {
+    "en": "We could consider another option.",
+    "context": "회의에서 현재 옵션 이외에 다른 옵션의 검토를 제안할때"
+  },
+  {
+    "en": "Could we adjust the schedule?",
+    "context": "업무 일정 변경을 제안할때"
+  },
+  {
+    "en": "I’ll provide an update.",
+    "context": "어떤내용을 갱신하겠다고 할떄."
+  },
+  {
+    "en": "I'd like to set the order of the tasks.",
+    "context": "이번건의 작업순서를 정하고싶다고 말하려고 할 때."
+  },
+  {
+    "en": "Could you handle this task?",
+    "context": "상대방에게 이 업무의 담당을 요청하려고 할 때."
+  }
 ];
 function isDefault(en,context){
   var i=items.findIndex(function(x){return x.en===en;});
