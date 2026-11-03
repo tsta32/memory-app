@@ -1,19 +1,20 @@
 const { test, expect } = require('@playwright/test');
 const { skipRetestCompletely } = require('./retest-helpers');
 const { items } = require('../../business-contexts');
+const previousItems=require('../fixtures/business-source-v1.json').items;
 
-async function openFixture(browser, {all=false, count=1, index=0, contextOptions={}, savedContext}={}) {
+async function openFixture(browser, {all=false, count=1, index=0, contextOptions={}, savedContext, legacy=false}={}) {
   const context=await browser.newContext(contextOptions);
   const errors=[],workers=[];
-  await context.addInitScript(({items,all,count,index,savedContext})=>{
+  await context.addInitScript(({items,all,count,index,savedContext,legacy,previousItems})=>{
     if(sessionStorage.getItem('context_fixture'))return;
-    const cards=(all?items:items.slice(index,index+count)).map((x,i)=>({id:i+1,en:x.en,ko:'기존 한국어 '+i,chapterId:9,stage:0,dueAt:1,ngCount:2,everAnswered:false,bookmarked:true,lastTestedAt:42,...(i===0&&savedContext!==undefined?{context:savedContext}:{})}));
+    const cards=(all?items:items.slice(index,index+count)).map((x,i)=>({id:i+1,en:x.en,ko:'기존 한국어 '+i,chapterId:9,stage:0,dueAt:1,ngCount:2,everAnswered:false,bookmarked:true,lastTestedAt:42,...(legacy?{context:previousItems[i].context}:{}),...(i===0&&savedContext!==undefined?{context:savedContext}:{})}));
     cards.push({id:999,en:'Unrelated answer.',ko:'다른 챕터',chapterId:10,stage:0,dueAt:1});
     localStorage.setItem('srs_cards_v2',JSON.stringify({cards,nextId:1000}));
     localStorage.setItem('srs_chapters_v1',JSON.stringify({chapters:[{id:9,name:'업무대화 일반'},{id:10,name:'기타'}],nextId:11}));
     localStorage.removeItem('memory_sync_code_v1');
     sessionStorage.setItem('context_fixture','1');
-  },{items,all,count,index,savedContext});
+  },{items,all,count,index,savedContext,legacy,previousItems});
   await context.route('**/*',route=>{
     const url=new URL(route.request().url());
     if(url.hostname.endsWith('workers.dev')){workers.push(url.hostname);return route.abort();}
@@ -265,3 +266,22 @@ for(const mobile of [false,true]) {
     } finally {await context.close();}
   });
 }
+
+test('all 200 previous defaults update in the app while a user edit survives',async({browser})=>{
+  const custom='사용자 문맥 보존';
+  const {page,context,workers,errors}=await openFixture(browser,{all:true,legacy:true,savedContext:custom});
+  try {
+    const data=await saved(page);
+    data.cards.slice(0,200).forEach((c,i)=>{
+      expect(c.context).toBe(i===0?custom:items[i].context);
+      expect(c.id).toBe(i+1);expect(c.ko).toBe('기존 한국어 '+i);
+      expect(c.stage).toBe(0);expect(c.dueAt).toBe(1);expect(c.ngCount).toBe(2);
+      expect(c.lastTestedAt).toBe(42);expect(c.bookmarked).toBe(true);
+    });
+    await page.reload();await page.locator('#memory-sync-local').click();
+    await expect(page.locator('#chapterSelectList')).toContainText('업무대화 일반');
+    expect(await saved(page)).toEqual(data);
+    await start(page,true);await expect(page.locator('#koreanText')).toHaveText(custom);
+    expect(workers).toEqual([]);expect(errors).toEqual([]);
+  } finally {await context.close();}
+});
