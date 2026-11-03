@@ -7,6 +7,12 @@ const a=edit(base,{en:'My changed English.',ko:'내 번역',context:'업무문�
 assert.ok(a.editHistory.every(e=>e.at&&e.parents&&e.device==='a'));
 const fresh=o.merge(a,base,false);for(const f of ['en','ko','context','priority'])assert.equal(fresh.cards[0][f],a.cards[0][f]);
 for(const f of ['id','stage','dueAt','ngCount','firstCorrectAt'])assert.equal(fresh.cards[0][f],base.cards[0][f]);
+const assessment={version:1,en:card.en,ko:card.ko,context:card.context,priority:'essential',reason:'업무상 보편적이고 후속 진행에 필요하다.',coverageAreas:['communication'],coveragePurposes:['communication.questions.invite']};
+const assessed=edit(base,{priorityAssessment:assessment},'assessment-device');
+assert.deepEqual(o.merge(assessed,base,false).cards[0].priorityAssessment,assessment,'user classification metadata persists through a stale template sync');
+const alternateAssessment={...assessment,reason:'다른 기준'};
+const assessmentConflict=o.merge(assessed,edit(base,{priorityAssessment:alternateAssessment},'other-assessment-device'),false);
+assert.ok(assessmentConflict.editConflicts.some(x=>x.field==='priorityAssessment'),'concurrent assessment edits are surfaced as conflicts');
 const b=edit(base,{en:'Other device English.'},'b');const both=o.merge(a,b,false);
 assert.equal(both.cards[0].en,a.cards[0].en);assert.equal(both.editConflicts.filter(c=>c.field==='en').length,1);
 const resolved=o.resolve(structuredClone(both),o.key(card),'en','Reviewed English.','a');assert.equal(resolved.editConflicts.length,0);

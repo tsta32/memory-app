@@ -1,7 +1,7 @@
 /* Durable user changes. Histories merge by causal ancestry, never by wall-clock winners. */
 (function(root){
 'use strict';
-var fields=['en','ko','context','priority','chapterId','bookmarked'];
+var fields=['en','ko','context','priority','priorityAssessment','chapterId','bookmarked'];
 function clone(x){return JSON.parse(JSON.stringify(x));}
 function uid(){return typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
 function key(c){return c.userCardKey||'id:'+typeof c.id+':'+c.id;}

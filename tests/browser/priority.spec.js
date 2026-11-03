@@ -55,19 +55,31 @@ for(const mobile of [false,true])test(`settings coverage is derived from live ca
   try{
     await page.locator('#tabSettings').click();
     await expect(page.locator('#essentialCoverageSummary')).toContainText('필수 40개 · 중요 127개 · 보조 33개');
+    await expect(page.locator('#essentialCoveragePanel')).not.toHaveAttribute('open','');
+    await expect(page.locator('#essentialCoverageCount')).toHaveText('필수 40개');
+    await page.locator('#essentialCoveragePanel > summary').click();await expect(page.locator('#essentialCoveragePanel')).toHaveAttribute('open','');
     await expect(page.locator('#essentialList')).toContainText('I’m investigating the cause.');
     await page.locator('#tabAllCards').click();await page.locator('#allCardsSearch').fill(policy.items[1].en);
     await page.locator('#allCardsList .fc-row input[type="checkbox"]').check();await page.locator('#editBulkBtn').click();
     await page.locator('#editCardList select[data-field="priority"]').selectOption('essential');
-    await page.locator('#editCardList input[data-field="en"]').fill('Could you check my display?');
-    await page.locator('#editCardList input[data-field="context"]').fill('화면확인 요청');
+    await page.locator('#editCardList input[data-field="en"]').fill('Could you confirm that you received my email?');
+    await page.locator('#editCardList input[data-field="ko"]').fill('제 이메일을 받으셨는지 확인해 주시겠어요?');
+    await page.locator('#editCardList input[data-field="context"]').fill('이메일 수신 확인요청');
     await page.locator('#editSaveBtn').click();await page.locator('#editConfirmApply').click();
     await page.locator('#tabSettings').click();
     await expect(page.locator('#essentialCoverageSummary')).toContainText('필수 41개 · 중요 126개 · 보조 33개');
-    await expect(page.locator('#essentialList')).toContainText('Could you check my display?');
-    await expect(page.locator('#essentialList')).toContainText('화면확인 요청');
+    await expect(page.locator('#essentialList')).toContainText('Could you confirm that you received my email?');
+    await expect(page.locator('#essentialList')).toContainText('이메일 수신 확인요청');
     await expect(page.locator('#essentialList')).toContainText('분류 검토 필요');
-    const stored=(await data(page)).cards.find(c=>c.id===101);expect(stored).toMatchObject({priority:'essential',en:'Could you check my display?',context:'화면확인 요청',stage:9,ngCount:7});
+    const reviewItem=page.locator('#essentialList .coverage-item').filter({hasText:'Could you confirm that you received my email?'});
+    await reviewItem.locator('[data-assessment-reason="101"]').fill('이메일 누락을 방지하고 필요한 후속 업무가 시작됐는지 확인한다.');
+    await reviewItem.locator('[data-assessment-purposes="101"]').selectOption('materials.email.receipt');
+    await reviewItem.getByRole('button',{name:'분류 저장'}).click();
+    await expect(reviewItem).toContainText('선정 이유: 이메일 누락을 방지하고 필요한 후속 업무가 시작됐는지 확인한다.');
+    const materials=page.locator('#essentialCoverageAreas .coverage-area').filter({hasText:'자료·이메일'});
+    await expect(materials).toContainText('Could you confirm that you received my email?');await expect(materials).toContainText('1개 필수 표현');
+    const stored=(await data(page)).cards.find(c=>c.id===101);expect(stored).toMatchObject({priority:'essential',en:'Could you confirm that you received my email?',ko:'제 이메일을 받으셨는지 확인해 주시겠어요?',context:'이메일 수신 확인요청',stage:9,ngCount:7,priorityAssessment:{version:1,reason:'이메일 누락을 방지하고 필요한 후속 업무가 시작됐는지 확인한다.',coverageAreas:['materials'],coveragePurposes:['materials.email.receipt']}});
+    await page.locator('#essentialCoveragePanel > summary').click();await expect(page.locator('#essentialCoveragePanel')).not.toHaveAttribute('open','');
     healthy(app);
   }finally{await app.context.close();}
 });
