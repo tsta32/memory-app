@@ -25,7 +25,9 @@ artifact, and no Worker `set` is used.
 ## GitHub Actions
 
 The ordinary **Tests** workflow runs unit and isolated browser tests without
-the Worker Secret and with read-only repository permission.
+the Worker Secret and with read-only repository permission. Both workflows pin
+Ubuntu 24.04 because Playwright 1.55 does not support the Ubuntu 26.04 image
+selected by `ubuntu-latest`.
 
 **Review app template sync** is manual and accepts only the default branch.
 After reviewing and merging the workflow, an owner can configure the repository
