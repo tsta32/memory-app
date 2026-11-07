@@ -2,6 +2,8 @@ const { defineConfig } = require('@playwright/test');
 
 // Remote checks use isolated fixture contexts and block sync/AI Worker requests.
 const remoteAppURL = process.env.MEMORY_APP_TEST_URL;
+// Managed environments can use an installed Chromium when downloads are restricted.
+const chromiumExecutable = process.env.MEMORY_APP_CHROMIUM_EXECUTABLE_PATH;
 
 module.exports = defineConfig({
   testDir: './tests/browser',
@@ -13,6 +15,7 @@ module.exports = defineConfig({
   use: {
     baseURL: remoteAppURL || 'http://127.0.0.1:4173',
     browserName: 'chromium',
+    launchOptions: chromiumExecutable ? { executablePath: chromiumExecutable } : {},
     headless: true,
     serviceWorkers: 'block'
   },
