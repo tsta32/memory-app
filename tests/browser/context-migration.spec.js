@@ -70,6 +70,10 @@ test.describe('service worker cache migration',()=>{
   try{
    const page=await context.newPage();await page.goto('./');
    await page.evaluate(async()=>{const unrelated=await caches.open('user-unrelated-cache');await unrelated.put('./user-note',new Response('keep'));const old=await caches.open('srs-app-v72');await old.put('./business-contexts.js',new Response('window.BusinessContexts={items:[],fillMissing:function(){return false;}}',{headers:{'Content-Type':'text/javascript'}}));});
+   // First activation claims the page and intentionally reloads it. Re-enter
+   // local mode after that navigation instead of racing the controller change.
+   const activationReload=page.waitForEvent('framenavigated',{predicate:frame=>frame===page.mainFrame()});
+   await page.locator('#memory-sync-local').click();await activationReload;
    await page.locator('#memory-sync-local').click();await expect(page.locator('#chapterSelectList')).toContainText('영어업무(일반)');
    await expect.poll(async()=>{try{return await page.evaluate(async()=>!!(await navigator.serviceWorker.getRegistration())?.active);}catch{return false;}}).toBe(true);
    await expect.poll(async()=>{try{return await page.evaluate(async()=>await caches.keys());}catch{return ['srs-app-v72'];}}).not.toContain('srs-app-v72');
