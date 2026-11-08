@@ -1,0 +1,77 @@
+name: Review app template sync
+
+# Never run authenticated sync on push, pull_request or a schedule.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: app-template-sync-review
+  cancel-in-progress: false
+
+jobs:
+  review:
+    # Only reviewed code on the default branch may receive the sync Secret.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    # Keep the runner compatible with the pinned Playwright version.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Read Worker and apply verified user fields locally
+        run: npm run sync:app-templates:review
+        env:
+          MEMORY_APP_SYNC_CODE: ${{ secrets.MEMORY_APP_SYNC_CODE }}
+          MEMORY_APP_CONFIG_DIR: ${{ runner.temp }}/memory-app-sync-private
+      - name: Test candidate using fixtures only
+        run: npm test
+        env:
+          CI: 'true'
+          MEMORY_APP_CONFIG_DIR: ${{ runner.temp }}/memory-app-test-config
+      - name: Submit tested changes on a separate review branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No verified template changes to submit.'
+            exit 0
+          fi
+          while IFS= read -r file; do
+            case "$file" in
+              general_business_english_literal_ko.json|business-contexts.js|business-priorities.js) ;;
+              *) echo 'Unexpected changed path; refusing to publish.'; exit 1 ;;
+            esac
+          done < <(git diff --name-only)
+          test -z "$(git ls-files --others --exclude-standard)"
+          test -z "$(git diff --cached --name-only)"
+          gh auth setup-git
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" || {
+            echo 'main changed during validation; rerun against the new main.'; exit 1;
+          }
+          branch="sync/app-templates-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch -c "$branch"
+          git add -- general_business_english_literal_ko.json business-contexts.js business-priorities.js
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Apply verified app template edits for review'
+          git push --set-upstream origin "$branch"
+          gh pr create --base main --head "$branch" --title 'Review verified app template edits' --body 'Applies only fields with matching direct user edit history. Unit and isolated browser tests passed before submission. Worker transport used get only; no Worker writes or learning-record changes. Review before merging.'
+      - name: Remove private runner files
+        if: always()
+        shell: bash
+        run: rm -rf -- "$RUNNER_TEMP/memory-app-sync-private" "$RUNNER_TEMP/memory-app-test-config"

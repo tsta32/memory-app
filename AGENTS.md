@@ -1,5 +1,37 @@
 # Codex repository workflow
 
+## Cloud review-only sync
+
+For cloud automation of app-to-template sync, use
+`npm run sync:app-templates:review`. This is a separate strict review path;
+it does not recover or reproduce an unavailable historical commit.
+`MEMORY_APP_SYNC_CODE` supplies the GitHub Actions Secret. When the variable is
+absent, the existing private local setup file is used. An empty or malformed
+environment value fails instead of falling back. Never print credentials,
+commit private snapshots/backups, or pass the Secret to test steps.
+
+The command performs only a fresh Worker `get`, checks snapshot completeness,
+recomputes causal conflicts, and requires matching direct user edit evidence
+for each changed field. It refuses deletion requests, ambiguous identities,
+missing/cyclic history and unverified values. It never calls Worker `set`,
+commits, pushes, or changes learning records. Do not use the old patch CLI's
+`--push` path for this workflow: that path targets main.
+
+`.github/workflows/sync-review.yml` is manual and default-branch-only. It runs
+the complete test suite before creating a unique review branch and PR, and
+stops if main moved during testing. It never auto-merges. Do not dispatch it
+when the user has prohibited authenticated/live Worker checks. In that case,
+validate with fixture tests and explicitly report live Secret authentication
+and authenticated workflow execution as deferred. Never change Worker code or
+settings to unblock validation.
+
+For a managed cloud environment with restricted browser downloads, an installed
+Chromium may be selected with
+`MEMORY_APP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm test`.
+Otherwise install the pinned Playwright browser using
+`npx playwright install --with-deps chromium`. Browser tests use isolated
+fixtures, not an existing user browser profile.
+
 ## App-owned business card data
 
 Before inspecting, editing, or regenerating `general_business_english_literal_ko.json`, `business-contexts.js`, or `business-priorities.js` for a task involving templates, contexts, or priority grades, run this first from the repository root:
