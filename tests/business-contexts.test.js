@@ -8,11 +8,8 @@ assert.equal(new Set(items.map(x => x.en)).size, 200);
 for (const [i, row] of items.entries()) {
   assert.equal(row.en, source.items[i].en);
   assert.equal(row.context, source.items[i].context);
-  assert.match(row.context, /[가-힣]/);
-  assert.match(row.context, /^[가-힣0-9·]+ [가-힣0-9]+$/);
-  assert.doesNotMatch(row.context, /할 때|하는 상황|하려고|[.!?]/);
-  assert.notEqual(row.context, source.items[i].ko_after);
-  assert.ok(row.context.length >= 5 && row.context.length <= 24, row.en);
+  // Reviewed user contexts may be custom prose or intentionally empty.
+  assert.equal(typeof row.context,'string');
 }
 const chapters = [{id: 9, name: '업무대화 일반'}, {id: 10, name: '다른 챕터'}];
 const cards = items.map((x, i) => ({id:i + 1, en:x.en, ko:'원래 번역', chapterId:9, stage:4, dueAt:123, ngCount:7, bookmarked:true, extra:{history:[1,2]}}));

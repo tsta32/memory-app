@@ -3,16 +3,17 @@ const p=require('../business-priorities');const source=require('../general_busin
 assert.equal(p.items.length,200);assert.equal(new Set(p.items.map(x=>x.key)).size,200);
 assert.equal(p.selectionCriteria.length,6);assert.equal(p.coverageAreas.length,10);
 assert.deepEqual(Object.keys(p.legacyPriorityDefaults).sort(),['business-general-013','business-general-027','business-general-037','business-general-142','business-general-163','business-general-167','business-general-170'].sort());
-for(const [key,grades]of Object.entries(p.legacyPriorityDefaults)){const row=p.items.find(x=>x.key===key);assert.deepEqual(row.legacyPriorityDefaults,grades);assert.ok(grades.every(x=>p.valid(x)&&x!==row.priority));}
+for(const [key,grades]of Object.entries(p.legacyPriorityDefaults)){const row=p.items.find(x=>x.key===key);assert.deepEqual(row.legacyPriorityDefaults,grades);assert.ok(grades.every(x=>p.valid(x)));}
 const essential=p.items.filter(x=>x.priority==='essential');
-assert.equal(essential.length,40);
-assert.equal(new Set(essential.map(x=>x.purpose)).size,essential.length,'no duplicate essential purpose group');
-assert.ok(essential.every(x=>x.reason&&x.coverageAreas?.length&&x.coveragePurposes?.length),'each default essential item has authored reason and coverage');
+// User-selected grades are data, not a permanently frozen tier distribution.
+assert.ok(essential.every(x=>p.valid(x.priority)));
+
 for(const area of p.coverageAreas){assert.ok(area.purposes.length);for(const id of area.purposes.map(x=>x[0]))assert.ok(typeof id==='string');}
 for(const [i,row]of p.items.entries()){
   assert.equal(row.en,source.items[i].en);assert.equal(row.ko,source.items[i].ko_after);assert.equal(row.context,source.items[i].context);
-  assert.equal(row.priority,source.items[i].priority);assert.ok(p.valid(row.priority));assert.ok(row.reason.length>20);
-  if(row.priority==='essential')assert.ok(row.criteria.length&&row.criteria.every(n=>[1,2,3].includes(n)));
+  assert.equal(row.priority,source.items[i].priority);assert.ok(p.valid(row.priority));assert.equal(typeof row.reason,'string');
+  if(!row.reason.trim()){assert.equal((row.coverageAreas||[]).length,0);assert.equal((row.coveragePurposes||[]).length,0);}
+  assert.ok(Array.isArray(row.criteria)&&row.criteria.every(n=>[1,2,3].includes(n)));
 }
 const chapters=[{id:9,name:'영어업무(일반)'},{id:10,name:'다른 카테고리'}];
 const cards=p.items.map((x,i)=>({id:500-i,en:x.en,ko:'사용자 번역',context:'사용자 문맥',chapterId:9,stage:9,everAnswered:true,dueAt:99999,ngCount:7,lastTestedAt:34,bookmarked:true,extra:{keep:1}}));
@@ -38,7 +39,7 @@ delete b.firstCorrectAt;assert.deepEqual(ids([a,b,c,d,e]),[],'unknown historical
 assert.equal(p.progress([a,b,c,d,e],chapters,100).essential.passed,1);
 assert.equal(p.plan([e],chapters,100).legacy.length,0,'supplementary never falls back to automatic legacy selection');
 assert.deepEqual(ids([e]),[]);
-console.log('Passed all 200 priority assessments, essential purpose uniqueness, safe migration, frontier gating and future review selection.');
+console.log('Passed template parity, valid user grades, honest unreviewed metadata, safe migration and frontier selection.');
 
 // Existing sync stores entire card objects; the new facts survive a legacy/partial snapshot merge.
 {

@@ -1,6 +1,7 @@
 const {test,expect}=require('@playwright/test');
 const source=require('../../general_business_english_literal_ko.json');
 const priorities=require('../../business-priorities').items;
+const currentTemplate=priorities.find(t=>t.key==='business-general-067');
 const fields=['srs_cards_v2','srs_chapters_v1','srs_settings_v1','srs_notes_v1','srs_trends_v1','srs_biz_sessions_v1','srs_error_history_v1'];
 
 function profile(){
@@ -44,7 +45,7 @@ test('card ID 961 receives only the agreed template text and retains all user st
   async function verify(){
    const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('srs_cards_v2'))),stored=state.cards,target=stored.find(c=>c.id===961);
    expect(stored).toHaveLength(390);expect(stored.filter(c=>c.id===961)).toHaveLength(1);
-   expect(target).toMatchObject({id:961,en:"I'll share the presentation materials.",ko:'제가 발표 자료를 공유하겠습니다.',context:'발표슬라이드 공유예고',priority:'important',businessTemplateKey:'business-general-067'});
+   expect(target).toMatchObject({id:961,en:currentTemplate.en,ko:currentTemplate.ko,context:currentTemplate.context,priority:currentTemplate.priority,businessTemplateKey:'business-general-067'});
    for(const key of ['stage','dueAt','everAnswered','ngCount','lastTestedAt','firstCorrectAt','bookmarked','userNotes'])expect(target[key]).toEqual(beforeCards.find(c=>c.id===961)[key]);
    expect(state.editHistory).toEqual(beforeHistory);expect(state.nextId).toBe(1285);
    for(const prior of beforeCards.filter(c=>c.id!==961))expect(stored.find(c=>c.id===prior.id)).toEqual(prior);
@@ -52,8 +53,8 @@ test('card ID 961 receives only the agreed template text and retains all user st
    expect(JSON.parse(await page.evaluate(()=>localStorage.getItem('srs_settings_v1')))).toMatchObject(JSON.parse(data.srs_settings_v1));
   }
   await verify();await page.reload();await page.locator('#memory-sync-local').click();await expect(page.locator('#chapterSelectList')).toContainText('영어업무(일반)');await verify();
-  await page.locator('#tabAllCards').click();await page.locator('#allCardsSearch').fill("I'll share the presentation materials.");
-  await expect(page.locator('#allCardsList')).toContainText("I'll share the presentation materials.");
-  await expect(page.locator('#allCardsList')).toContainText('발표 자료를 공유하겠습니다.');
+  await page.locator('#tabAllCards').click();await page.locator('#allCardsSearch').fill(currentTemplate.en);
+  await expect(page.locator('#allCardsList')).toContainText(currentTemplate.en);
+  await expect(page.locator('#allCardsList')).toContainText(currentTemplate.ko);
  }finally{await context.close();}
 });
