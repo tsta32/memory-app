@@ -66,6 +66,10 @@ const api=async(method,url)=>{
   const proof=await permissionsProbe({env:probeEnv,api:probeApi,sleep:async()=>{}});
   assert.equal(prExists,true);assert.equal(proof.github_merge_recognized,true);assert.equal(proof.production_main_unchanged,true);
   assert.equal(proof.automerge_eligible,false,'isolated branch proof cannot substitute for a separate Pages canary');
+  await assert.rejects(permissionsProbe({env:probeEnv,api:async(method,url,body)=>{
+    if(method==='POST'&&url.endsWith('/pulls'))throw Object.assign(Error('private server detail'),{code:'GITHUB_HTTP_403'});
+    return probeApi(method,url,body);
+  },sleep:async()=>{}}),error=>error.report.failed_endpoint==='/pulls'&&error.report.ref_creation===true&&error.report.pr_creation===false&&error.report.production_main_unchanged===true);
   await assert.rejects(permissionsProbe({env:{...probeEnv,GITHUB_REF:'refs/heads/main'},api:probeApi}),/PROBE_SCOPE_INVALID/);
   assert.ok(reads>=2);assert.ok(writes.length>0);
   console.log('Passed read-only live audit, no-op, evidence redaction, conflict refusal, isolated-ref permission probe and production canary guards.');

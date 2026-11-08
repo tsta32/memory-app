@@ -57,8 +57,17 @@ async function audit({env=process.env,fetcher=sync.fetchSnapshot,localCode=sync.
 async function permissionsProbe({env=process.env,...options}={}) {
   if(env.GITHUB_REPOSITORY!=='tsta32/memory-app'||env.GITHUB_REF!=='refs/heads/codex/production-sync-validation')fail('PROBE_SCOPE_INVALID');
   if(!/^\d+$/.test(env.GITHUB_RUN_ID||'')||!/^\d+$/.test(env.GITHUB_RUN_ATTEMPT||''))fail('PROBE_RUN_INVALID');
-  const c=context({...options,env}),{api,root}=c;
-  const original=(await api('GET',root+'/git/ref/heads/main')).object.sha;
+  const c=context({...options,env}),{root}=c;
+  let original;
+  const report={version:1,ref_creation:false,pr_creation:false,isolated_ref_merge:false,github_merge_recognized:false,
+    production_main_unchanged:null,pages_canary_verified:false,automerge_eligible:false};
+  const api=async(method,url,body)=>{
+    try{return await c.api(method,url,body);}catch(error){
+      if(original)try{report.production_main_unchanged=(await c.api('GET',root+'/git/ref/heads/main')).object.sha===original;}catch{}
+      throw Object.assign(error,{report:{...report,failed_operation:method,failed_endpoint:url.slice(root.length)}});
+    }
+  };
+  original=(await api('GET',root+'/git/ref/heads/main')).object.sha;
   const suffix=env.GITHUB_RUN_ID+'-'+env.GITHUB_RUN_ATTEMPT;
   const baseBranch='sync-permission-probe/base-'+suffix,headBranch='sync-permission-probe/head-'+suffix;
   const base=await api('GET',root+'/git/commits/'+original);
@@ -67,9 +76,11 @@ async function permissionsProbe({env=process.env,...options}={}) {
     path:'.sync-permission-probe.json',mode:'100644',type:'blob',content:JSON.stringify({disposable:true,run:suffix})+'\n'}]});
   const head=await api('POST',root+'/git/commits',{message:'Disposable sync permission probe',tree:tree.sha,parents:[original]});
   await api('POST',root+'/git/refs',{ref:'refs/heads/'+headBranch,sha:head.sha});
+  report.ref_creation=true;
   const pr=await api('POST',root+'/pulls',{base:baseBranch,head:headBranch,title:'Disposable sync permissions probe',
     body:'Isolated permission test: base and head are disposable probe branches. Production main, templates, Worker and Pages are untouched.'});
   if(!Number.isInteger(pr.number))fail('PROBE_PR_INVALID');
+  report.pr_creation=true;report.pr=pr.number;
   let ready=false;
   for(let i=0;i<15;i++) {
     const state=await api('GET',root+'/pulls/'+pr.number);
@@ -79,6 +90,7 @@ async function permissionsProbe({env=process.env,...options}={}) {
   if(!ready)fail('PROBE_MERGEABILITY_TIMEOUT');
   const commit=await api('POST',root+'/git/commits',{message:'Merge disposable permission probe',tree:tree.sha,parents:[original,head.sha]});
   await api('PATCH',root+'/git/refs/heads/'+baseBranch,{sha:commit.sha,force:false});
+  report.isolated_ref_merge=true;
   let recognized=false;
   for(let i=0;i<15;i++) {
     const state=await api('GET',root+'/pulls/'+pr.number);
@@ -86,7 +98,7 @@ async function permissionsProbe({env=process.env,...options}={}) {
   }
   if(!recognized)fail('PROBE_MERGE_UNRECOGNIZED');
   if((await api('GET',root+'/git/ref/heads/main')).object.sha!==original)fail('PRODUCTION_MAIN_ADVANCED');
-  return {version:1,pr_creation:true,isolated_ref_merge:true,github_merge_recognized:true,production_main_unchanged:true,
+  return {...report,github_merge_recognized:true,production_main_unchanged:true,
     pr:pr.number,base_branch:baseBranch,head_branch:headBranch,merge_sha:commit.sha,pages_canary_verified:false,automerge_eligible:false};
 }
 

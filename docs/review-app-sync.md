@@ -146,3 +146,29 @@ may be honestly empty after a user content edit; no new reason or coverage is
 invented. Planner/UI tier scenarios use explicit synthetic grades, while source
 migration still checks the real template distribution. This changes test fixtures,
 not classification criteria, templates, app runtime or user records.
+
+## Recorded operational evidence (2026-11-08)
+
+Run https://github.com/tsta32/memory-app/actions/runs/42441097985 tested code
+8d9ded9 against production main 7e1dca9 using the existing Actions Secret:
+
+- Worker get succeeded, strict provenance checks passed, verified change count
+  was zero, and the read-only audit finished successfully without local apply.
+- Legacy main/root Pages configuration, current successful build SHA and all
+  three public template hashes were verified. This is production read-only
+  verification, not a separate-repository deployment canary.
+- The Actions token created both disposable probe refs, proving ref write access.
+  Its subsequent PR creation request was rejected with HTTP 403. Thus actual
+  merge recognition could not be exercised with that token. Connector-created
+  PRs are not a substitute for an Actions-token permission proof.
+- An actual isolated Pages canary has not run: this connection has no separate
+  repository and cannot create one. The harness's synthetic candidate passed
+  all 10 unit scripts and 68 browser tests locally; this is not live Pages proof.
+
+AUTOMERGE_ENABLED remains false. Before activation, an administrator must check
+Settings → Actions → General → Workflow permissions → “Allow GitHub Actions to
+create and approve pull requests,” including any overriding organization policy.
+Then provide/connect the isolated canary repository/site described above. No
+PAT, Secret value, snapshot or additional credential should be supplied in chat.
+The agent can retry the failed permission job after that one-time configuration;
+normal hourly operation does not require pressing Run workflow or reading logs.
