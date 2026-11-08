@@ -1,24 +1,31 @@
 name: Review app template sync
 
-# Never run authenticated sync on push, pull_request or a schedule.
 on:
   workflow_dispatch:
+  schedule:
+    # Off the busy top of the hour; GitHub may delay scheduled runs.
+    - cron: '17 * * * *'
 
 permissions:
   contents: write
   pull-requests: write
+  pages: write
 
+# Covers manual and scheduled executions, including merge and deployment.
 concurrency:
   group: app-template-sync-review
   cancel-in-progress: false
 
+env:
+  # Release gate: keep off until live canary/permissions/Pages checks are reviewed.
+  # Do not replace this with an unreviewed repository variable or dispatch input.
+  AUTOMERGE_ENABLED: 'false'
+
 jobs:
   review:
-    # Only reviewed code on the default branch may receive the sync Secret.
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    # Keep the runner compatible with the pinned Playwright version.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,48 +37,76 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Isolate candidate before applying any template changes
+        run: git switch -c "sync/candidate-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
       - name: Read Worker and apply verified user fields locally
+        id: prepare
         run: npm run sync:app-templates:review
         env:
           MEMORY_APP_SYNC_CODE: ${{ secrets.MEMORY_APP_SYNC_CODE }}
           MEMORY_APP_CONFIG_DIR: ${{ runner.temp }}/memory-app-sync-private
+          MEMORY_APP_SYNC_RECEIPT: ${{ runner.temp }}/memory-app-sync-receipt.json
+      - name: No changes
+        if: steps.prepare.outputs.changed == 'false'
+        run: echo 'No verified template differences; no new commit or PR. Only an already-merged automatic deployment may be checked or resumed when enabled.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Check or resume deployment of the last verified automatic merge
+        if: steps.prepare.outputs.changed == 'false' && env.AUTOMERGE_ENABLED == 'true'
+        run: |
+          gh auth setup-git
+          node scripts/sync-automation.cjs resume
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEMORY_APP_SYNC_STATE: ${{ runner.temp }}/memory-app-sync-state.json
+      - name: Install browser only for a changed candidate
+        if: steps.prepare.outputs.changed == 'true'
+        run: npx playwright install --with-deps chromium
       - name: Test candidate using fixtures only
+        if: steps.prepare.outputs.changed == 'true'
         run: npm test
         env:
           CI: 'true'
           MEMORY_APP_CONFIG_DIR: ${{ runner.temp }}/memory-app-test-config
-      - name: Submit tested changes on a separate review branch
-        shell: bash
+      - name: Re-read Worker and reject edits made during testing
+        if: steps.prepare.outputs.changed == 'true'
+        run: node scripts/review-app-sync.cjs --verify
+        env:
+          MEMORY_APP_SYNC_CODE: ${{ secrets.MEMORY_APP_SYNC_CODE }}
+          MEMORY_APP_SYNC_RECEIPT: ${{ runner.temp }}/memory-app-sync-receipt.json
+      - name: Publish or reuse the identical tested PR
+        id: publish
+        if: steps.prepare.outputs.changed == 'true'
+        run: |
+          gh auth setup-git
+          node scripts/sync-automation.cjs publish
         env:
           GH_TOKEN: ${{ github.token }}
+          SYNC_TESTS_PASSED: 'true'
+          MEMORY_APP_SYNC_RECEIPT: ${{ runner.temp }}/memory-app-sync-receipt.json
+          MEMORY_APP_SYNC_STATE: ${{ runner.temp }}/memory-app-sync-state.json
+      - name: Keep automatic merging disabled during validation
+        if: steps.prepare.outputs.changed == 'true' && env.AUTOMERGE_ENABLED != 'true'
+        run: echo 'Candidate tested and submitted. Automatic main merge and Pages deployment are disabled by the release gate.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Merge only the exact tested tree with unchanged main
+        id: merge
+        if: steps.publish.outputs.changed == 'true' && env.AUTOMERGE_ENABLED == 'true'
+        run: node scripts/sync-automation.cjs merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_TESTS_PASSED: 'true'
+          MEMORY_APP_SYNC_STATE: ${{ runner.temp }}/memory-app-sync-state.json
+      - name: Request and verify Pages build and public template contents
+        if: steps.merge.outputs.merged == 'true'
+        run: node scripts/sync-automation.cjs deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEMORY_APP_SYNC_STATE: ${{ runner.temp }}/memory-app-sync-state.json
+      - name: Record failure for Actions notifications
+        if: failure()
         run: |
-          set -euo pipefail
-          if git diff --quiet; then
-            echo 'No verified template changes to submit.'
-            exit 0
-          fi
-          while IFS= read -r file; do
-            case "$file" in
-              general_business_english_literal_ko.json|business-contexts.js|business-priorities.js) ;;
-              *) echo 'Unexpected changed path; refusing to publish.'; exit 1 ;;
-            esac
-          done < <(git diff --name-only)
-          test -z "$(git ls-files --others --exclude-standard)"
-          test -z "$(git diff --cached --name-only)"
-          gh auth setup-git
-          git fetch origin main
-          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" || {
-            echo 'main changed during validation; rerun against the new main.'; exit 1;
-          }
-          branch="sync/app-templates-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          git switch -c "$branch"
-          git add -- general_business_english_literal_ko.json business-contexts.js business-priorities.js
-          git diff --cached --check
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Apply verified app template edits for review'
-          git push --set-upstream origin "$branch"
-          gh pr create --base main --head "$branch" --title 'Review verified app template edits' --body 'Applies only fields with matching direct user edit history. Unit and isolated browser tests passed before submission. Worker transport used get only; no Worker writes or learning-record changes. Review before merging.'
+          echo '::error title=App template sync failed::The failed stage is recorded in this run; review the run summary.'
+          echo 'Sync failed. Check the failed stage above. Before merge, main is unchanged. A post-merge Pages failure is a separate deployment failure; no automatic history rewrite is attempted.' >> "$GITHUB_STEP_SUMMARY"
       - name: Remove private runner files
         if: always()
-        shell: bash
-        run: rm -rf -- "$RUNNER_TEMP/memory-app-sync-private" "$RUNNER_TEMP/memory-app-test-config"
+        run: |
+          rm -rf -- "$RUNNER_TEMP/memory-app-sync-private" "$RUNNER_TEMP/memory-app-test-config"
+          rm -f -- "$RUNNER_TEMP/memory-app-sync-receipt.json" "$RUNNER_TEMP/memory-app-sync-state.json"

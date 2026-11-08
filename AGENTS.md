@@ -17,13 +17,25 @@ missing/cyclic history and unverified values. It never calls Worker `set`,
 commits, pushes, or changes learning records. Do not use the old patch CLI's
 `--push` path for this workflow: that path targets main.
 
-`.github/workflows/sync-review.yml` is manual and default-branch-only. It runs
-the complete test suite before creating a unique review branch and PR, and
-stops if main moved during testing. It never auto-merges. Do not dispatch it
-when the user has prohibited authenticated/live Worker checks. In that case,
-validate with fixture tests and explicitly report live Secret authentication
-and authenticated workflow execution as deferred. Never change Worker code or
-settings to unblock validation.
+`.github/workflows/sync-review.yml` supports manual and hourly execution at minute
+17. It isolates changes, skips commits/PRs for no-op plans, runs the full suite,
+re-reads the Worker after tests and reuses identical tested PRs. Never clean or
+publish existing untracked files. Worker access remains get-only.
+
+`AUTOMERGE_ENABLED` is a literal false in the workflow. Keep it off until live
+Secret, Pages permissions, branch-rule behavior and an isolated end-to-end
+canary have been reviewed. Do not change repository settings or Secrets to
+bypass it. Do not automatically merge this implementation PR.
+
+The gated path verifies the exact tested tree/head/base and permitted files,
+checks a Pages build of current main, then uses a non-forced fast-forward ref
+update with both known parents. Concurrent main changes reject the merge.
+Legacy Pages from main/root is explicitly built and its SHA/public files are
+verified. Unsupported Pages configuration fails before merge; never change it
+implicitly. Deployment after merge is a separate external operation: record
+post-merge failures and retry only a verified managed merge. Never force-rewrite
+main to pretend it was unchanged. See docs/review-app-sync.md for release checks,
+limitations and native Actions notifications.
 
 For a managed cloud environment with restricted browser downloads, an installed
 Chromium may be selected with
