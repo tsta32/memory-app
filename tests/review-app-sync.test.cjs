@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const cp = require('node:child_process');
-const { plan, run } = require('../scripts/review-app-sync.cjs');
+const { plan, run, verify, fingerprint } = require('../scripts/review-app-sync.cjs');
 const sync = require('../scripts/sync-app-templates.cjs');
 const overrides = require('../card-overrides');
 const templates = require('../business-priorities').items;
@@ -31,6 +31,10 @@ rejects(s => { s.editHistory[0].device = 'import'; });
 rejects(s => { s.editHistory[0].value = 'Old unrelated edit'; });
 rejects(s => { s.editHistory[0].templateKey = templates[1].key; });
 rejects(s => { s.editHistory[0].at = 0; });
+rejects(s => { s.editHistory[0].cardId = 999; });
+rejects(s => { s.editHistory[0].entity = 'id:number:999'; });
+rejects(s => { s.cards[0].businessTemplateKey = 'unknown-template'; });
+rejects(s => { s.cards[0].id = '5'; });
 rejects(s => { s.editHistory[0].parents = ['missing']; });
 rejects(s => { s.editHistory[0].parents = [s.editHistory[0].id]; });
 rejects(s => { s.editHistory.push(structuredClone(s.editHistory[0])); });
@@ -66,14 +70,31 @@ assert.throws(() => plan({ ...data, __memorySyncSnapshotV1: undefined }), /CONFL
       before.set(file, content);
       fs.writeFileSync(path.join(repo,file),content);
     }
+    const localGit=args=>cp.execFileSync('git',args,{cwd:repo,stdio:['ignore','pipe','pipe'],encoding:'utf8'}).trim();
+    localGit(['init']);localGit(['add','--',...files]);
+    localGit(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','fixture base']);
+    const receiptPath=path.join(repo,'receipt.json'),outputPath=path.join(repo,'step-output');
     const result = await run({repo,env:{MEMORY_APP_SYNC_CODE:'test-secret-123'},fetcher,
-      cleanCheck:()=>{},backupRoot:path.join(repo,'private-backups')});
+      cleanCheck:()=>{},backupRoot:path.join(repo,'private-backups'),receiptPath});
     assert.equal(result.changes,1);
     for (const file of files) assert.deepEqual(fs.readFileSync(path.join(result.backupPath,file)),before.get(file));
     const row = JSON.parse(fs.readFileSync(path.join(repo,files[0]))).items.find(r=>r.businessTemplateKey===t.key);
     assert.equal(row.ko_after,'검증된 사용자 번역');
     assert.equal(row.en,t.en); assert.equal(row.context,t.context); assert.equal(row.priority,t.priority);
+    const updatedTemplates=require(path.join(repo,'business-priorities.js')).items;
+    assert.deepEqual(plan(data,updatedTemplates).changes,[],'the same snapshot is a no-op once its template change is integrated');
     assert.equal(JSON.stringify(data),original,'real local apply preserves the entire input snapshot, including study fields');
+    const receipt=JSON.parse(fs.readFileSync(receiptPath,'utf8'));
+    assert.equal(receipt.base,localGit(['rev-parse','HEAD']));
+    assert.equal(fs.statSync(receiptPath).mode&0o777,0o600);
+    await verify({repo,receiptPath,env:{MEMORY_APP_SYNC_CODE:'test-secret-123'},fetcher});
+    const newStudy=JSON.parse(data.srs_cards_v2);newStudy.cards[0].ngCount++;
+    await verify({repo,receiptPath,env:{MEMORY_APP_SYNC_CODE:'test-secret-123'},fetcher:async()=>snapshot(newStudy)});
+    await assert.rejects(verify({repo,receiptPath,env:{MEMORY_APP_SYNC_CODE:'test-secret-123'},fetcher:async()=>snapshot(base)}),/CONFLICT/);
+    assert.equal(fingerprint(receipt),fingerprint(structuredClone(receipt)),'retries have a stable branch key');
+    await run({repo,env:{MEMORY_APP_SYNC_CODE:'test-secret-123',GITHUB_OUTPUT:outputPath},fetcher,
+      templates:updatedTemplates,cleanCheck:()=>{},backupRoot:path.join(repo,'private-backups')});
+    assert.equal(fs.readFileSync(outputPath,'utf8'),'changed=false\n');
     const applied = files.map(f=>fs.readFileSync(path.join(repo,f)));
     await assert.rejects(run({repo,env:{MEMORY_APP_SYNC_CODE:'test-secret-123'},
       cleanCheck:()=>{},backupRoot:path.join(repo,'private-backups'),

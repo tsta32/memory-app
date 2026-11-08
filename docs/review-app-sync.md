@@ -1,71 +1,107 @@
-# Review-only app template sync
+# Hourly app template sync
 
-This implementation was rebuilt from main (`8b6cd10`). The historical local
-commit `9df012d` was unavailable and was not recovered.
+The workflow retains manual execution and adds `17 * * * *` (UTC). Scheduling
+starts after this implementation is merged into the default branch. GitHub may
+delay scheduled runs. This extends PR #1; historical commit 9df012d was not recovered.
 
-## Running locally
+## Release state
 
-`npm run sync:app-templates:review` reads a fresh complete snapshot using Worker
-`get`, then applies verified template changes to the local checkout only. It
-uses `MEMORY_APP_SYNC_CODE` when that variable exists; otherwise it uses the
-existing private local credential configured by `sync:app-templates:setup`.
-An empty environment variable fails instead of falling back. Do not put a
-credential in command arguments, repository files or logs.
+**Automatic merging remains disabled.** `AUTOMERGE_ENABLED` is a literal `false`
+in the workflow, not a dispatch input or repository variable. Until a reviewed
+follow-up enables it, verified changes produce a tested PR only. This change does
+not modify repository settings, Worker code/settings, Secrets or learning data.
 
-The strict path rejects deletion requests, supplied or recomputed conflicts,
-duplicate identities, incomplete/cyclic event ancestry, and changed fields
-without a matching direct user event (entity, card ID, template identity,
-field, value, device and timestamp). Legacy imports and derived context events
-are not direct user evidence. Historical deletion events also stop automation,
-even after a later restoration; resolve those cases manually. Each original
-template file is backed up privately before local writes. The input snapshot
-and all study statistics remain unchanged. No snapshot is uploaded as an
-artifact, and no Worker `set` is used.
+## Read, validate and test
 
-## GitHub Actions
+- Switch from main to an isolated candidate branch before applying any change.
+- Reuse `MEMORY_APP_SYNC_CODE` for a fresh Worker get only. The existing local
+  credential-file fallback remains available when the variable is absent. Empty
+  or malformed values fail. Credentials are never printed or supplied to tests.
+- Check complete snapshots, causal ancestry, entity/card/template IDs, direct
+  user evidence matching each changed field, duplicate identities and conflicts
+  recomputed from history. Unknown provenance, ID mismatch and deletion requests
+  stop before local writes. Historical deletion events also stop automation.
+  Independent cards from other categories are not imported into business templates.
+- An unchanged plan exits without file writes, commit or PR, skipping browser
+  installation/tests. Changed candidates get private template backups and run
+  every unit script and all 68 isolated browser tests.
+- Re-read the Worker after tests and compute the same plan against the original
+  templates in a private receipt. Changed edits abort publication. Changes only
+  to SRS/review records do not invalidate the plan and never modify those records.
+  SHA-256 hashes also reject any unexpected local template changes after planning
+  or testing, immediately before publication.
 
-The ordinary **Tests** workflow runs unit and isolated browser tests without
-the Worker Secret and with read-only repository permission. Both workflows pin
-Ubuntu 24.04 because Playwright 1.55 does not support the Ubuntu 26.04 image
-selected by `ubuntu-latest`.
+Snapshots remain immutable. IDs, SRS, due dates, review/error records, statistics,
+edit history and app user values are never written by this automation. Private
+receipts/backups stay in runner temp and are cleaned even on failure. No snapshot
+or credential artifact is uploaded. Logs contain counts, safe error codes and
+Git SHAs, never credentials or private card text.
 
-**Review app template sync** is manual and accepts only the default branch.
-After reviewing and merging the workflow, an owner can configure the repository
-Secret `MEMORY_APP_SYNC_CODE` and separately authorize a live run. The Secret is
-exposed only to the read/apply step; it is absent from test and publication
-steps. Do not dispatch this workflow during a task that defers live credential
-checks. No Secret has been installed or tested as part of this implementation.
+## Idempotence and races
 
-The workflow serializes sync runs, installs Chromium, reads/applies locally,
-runs `npm test`, and submits only the three template files on a unique
-`sync/app-templates-<run-id>-<attempt>` branch. It refuses unexpected file
-changes and stops if main advanced during testing. It uses a normal push,
-never force-pushes or writes main, and never merges the PR. Main can still
-advance after the freshness check; normal PR review/mergeability checks remain
-necessary. The repository must allow GitHub Actions to create pull requests;
-that live token permission is not established by fixture tests. A bot-token
-push may not trigger another workflow; the full suite already runs before it.
+One concurrency group serializes manual/scheduled executions through deployment.
+A canonical base/changes fingerprint selects an immutable branch named
+`sync/app-templates-<32 hex digits>`. Identical retries reuse its PR only when
+its parent and tree match. Closed or altered PRs fail instead of being overwritten.
+Only three template files are staged; existing untracked files are preserved.
+No forced branch updates are used. Main advancement requires new validation.
+Proposals based on an older main are retained for review rather than force-updated.
+Token-generated PRs may not trigger another CI run, so the full suite runs directly
+before publication. GitHub Actions must be allowed to create PRs; failure never
+causes a fallback token or an implicit settings change.
 
-## Validation scope
+## Gated merge and Pages
 
-Fixture tests cover Secret/local credential selection, private file permissions,
-rejected authentication, direct edit provenance, hidden concurrent conflicts,
-deletion refusal, immutable snapshots, actual local apply/backup and no-write
-failure paths. Existing browser tests cover edits across devices, stale data,
-reload/recovery, conflict resolution and learning-record preservation.
+The disabled production path verifies PR state, draft/mergeability, repository,
+head/base SHAs, the tested tree, one expected parent, and only modified allowlisted
+files. Before touching main it requests and verifies a Pages build of current main,
+proving build permissions/configuration. It constructs a merge commit containing
+exactly the tested tree and both known parents, then requests a non-forced ref
+update. A concurrent main edit rejects this fast-forward instead of merging an
+untested base. Branch protection is respected. GitHub must recognize the PR as
+merged with this exact commit; otherwise the run fails visibly.
 
-Workflow syntax is checked with actionlint. Publication shell checks were also
-exercised against temporary bare Git repositories with a stubbed GitHub CLI:
-no changes, successful review-branch submission, main advancement, and unexpected
-changed files. These checks do not authenticate to a Worker or prove production
-Secret validity. Cloudflare Worker code/settings are outside this change.
+Existing branch-based (`legacy`) Pages from main/root is supported. Other modes
+fail before merge; the workflow never changes Pages settings. An explicit Pages
+build is requested because a GITHUB_TOKEN merge may not start Pages by itself.
+Polling verifies build success and the exact merge SHA, followed by SHA-256 checks
+of all three public template files. Public requests carry no authentication.
 
-In restricted cloud environments use an installed browser:
+**Git merge and Pages deployment are not one atomic transaction.** Pre-merge
+failures leave main unchanged. A Pages outage after merge cannot mean main never
+changed. The run fails without force-rewriting history. On a later no-difference
+run, the enabled path checks/resumes only a current managed merge with matching
+parents and merged PR. It never redeploys an old commit over newer main work.
+Already successful builds are reused; public content is still checked.
 
-```sh
-MEMORY_APP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm test
-```
+## Before enabling automatic merging
 
-Otherwise use the pinned Playwright browser installed by
-`npx playwright install --with-deps chromium`. Browser tests use isolated fixture
-profiles and intercept Worker calls; they do not use an existing user profile.
+Keep the gate off while reviewing this PR and its mock/CI results. Confirm the
+existing Secret through an authorized read-only canary on reviewed code. Confirm
+PR creation, legacy Pages main/root configuration, build permissions, public-file
+verification, branch-rule compatibility and exact-tree merge recognition in an
+isolated test repository. Review the non-atomic boundary above. Enable the literal
+gate only in a separate reviewed change after those checks. No production
+merge/deployment canary or Secret configuration is performed in this task.
+
+## Existing notifications
+
+Errors use nonzero exit status, Actions annotations and the run summary, covering
+authentication/planning, tests, changed snapshots, PR/head/main races and Pages
+errors/timeouts. GitHub Actions' existing email/web failure notifications are the
+available notification mechanism; delivery depends on user settings and scheduled
+workflow ownership. Review GitHub Settings → Notifications → Actions and repository
+notification preferences. No email, Slack message, webhook, Issue or extra Secret
+is created. The ordinary Tests workflow remains independent of the Worker Secret.
+
+## Developer checks
+
+`npm test` includes temporary bare-repository fixtures and a mocked GitHub API:
+no-op, test gates, untracked preservation, PR reuse/mismatch, Pages permissions,
+main races before/during ref update, exact-tree merge, deployment SHA/content and
+safe resume. Worker fixtures check edit changes during tests, study-only updates
+and post-integration no-op. These do not prove live credentials or production readiness.
+
+Managed cloud: `MEMORY_APP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm test`.
+Actions pins Ubuntu 24.04 and installs the pinned Playwright browser. All browser
+profiles and Worker responses are fixtures. Validate workflow syntax with actionlint.
