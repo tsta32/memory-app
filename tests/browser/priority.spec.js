@@ -1,25 +1,29 @@
 const {test,expect}=require('@playwright/test');
 const policy=require('../../business-priorities');
-async function open(browser,{state='new',all=false,mobile=false,other=false}={}){
+const fixtureRows=policy.items.map((row,i)=>({...row,priority:({0:'essential',8:'essential',1:'important',3:'important',2:'supplementary'})[i]||row.priority}));
+const countRows=rows=>rows.reduce((counts,row)=>(counts[row.priority]++,counts),{essential:0,important:0,supplementary:0});
+const fixtureCounts=countRows(fixtureRows);
+async function open(browser,{state='new',all=false,mobile=false,other=false,controlled=false}={}){
   const context=await browser.newContext(mobile?{viewport:{width:390,height:844},isMobile:true,hasTouch:true}:{});
-  await context.addInitScript(({rows,state,all,other})=>{
+  await context.addInitScript(({rows,state,all,other,controlled})=>{
     if(sessionStorage.getItem('priority-seeded'))return;
     const selected=all?rows:[rows[0],rows[8],rows[1],rows[3],rows[2]];
     const t=Date.now();
     const cards=selected.map((r,i)=>({id:100+i,en:r.en,ko:'사용자 번역 '+i,context:'저장 문맥 '+i,chapterId:9,
       stage:all?9:0,everAnswered:all,dueAt:all?t+86400000:1+i,ngCount:7,lastTestedAt:12,bookmarked:false,extra:{preserved:'yes'},
-      ...(!all?{priority:r.priority}:{})}));
+      ...(!all||controlled?{priority:r.priority,businessTemplateKey:r.key}:{})}));
     if(state==='ready'){
       for(let i=0;i<2;i++)Object.assign(cards[i],{stage:3,everAnswered:true,firstCorrectAt:100,dueAt:t+(i===0?600000:3600000)});
       Object.assign(cards[2],{stage:2,everAnswered:true,firstCorrectAt:100,dueAt:1});
     }
     if(other)cards.push({id:999,en:'Other category.',ko:'다른 카테고리',context:'다른 문맥',chapterId:10,stage:0,everAnswered:false,dueAt:1,ngCount:0});
-    localStorage.setItem('srs_cards_v2',JSON.stringify({cards:all?cards.reverse():cards,nextId:1000}));
+    const editHistory=!all||controlled?cards.filter(c=>c.id!==999).map(c=>({id:'fixture-priority-'+c.id,entity:'id:number:'+c.id,cardId:c.id,templateKey:c.businessTemplateKey,field:'priority',value:c.priority,parents:[],at:1,device:'fixture',origin:'user'})):[];
+    localStorage.setItem('srs_cards_v2',JSON.stringify({cards:all?cards.reverse():cards,nextId:1000,editHistory}));
     localStorage.setItem('srs_chapters_v1',JSON.stringify({chapters:[{id:9,name:'영어업무(일반)'},{id:10,name:'다른 카테고리'}],nextId:11}));
     localStorage.setItem('srs_settings_v1',JSON.stringify({volume:42,manualCorrectTotal:6,grammarOptions:{article:true},custom:{keep:1}}));
     localStorage.setItem('srs_error_history_v1',JSON.stringify({version:1,records:[]}));
     localStorage.removeItem('memory_sync_code_v1');sessionStorage.setItem('priority-seeded','1');
-  },{rows:policy.items,state,all,other});
+  },{rows:all&&!controlled?policy.items:fixtureRows,state,all,other,controlled});
   const errors=[],workerRequests=[];
   await context.route('**/*',route=>{
     const u=new URL(route.request().url());
@@ -44,21 +48,21 @@ test('all 200 cards migrate by source rather than id/order, preserve user fields
     const saved=await data(page);expect(saved.cards).toHaveLength(200);expect(saved.nextId).toBe(1000);
     const counts={essential:0,important:0,supplementary:0};
     for(const c of saved.cards){const row=policy.items[c.id-100];expect(c.en).toBe(row.en);expect(c.priority).toBe(row.priority);expect(c.businessTemplateKey).toBe(row.key);expect(c.ko).toBe('사용자 번역 '+(c.id-100));expect(c.context).toBe('저장 문맥 '+(c.id-100));expect(c.stage).toBe(9);expect(c.ngCount).toBe(7);expect(c.firstCorrectAt).toBeUndefined();counts[c.priority]++;}
-    expect(counts).toEqual({essential:40,important:127,supplementary:33});
-    await expect(page.locator('#priorityProgress')).toContainText('필수: 0 / 40');
+    expect(counts).toEqual(countRows(policy.items));
+    await expect(page.locator('#priorityProgress')).toContainText('필수: 0 / '+counts.essential);
     await expect(page.locator('#priorityProgress')).toContainText('과거 정답이 불명확');healthy(app);
   }finally{await app.context.close();}
 });
 
 for(const mobile of [false,true])test(`settings coverage is derived from live cards and refreshes after user edits (${mobile?'mobile':'desktop'})`,async({browser})=>{
-  const app=await open(browser,{all:true,mobile});const{page}=app;
+  const app=await open(browser,{all:true,mobile,controlled:true});const{page}=app;
   try{
     await page.locator('#tabSettings').click();
-    await expect(page.locator('#essentialCoverageSummary')).toContainText('필수 40개 · 중요 127개 · 보조 33개');
+    await expect(page.locator('#essentialCoverageSummary')).toContainText(`필수 ${fixtureCounts.essential}개 · 중요 ${fixtureCounts.important}개 · 보조 ${fixtureCounts.supplementary}개`);
     await expect(page.locator('#essentialCoveragePanel')).not.toHaveAttribute('open','');
-    await expect(page.locator('#essentialCoverageCount')).toHaveText('필수 40개');
+    await expect(page.locator('#essentialCoverageCount')).toHaveText(`필수 ${fixtureCounts.essential}개`);
     await page.locator('#essentialCoveragePanel > summary').click();await expect(page.locator('#essentialCoveragePanel')).toHaveAttribute('open','');
-    await expect(page.locator('#essentialList')).toContainText('I’m investigating the cause.');
+    await expect(page.locator('#essentialList')).toContainText(fixtureRows[0].en);
     await page.locator('#tabAllCards').click();await page.locator('#allCardsSearch').fill(policy.items[1].en);
     await page.locator('#allCardsList .fc-row input[type="checkbox"]').check();await page.locator('#editBulkBtn').click();
     await page.locator('#editCardList select[data-field="priority"]').selectOption('essential');
@@ -67,7 +71,7 @@ for(const mobile of [false,true])test(`settings coverage is derived from live ca
     await page.locator('#editCardList input[data-field="context"]').fill('이메일 수신 확인요청');
     await page.locator('#editSaveBtn').click();await page.locator('#editConfirmApply').click();
     await page.locator('#tabSettings').click();
-    await expect(page.locator('#essentialCoverageSummary')).toContainText('필수 41개 · 중요 126개 · 보조 33개');
+    await expect(page.locator('#essentialCoverageSummary')).toContainText(`필수 ${fixtureCounts.essential+1}개 · 중요 ${fixtureCounts.important-1}개 · 보조 ${fixtureCounts.supplementary}개`);
     await expect(page.locator('#essentialList')).toContainText('Could you confirm that you received my email?');
     await expect(page.locator('#essentialList')).toContainText('이메일 수신 확인요청');
     await expect(page.locator('#essentialList')).toContainText('분류 검토 필요');

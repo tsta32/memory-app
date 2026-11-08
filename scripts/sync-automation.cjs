@@ -15,7 +15,7 @@ function context({repo=process.cwd(),env=process.env,api,sleep=pause}={}) {
   const root = '/repos/' + env.GITHUB_REPOSITORY;
   const git = (...args) => execFileSync('git',args,{cwd:repo,encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
   const request = api || (async(method,endpoint,body)=> {
-    if (!endpoint.startsWith(root+'/')) fail('API_PATH_INVALID');
+    if (endpoint!==root && !endpoint.startsWith(root+'/')) fail('API_PATH_INVALID');
     const response = await fetch('https://api.github.com'+endpoint,{
       method, headers:{authorization:'Bearer '+env.GH_TOKEN,accept:'application/vnd.github+json','content-type':'application/json','x-github-api-version':'2022-11-28'},
       body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20000)});

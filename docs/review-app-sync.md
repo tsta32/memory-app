@@ -105,3 +105,70 @@ and post-integration no-op. These do not prove live credentials or production re
 Managed cloud: `MEMORY_APP_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm test`.
 Actions pins Ubuntu 24.04 and installs the pinned Playwright browser. All browser
 profiles and Worker responses are fixtures. Validate workflow syntax with actionlint.
+
+## Automatic operational validation
+
+`sync-live-validation.yml` adds an hourly read-only audit at minute 37 and an
+automatic audit on relevant main changes. It uses the existing Secret only in
+its Worker read step, checks the latest plan without applying it, and verifies
+current Pages build SHA and public template hashes. Its evidence artifact contains
+only fixed booleans, counts and public Git metadata. A successful metadata read
+or reported token scope is not proof of PR/merge write permission, and an audit
+alone never sets `automerge_eligible` to true.
+
+For this implementation branch only, a separate automatic job proves the actual
+Actions token's PR/ref-merge rights on `sync-permission-probe/*` base/head refs.
+The test adds a disposable marker, never edits production main or app templates,
+never contacts the Worker and never changes or rebuilds production Pages. Its
+merged PR is evidence of the exact-tree merge-recognition mechanism, not an
+end-to-end Pages canary. The job is not repeated by normal hourly/main execution.
+
+`sync-canary.yml` and `sync-canary.cjs` provide the real end-to-end proof in exactly
+`tsta32/memory-app-sync-canary`. Both reject production; the script also refuses
+any Worker Secret. They generate a synthetic direct edit, run the complete suite,
+create/merge a real PR with that repository's Actions token, request its Pages
+build and compare its public files with the merged tree. No Worker call is made.
+The resulting artifact includes the automation source-code hash so proof cannot
+be silently substituted from a different implementation.
+
+One-time prerequisite: an isolated repository/site must exist and be connected.
+Initialize it on main, configure legacy Pages from main/root, permit Actions PR
+creation, and connect it to the GitHub app. This chat's connection can access only
+memory-app and cannot create repositories or change Pages settings. No Secret
+needs copying to the canary. Once connected, publishing the reviewed code to that
+repository starts the canary automatically; recurring Run workflow actions are
+not required. Do not enable production until its proof and the production audit
+and permission probe have actually succeeded and been reported.
+
+Regression tests now compare isolated patch results against current baselines
+instead of freezing every historical phrase or grade count. Authored metadata
+may be honestly empty after a user content edit; no new reason or coverage is
+invented. Planner/UI tier scenarios use explicit synthetic grades, while source
+migration still checks the real template distribution. This changes test fixtures,
+not classification criteria, templates, app runtime or user records.
+
+## Recorded operational evidence (2026-11-08)
+
+Run https://github.com/tsta32/memory-app/actions/runs/42441097985 tested code
+8d9ded9 against production main 7e1dca9 using the existing Actions Secret:
+
+- Worker get succeeded, strict provenance checks passed, verified change count
+  was zero, and the read-only audit finished successfully without local apply.
+- Legacy main/root Pages configuration, current successful build SHA and all
+  three public template hashes were verified. This is production read-only
+  verification, not a separate-repository deployment canary.
+- The Actions token created both disposable probe refs, proving ref write access.
+  Its subsequent PR creation request was rejected with HTTP 403. Thus actual
+  merge recognition could not be exercised with that token. Connector-created
+  PRs are not a substitute for an Actions-token permission proof.
+- An actual isolated Pages canary has not run: this connection has no separate
+  repository and cannot create one. The harness's synthetic candidate passed
+  all 10 unit scripts and 68 browser tests locally; this is not live Pages proof.
+
+AUTOMERGE_ENABLED remains false. Before activation, an administrator must check
+Settings → Actions → General → Workflow permissions → “Allow GitHub Actions to
+create and approve pull requests,” including any overriding organization policy.
+Then provide/connect the isolated canary repository/site described above. No
+PAT, Secret value, snapshot or additional credential should be supplied in chat.
+The agent can retry the failed permission job after that one-time configuration;
+normal hourly operation does not require pressing Run workflow or reading logs.

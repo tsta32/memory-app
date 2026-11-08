@@ -1,0 +1,74 @@
+name: Sync live read-only validation
+
+on:
+  push:
+    branches: [main, codex/production-sync-validation]
+    paths:
+      - '.github/workflows/sync-live-validation.yml'
+      - 'scripts/sync-live-validation.cjs'
+      - 'scripts/sync-automation.cjs'
+      - 'scripts/review-app-sync.cjs'
+  workflow_dispatch:
+  schedule:
+    - cron: '37 * * * *'
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+
+concurrency:
+  group: sync-live-read-only-validation
+  cancel-in-progress: false
+
+jobs:
+  read-only:
+    if: github.repository == 'tsta32/memory-app'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Read Worker, validate provenance, check current public Pages
+        run: node scripts/sync-live-validation.cjs audit
+        env:
+          MEMORY_APP_SYNC_CODE: ${{ secrets.MEMORY_APP_SYNC_CODE }}
+          GH_TOKEN: ${{ github.token }}
+          SYNC_VALIDATION_REPORT: ${{ runner.temp }}/sync-read-validation.json
+      - name: Retain only sanitized validation metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-read-validation
+          path: ${{ runner.temp }}/sync-read-validation.json
+          retention-days: 14
+          if-no-files-found: ignore
+  isolated-permissions:
+    # One-time agent-run proof, not a recurring production mutation.
+    if: github.repository == 'tsta32/memory-app' && github.ref == 'refs/heads/codex/production-sync-validation' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Prove token PR and merge rights on disposable refs only
+        run: node scripts/sync-live-validation.cjs permissions-probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_VALIDATION_REPORT: ${{ runner.temp }}/sync-permissions-validation.json
+      - name: Retain sanitized permission evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-permissions-validation
+          path: ${{ runner.temp }}/sync-permissions-validation.json
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,0 +1,73 @@
+name: Isolated sync PR merge and Pages canary
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+
+concurrency:
+  group: isolated-sync-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    # This workflow cannot mutate production, even if manually dispatched there.
+    if: github.repository == 'tsta32/memory-app-sync-canary'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Initialize private canary paths
+        run: |
+          echo "MEMORY_APP_SYNC_RECEIPT=$RUNNER_TEMP/canary-receipt.json" >> "$GITHUB_ENV"
+          echo "MEMORY_APP_SYNC_STATE=$RUNNER_TEMP/canary-state.json" >> "$GITHUB_ENV"
+          echo "MEMORY_APP_CANARY_FIXTURE=$RUNNER_TEMP/canary-fixture.json" >> "$GITHUB_ENV"
+          echo "SYNC_VALIDATION_REPORT=$RUNNER_TEMP/canary-result.json" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare a synthetic edit in an isolated repository
+        run: node scripts/sync-canary.cjs prepare
+      - name: Test the actual candidate
+        run: npm test
+        env:
+          CI: 'true'
+          MEMORY_APP_CONFIG_DIR: ${{ runner.temp }}/canary-test-config
+      - name: Create an actual canary PR with the Actions token
+        run: |
+          gh auth setup-git
+          node scripts/sync-canary.cjs publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_TESTS_PASSED: 'true'
+      - name: Merge the exact tested tree in the canary repository only
+        run: node scripts/sync-canary.cjs merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SYNC_TESTS_PASSED: 'true'
+      - name: Build canary Pages and verify public contents
+        run: node scripts/sync-canary.cjs deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Retain sanitized canary proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-sync-canary-proof
+          path: ${{ runner.temp }}/canary-result.json
+          retention-days: 30
+      - name: Remove synthetic fixtures and receipts
+        if: always()
+        run: |
+          rm -f -- "$MEMORY_APP_SYNC_RECEIPT" "$MEMORY_APP_SYNC_STATE" "$MEMORY_APP_CANARY_FIXTURE"
+          rm -rf -- "$RUNNER_TEMP/canary-backups" "$RUNNER_TEMP/canary-test-config"
