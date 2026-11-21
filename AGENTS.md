@@ -72,3 +72,15 @@ After syncing, inspect the detailed card-analysis report when there are unlinked
 ## Priority classification data
 
 If essential-priority criteria or classification schema changes, update `docs/business-priorities.md`, `business-priorities.js`, and their tests together. Do not invent a reason or coverage purpose for a newly essential or content-edited card; leave it marked for review until an explicit assessment is saved.
+
+## Live release validation
+
+Keep AUTOMERGE_ENABLED false unless actual read-only audit, Actions permission
+probe and separate-repository Pages canary have succeeded and their results have
+been reported. The read-only audit writes only sanitized booleans/counts/public
+Git metadata as evidence, never snapshots. The one-time permission probe may use
+only its own sync-permission-probe refs; never production main or Pages. The
+canary is hard-bound to tsta32/memory-app-sync-canary, uses synthetic data, and
+must never receive a Worker Secret. If that repository or administrative setup
+is unavailable, complete safe work and report the precise missing prerequisite;
+do not substitute mocked tests or connector credentials for Actions-token proof.
