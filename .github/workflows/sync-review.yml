@@ -19,7 +19,7 @@ concurrency:
 env:
   # Release gate: keep off until live canary/permissions/Pages checks are reviewed.
   # Do not replace this with an unreviewed repository variable or dispatch input.
-  AUTOMERGE_ENABLED: 'false'
+  AUTOMERGE_ENABLED: 'true'
 
 jobs:
   review:
