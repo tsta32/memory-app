@@ -1,0 +1,54 @@
+name: Validate ChatGPT template changes against app edits
+
+on:
+  pull_request:
+    paths:
+      - 'general_business_english_literal_ko.json'
+      - 'business-contexts.js'
+      - 'business-priorities.js'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-template-pr:
+    # Never expose the Worker secret to forked pull requests.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Read latest app edits without writing to Worker
+        run: npm run sync:app-templates:review
+        env:
+          MEMORY_APP_SYNC_CODE: ${{ secrets.MEMORY_APP_SYNC_CODE }}
+          MEMORY_APP_CONFIG_DIR: ${{ runner.temp }}/chatgpt-template-sync-private
+          MEMORY_APP_SYNC_RECEIPT: ${{ runner.temp }}/chatgpt-template-sync-receipt.json
+      - name: Refuse PR when app edits are not yet included
+        run: |
+          if ! git diff --quiet -- general_business_english_literal_ko.json business-contexts.js business-priorities.js; then
+            echo '::error::App edits are not incorporated. Wait for app-to-GitHub sync, then regenerate/rebase this PR.'
+            exit 1
+          fi
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Browser tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:browser
+        env:
+          CI: 'true'
+          MEMORY_APP_CONFIG_DIR: ${{ runner.temp }}/chatgpt-template-test-config
+      - name: Remove private runner data
+        if: always()
+        run: |
+          rm -rf -- "$RUNNER_TEMP/chatgpt-template-sync-private" "$RUNNER_TEMP/chatgpt-template-test-config"
+          rm -f -- "$RUNNER_TEMP/chatgpt-template-sync-receipt.json"
