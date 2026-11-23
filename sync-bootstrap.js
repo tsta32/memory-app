@@ -248,6 +248,49 @@ function connectAndLoad(){
     else{var d=snapshot();return request('set',snapshotPayload(d)).then(function(){lastSnapshot=signature(d);loadApp();startPolling();});}
   }).catch(function(e){console.warn('[Memory sync] Server unavailable; opening local data.',e);loadApp();startPolling();});
 }
+
+/* Read-only sync diagnostics: never reveal codes or snapshot contents. */
+function installSyncDiagnostics(){
+  if(document.getElementById('memory-sync-diagnostic-button'))return;
+  var button=document.createElement('button');
+  button.id='memory-sync-diagnostic-button';
+  button.type='button';
+  button.textContent='☁ 동기화 진단';
+  button.style.cssText='position:fixed;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:9000;padding:9px 12px;border-radius:20px;border:1px solid #777;background:#262626;color:white;font:13px system-ui,sans-serif;box-shadow:0 2px 8px #0005';
+  var panel=document.createElement('section');
+  panel.id='memory-sync-diagnostic-panel';
+  panel.setAttribute('role','dialog');
+  panel.setAttribute('aria-label','동기화 진단');
+  panel.style.cssText='display:none;position:fixed;inset:auto 12px max(56px,env(safe-area-inset-bottom)) 12px;z-index:9001;max-width:440px;margin-left:auto;background:#242424;color:white;border:1px solid #777;border-radius:14px;padding:16px;box-shadow:0 4px 20px #0008;font:14px/1.6 system-ui,sans-serif';
+  var title=document.createElement('strong');title.textContent='동기화 진단 (읽기 전용)';
+  var status=document.createElement('div');status.style.cssText='margin:12px 0;white-space:pre-line;overflow-wrap:anywhere';
+  var check=document.createElement('button');check.type='button';check.textContent='서버 상태 조회 (GET만)';
+  check.style.cssText='padding:9px;border-radius:8px;margin-right:8px';
+  var close=document.createElement('button');close.type='button';close.textContent='닫기';close.style.cssText='padding:9px;border-radius:8px';
+  var note=document.createElement('p');note.textContent='동기화 코드와 학습 내용은 표시하지 않습니다. 이 조회는 서버에 저장하지 않지만, 앱의 기존 자동 동기화 동작은 그대로 유지됩니다.';
+  note.style.cssText='font-size:12px;color:#ccc';
+  panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(close);panel.appendChild(note);
+  document.body.appendChild(button);document.body.appendChild(panel);
+  function localStatus(){
+    var count=Object.keys(snapshot()).length;
+    return '앱 동기화 코드: '+(syncCode?'등록됨':'미등록')+'\\n로컬 학습 저장 항목: '+count+' / '+DATA_KEYS.length+'\\n서버: 아직 조회하지 않음';
+  }
+  button.addEventListener('click',function(){panel.style.display='block';status.textContent=localStatus();});
+  close.addEventListener('click',function(){panel.style.display='none';});
+  check.addEventListener('click',function(){
+    if(!syncCode){status.textContent=localStatus()+'\\n서버 조회 불가: 앱 동기화 코드가 없습니다.';return;}
+    check.disabled=true;status.textContent='서버를 읽기 전용으로 조회 중…';
+    request('get').then(function(r){
+      var d=r&&r.data;
+      var state=d==null?'저장 데이터 없음 (null)':completeSnapshot(d)?'완전한 스냅샷 있음':hasData(d)?'데이터 있음 (완전성 표시 없음)':'데이터 없음 또는 알 수 없는 형식';
+      status.textContent='앱 동기화 코드: 등록됨\\n로컬 학습 저장 항목: '+Object.keys(snapshot()).length+' / '+DATA_KEYS.length+'\\n서버: '+state+'\\n주의: Codex와 코드 일치 여부는 이 화면만으로 확인할 수 없습니다.';
+    }).catch(function(e){
+      status.textContent='서버 조회 실패: '+(e&&e.message?String(e.message).slice(0,120):'알 수 없는 오류');
+    }).then(function(){check.disabled=false;});
+  });
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installSyncDiagnostics,{once:true});else installSyncDiagnostics();
+
 function start(){if(!syncCode){if(studyProtected()){loadApp();return;}showCodeEntry();return;}connectAndLoad();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
