@@ -266,24 +266,45 @@ function installSyncDiagnostics(){
   var status=document.createElement('div');status.style.cssText='margin:12px 0;white-space:pre-line;overflow-wrap:anywhere';
   var check=document.createElement('button');check.type='button';check.textContent='서버 상태 조회 (GET만)';
   check.style.cssText='padding:9px;border-radius:8px;margin-right:8px';
+  var reveal=document.createElement('button');reveal.type='button';reveal.textContent='코드 확인 / 복사';reveal.style.cssText='padding:9px;border-radius:8px;margin:8px 8px 8px 0';
+  var secretArea=document.createElement('div');secretArea.style.cssText='display:none;margin:8px 0;padding:10px;border:1px solid #777;border-radius:8px';
+  var secretInput=document.createElement('input');secretInput.type='password';secretInput.readOnly=true;secretInput.autocomplete='off';secretInput.setAttribute('aria-label','현재 PWA 동기화 코드');
+  secretInput.style.cssText='box-sizing:border-box;width:100%;padding:9px;color:white;background:#333;border:1px solid #777;border-radius:6px';
+  var toggle=document.createElement('button');toggle.type='button';toggle.textContent='보기';toggle.style.cssText='margin:8px 8px 0 0;padding:7px';
+  var copy=document.createElement('button');copy.type='button';copy.textContent='복사';copy.style.cssText='margin:8px 8px 0 0;padding:7px';
+  var secretMsg=document.createElement('div');secretMsg.style.cssText='font-size:12px;color:#ddd';
+  secretArea.appendChild(secretInput);secretArea.appendChild(toggle);secretArea.appendChild(copy);secretArea.appendChild(secretMsg);
   var close=document.createElement('button');close.type='button';close.textContent='닫기';close.style.cssText='padding:9px;border-radius:8px';
   var note=document.createElement('p');note.textContent='동기화 코드와 학습 내용은 표시하지 않습니다. 이 조회는 서버에 저장하지 않지만, 앱의 기존 자동 동기화 동작은 그대로 유지됩니다.';
   note.style.cssText='font-size:12px;color:#ccc';
-  panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(close);panel.appendChild(note);
+  panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(reveal);panel.appendChild(secretArea);panel.appendChild(close);panel.appendChild(note);
   document.body.appendChild(button);document.body.appendChild(panel);
   function localStatus(){
     var count=Object.keys(snapshot()).length;
-    return '앱 동기화 코드: '+(syncCode?'등록됨':'미등록')+'\\n로컬 학습 저장 항목: '+count+' / '+DATA_KEYS.length+'\\n서버: 아직 조회하지 않음';
+    return '앱 동기화 코드: '+(syncCode?'등록됨':'미등록')+'\n로컬 학습 저장 항목: '+count+' / '+DATA_KEYS.length+'\n서버: 아직 조회하지 않음';
   }
-  button.addEventListener('click',function(){panel.style.display='block';status.textContent=localStatus();});
-  close.addEventListener('click',function(){panel.style.display='none';});
+  function hideSecret(){secretInput.value='';secretInput.type='password';toggle.textContent='보기';secretArea.style.display='none';secretMsg.textContent='';}
+  button.addEventListener('click',function(){hideSecret();panel.style.display='block';status.textContent=localStatus();});
+  reveal.addEventListener('click',function(){
+    if(!syncCode){secretArea.style.display='block';secretMsg.textContent='등록된 동기화 코드가 없습니다.';return;}
+    if(!window.confirm('현재 PWA의 동기화 코드를 이 기기에서 확인하거나 복사합니다. 화면 공유나 스크린샷에 코드가 노출되지 않도록 주의하세요. 계속할까요?'))return;
+    secretInput.value=syncCode;secretInput.type='password';toggle.textContent='보기';secretArea.style.display='block';
+    secretMsg.textContent='이 코드를 Codex 설정에만 입력하세요. 채팅에는 붙여넣지 마세요.';
+  });
+  toggle.addEventListener('click',function(){secretInput.type=secretInput.type==='password'?'text':'password';toggle.textContent=secretInput.type==='password'?'보기':'숨기기';});
+  copy.addEventListener('click',function(){
+    if(!secretInput.value)return;
+    if(!navigator.clipboard||!navigator.clipboard.writeText){secretMsg.textContent='자동 복사가 지원되지 않습니다. 보기 버튼으로 확인하세요.';return;}
+    navigator.clipboard.writeText(secretInput.value).then(function(){secretMsg.textContent='복사됨. Codex에 입력한 후 다른 내용을 복사해 클립보드를 지우세요.';}).catch(function(){secretMsg.textContent='복사 실패. 보기 버튼으로 확인하세요.';});
+  });
+  close.addEventListener('click',function(){hideSecret();panel.style.display='none';});
   check.addEventListener('click',function(){
-    if(!syncCode){status.textContent=localStatus()+'\\n서버 조회 불가: 앱 동기화 코드가 없습니다.';return;}
+    if(!syncCode){status.textContent=localStatus()+'\n서버 조회 불가: 앱 동기화 코드가 없습니다.';return;}
     check.disabled=true;status.textContent='서버를 읽기 전용으로 조회 중…';
     request('get').then(function(r){
       var d=r&&r.data;
       var state=d==null?'저장 데이터 없음 (null)':completeSnapshot(d)?'완전한 스냅샷 있음':hasData(d)?'데이터 있음 (완전성 표시 없음)':'데이터 없음 또는 알 수 없는 형식';
-      status.textContent='앱 동기화 코드: 등록됨\\n로컬 학습 저장 항목: '+Object.keys(snapshot()).length+' / '+DATA_KEYS.length+'\\n서버: '+state+'\\n주의: Codex와 코드 일치 여부는 이 화면만으로 확인할 수 없습니다.';
+      status.textContent='앱 동기화 코드: 등록됨\n로컬 학습 저장 항목: '+Object.keys(snapshot()).length+' / '+DATA_KEYS.length+'\n서버: '+state+'\n주의: Codex와 코드 일치 여부는 이 화면만으로 확인할 수 없습니다.';
     }).catch(function(e){
       status.textContent='서버 조회 실패: '+(e&&e.message?String(e.message).slice(0,120):'알 수 없는 오류');
     }).then(function(){check.disabled=false;});
