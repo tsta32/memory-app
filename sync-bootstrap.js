@@ -183,6 +183,8 @@ function enqueueSyncWrite(){
 function scheduleSyncRetry(delay){
   clearTimeout(pushTimer);
   pushTimer=setTimeout(function(){
+    pushTimer=null;
+    if(studyProtected())return;
     enqueueSyncWrite().then(function(result){if(result.dirty)scheduleSyncRetry(250);}).catch(function(e){
       localDirty=true;retrySync();
     });
@@ -199,7 +201,7 @@ function pushLocal(key){
 
 // 백업 복원처럼 즉시 재시작해야 하는 작업을 위한 강제 저장
 window.memorySyncFlush=function(){
-  clearTimeout(pushTimer);
+  clearTimeout(pushTimer);pushTimer=null;
 
   if(!syncCode){
     return Promise.resolve({ok:true,localOnly:true});
@@ -280,16 +282,18 @@ function refreshRemote(){
   }).catch(function(){setSyncStatus('error');}).finally(function(){pulling=false;});
 }
 function startPolling(){
-  window.setInterval(refreshRemote,20000);
-  function resume(){
-    if(document.visibilityState==='hidden')return;
-    if(localDirty)scheduleSyncRetry(0);
-    else refreshRemote();
+  function resume(immediate){
+    if(document.visibilityState==='hidden'||studyProtected())return;
+    if(localDirty){
+      if(immediate||!pushTimer)scheduleSyncRetry(0);
+    }else refreshRemote();
   }
-  document.addEventListener('visibilitychange',resume);
-  window.addEventListener('pageshow',resume);
-  window.addEventListener('focus',resume);
-  window.addEventListener('online',resume);
+  window.setInterval(function(){resume(false);},20000);
+  function foreground(){resume(true);}
+  document.addEventListener('visibilitychange',foreground);
+  window.addEventListener('pageshow',foreground);
+  window.addEventListener('focus',foreground);
+  window.addEventListener('online',foreground);
 }
 function showCodeEntry(){
   var overlay=document.createElement('div');
@@ -315,7 +319,7 @@ function showCodeEntry(){
 function connectAndLoad(){
   installStorageHooks();
   // Restore local session/card journal before any remote snapshot can replace it.
-  if(studyProtected()){loadApp();startPolling();if(localDirty)scheduleSyncRetry(250);return;}
+  if(studyProtected()){loadApp();startPolling();return;}
   request('get').then(function(r){
     if(hasData(r.data)||completeSnapshot(r.data)){applyRemote(r.data);loadApp();startPolling();}
     else{return enqueueSyncWrite().then(function(){loadApp();startPolling();});}
