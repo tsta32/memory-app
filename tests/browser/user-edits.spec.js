@@ -237,6 +237,10 @@ test('alternating mobile and Chromebook profiles refresh, retry and preserve bot
   await addSentence(mobile.page,'SYNTHETIC CHROMEBOOK SENTENCE!','가상 중복','중복 방지');
   await expect(mobile.page.locator('#bulkResult')).toContainText('이미 등록');
   expect((await stored(mobile.page)).cards).toHaveLength(4);
+  const before=(await stored(mobile.page)).cards[0].en;
+  await edit(mobile.page,{en:'Synthetic Chromebook sentence!'});
+  await expect(mobile.page.locator('#editConfirmError')).toContainText('이미 등록');
+  expect((await stored(mobile.page)).cards[0].en).toBe(before);
  }finally{await mobile.context.close();await laptop.context.close();}
 });
 test('private GitHub proposal import updates untouched fields and preserves existing study data',async({browser})=>{

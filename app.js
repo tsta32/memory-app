@@ -1293,6 +1293,7 @@ on('editSaveBtn','click',function(){
 var pendingEdits=[];
 function showEditConfirm(diffs){
   pendingEdits=diffs;
+  $('editConfirmError').textContent='';
   var list=$('editDiffList');
   list.innerHTML='';
   diffs.forEach(function(d){
@@ -1331,7 +1332,7 @@ on('editConfirmApply','click',function(){
       return card.id!==entry[0]&&(nextEnglish.get(card.id)||window.SentenceLibrary.normalize(card.en))===entry[1];
     });
   })){
-    alert('이미 등록된 영어 문장이 있습니다. 중복 문장을 확인하세요.');
+    $('editConfirmError').textContent='이미 등록된 영어 문장입니다.';
     return;
   }
   pendingEdits.forEach(function(d){
