@@ -345,13 +345,19 @@ function installSyncDiagnostics(){
   var check=document.createElement('button');check.type='button';check.textContent='기기·Worker 데이터 일치 검사';
   var receiptButton=document.createElement('button');
   receiptButton.type='button';receiptButton.textContent='검증 영수증 복사';receiptButton.hidden=true;
-  var receipt=null;
+  var receipt=null,receiptSignature=null;
   receiptButton.addEventListener('click',async function(){
+    if(!receipt||!settled()||receiptSignature!==signature(snapshot())){
+      receipt=null;receiptButton.hidden=true;
+      status.textContent='검증 중단 · 기기 상태가 변경되었습니다. 다시 검사하세요.';
+      return;
+    }
+    var receiptText=JSON.stringify(receipt);
     try{
-      await navigator.clipboard.writeText(JSON.stringify(receipt));
+      await navigator.clipboard.writeText(receiptText);
       status.textContent+='\n검증 영수증을 복사했습니다.';
     }catch(e){
-      status.textContent+='\n복사 실패 · 다음 영수증을 선택해 복사하세요.\n'+JSON.stringify(receipt);
+      status.textContent+='\n복사 실패 · 다음 영수증을 선택해 복사하세요.\n'+receiptText;
     }
   });
   check.style.cssText='padding:9px;border-radius:8px;margin-right:8px';
@@ -427,6 +433,7 @@ function installSyncDiagnostics(){
       if(!settled()||before!==signature(snapshot())){
         status.textContent='검증 중단 · 검사 중 기기 상태가 변경되었습니다.';return;
       }
+      receiptSignature=before;
       receipt={version:1,snapshotVersion:1,hashVersion:1,storageKeyCount:DATA_KEYS.length,
         pending:false,checkedAt:new Date().toISOString(),lastSuccessAt:syncStatus.lastSuccessAt,
         snapshotSha256:Array.from(new Uint8Array(digest),function(byte){return byte.toString(16).padStart(2,'0');}).join('')};
