@@ -1,16 +1,20 @@
 # Codex repository workflow
 
-## Private sentence catalog
+## Mandatory fresh catalog for sentence tasks
 
-For sentence generation or edits, first verify a fresh Worker read or a new
-successful refresh of the connected private `memory-library/status.json`.
-Read `memory-library/catalog.json` from that same revision. Use all cards
-for duplicate checks and verified before/after user history for preferences.
-A failed refresh, stale connector index, or unverified timestamp blocks
-claims that the app data is current. Keep privacy-sensitive proposals in the
-private repository and use the import schema in
-`docs/private-sentence-library.md`. Do not copy private app sentences, history,
-or catalog files into this public application repository.
+Before generating, editing or proposing sentences, run
+`node scripts/refresh-sentence-task.cjs` from the application checkout. This
+dispatches the existing workflow on `tsta32/memory-app-private`, waits for that
+specific run to succeed, then verifies its published Worker receipt and the
+catalog hash at the same private commit. Use the catalog in the private
+temporary directory reported by the command. Use all cards to check for
+duplicates and verified user before/after edits to understand preferences.
+
+If the command fails at any step, stop the sentence task and explain the
+blocker. A previous catalog, cached connector result, default templates, or
+an unrelated successful run cannot satisfy this requirement. A standalone
+Worker dry run also cannot satisfy it because it does not publish the catalog.
+Keep proposals and private data in the private repository.
 
 ## Cloud review-only sync
 
@@ -66,7 +70,7 @@ npm run sync:app-templates -- --dry-run
 
 This command fetches a new, complete snapshot from the existing authenticated Worker `get` API and evaluates template-linked user edits without changing the template assets. App edits to English, Korean, context, and priority take precedence over repository defaults. It checks card IDs and edit-history template keys before content; English-string equality by itself is never an identity link. If template IDs are absent, a stable ID-to-template mapping is accepted only when at least 199 of 200 template-linked cards prove one unique sequence offset. Unlinked-card details and a per-field comparison of all 200 templates are saved outside Git at `~/.config/memory-app/latest-app-card-analysis.json` with mode `0600`. The report separates independently categorized cards from stable-ID candidates and marks import-only content differences unverified and leaves them for separate review. It does not call Worker `set`, push to GitHub, or change SRS/review statistics.
 
-If the Codex runtime cannot reach the Worker, use a freshly verified private catalog. If neither path is available, report that the data could not be confirmed current. The legacy local commands below are for authorized private-only template recovery:
+If a template task requires the Worker dry run below, perform it after the mandatory private catalog refresh. If either required operation fails, stop and report the blocker. The legacy local commands below are for authorized private-only template recovery:
 
 ```sh
 npm run sync:app-templates:local
