@@ -3,6 +3,7 @@
 const { spawnSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
+const { setTimeout: delay } = require('node:timers/promises');
 const os = require('node:os');
 const path = require('node:path');
 
@@ -16,7 +17,7 @@ function gh(args, timeout = 30000) {
 function api(endpoint, ...args) {
   return JSON.parse(gh(['api', '-H', 'X-GitHub-Api-Version: 2026-03-10', endpoint, ...args]));
 }
-function refresh() {
+async function refresh() {
   const root = 'repos/' + repository;
   const info = api(root);
   if (info.private !== true || info.visibility !== 'private' || info.full_name !== repository || info.default_branch !== 'main') {
@@ -26,12 +27,14 @@ function refresh() {
   const dispatch = api(root + '/actions/workflows/' + workflow + '/dispatches', '-X', 'POST', '-f', 'ref=main');
   const id = dispatch.workflow_run_id;
   if (!Number.isSafeInteger(id)) throw Error('GitHub did not identify this refresh run');
-  try {
-    gh(['run', 'watch', String(id), '--repo', repository, '--exit-status', '--interval', '5'], 15 * 60 * 1000);
-  } catch {
-    throw Error('This refresh did not complete successfully');
-  }
-  const run = api(root + '/actions/runs/' + id);
+  let run;
+  const deadline = Date.now() + 15 * 60 * 1000;
+  do {
+    run = api(root + '/actions/runs/' + id);
+    if (run.status === 'completed') break;
+    await delay(5000);
+  } while (Date.now() < deadline);
+  if (run.status !== 'completed') throw Error('This refresh timed out');
   if (run.conclusion !== 'success' || run.event !== 'workflow_dispatch' || run.head_branch !== 'main') {
     throw Error('Workflow result does not confirm this refresh');
   }
@@ -54,8 +57,7 @@ function refresh() {
   fs.writeFileSync(path.join(dir, 'catalog.json'), catalog, { mode: 0o600 });
   console.log(JSON.stringify({ revision, runId: id, checkedAt: status.checkedAt, privateDirectory: dir }));
 }
-try { refresh(); }
-catch (error) {
+refresh().catch(error => {
   console.error('Fresh sentence catalog unavailable: ' + (error instanceof SyntaxError ? 'Invalid GitHub response' : error.message));
   process.exitCode = 1;
-}
+});
