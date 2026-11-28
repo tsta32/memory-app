@@ -27,9 +27,13 @@ function apply(repo,patch,write=false,backupRoot=path.join(os.homedir(),'.config
   const old=priorityRows.find(r=>r.key===row.businessTemplateKey),change=patch.changes.find(c=>c.key===row.businessTemplateKey&&c.operation==='upsert');
   const item=Object.assign({},old||{key:row.businessTemplateKey,source_line:row.source_line,ko_before:row.ko_before,criteria:[]},{en:row.en,ko:row.ko_after,context:row.context,priority:row.priority});
   if(!old){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
+  if(change&&old&&['en','ko','context','priority'].some(f=>change.before[f]!==change.after[f])){
+   const prior=change.before;
+   item.previousDefaults=[...(old.previousDefaults||[]).filter(row=>JSON.stringify(row)!==JSON.stringify(prior)),prior];
+  }
   if(change){const a=change.after,assessment=a.priorityAssessment,validAssessment=assessment&&assessment.version===1&&assessment.en===a.en&&assessment.ko===a.ko&&assessment.context===a.context&&assessment.priority===a.priority&&String(assessment.reason||'').trim()&&Array.isArray(assessment.coverageAreas)&&assessment.coverageAreas.length&&Array.isArray(assessment.coveragePurposes)&&assessment.coveragePurposes.length;
    if(validAssessment){item.reason=assessment.reason;item.coverageAreas=assessment.coverageAreas.slice();item.coveragePurposes=assessment.coveragePurposes.slice();}
-   else if(['en','ko','context'].some(f=>a[f]!==change.before[f])||(a.priority==='essential'&&change.before.priority!=='essential')){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
+   else if(!change.before||['en','ko','context'].some(f=>a[f]!==change.before[f])||(a.priority==='essential'&&change.before.priority!=='essential')){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
   }
   return item;
  });

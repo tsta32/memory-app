@@ -34,7 +34,9 @@ function makeSnapshot({direct=false,editedContext=false}={}){
  const coverage=report.templateCoverage.find(x=>x.key===target.key);
  assert.equal(coverage.cardId,candidate.id);
  assert.equal(coverage.fields.en.status,'different');
- assert.throws(()=>cli.analyze(data),new RegExp('id='+candidate.id+'.*'+target.key+'.*en'));
+ const plan=cli.analyze(data);
+ assert.ok(plan.reviewRequired.some(issue=>issue.id===candidate.id&&issue.key===target.key&&issue.field==='en'));
+ assert.equal(plan.changes.changes.length,0);
 }
 {
  const {data,target,candidate,other}=makeSnapshot({direct:true,editedContext:true});

@@ -26,8 +26,12 @@ assert.equal(patch.changes[0].after.ko, '검증된 사용자 번역');
 assert.equal(JSON.stringify(data), original, 'source snapshot is never mutated');
 assert.deepEqual(plan(snapshot(base)).changes, []);
 function rejects(mutate) { const s = edited(); mutate(s); assert.throws(() => plan(snapshot(s)), /CONFLICT/); }
-rejects(s => { s.editHistory[0].origin = 'legacy-import'; });
-rejects(s => { s.editHistory[0].device = 'import'; });
+for(const edit of [{origin:'legacy-import'},{device:'import'}]){
+ const state=edited();Object.assign(state.editHistory[0],edit);
+ const quarantined=plan(snapshot(state));
+ assert.equal(quarantined.changes.length,0);
+ assert.equal(quarantined.reviewRequired[0].reason,'unverified-legacy');
+}
 rejects(s => { s.editHistory[0].value = 'Old unrelated edit'; });
 rejects(s => { s.editHistory[0].templateKey = templates[1].key; });
 rejects(s => { s.editHistory[0].at = 0; });
@@ -44,8 +48,31 @@ rejects(s => { s.deletedCards = [{ card: s.cards[0] }]; });
 rejects(s => { s.editHistory.push({id:'delete',parents:[],entity:'id:number:5',field:'$presence',value:{present:false}}); });
 rejects(s => { s.editConflicts = [{ field: 'ko' }]; });
 rejects(s => { s.identityConflicts = [{ cardId: 5 }]; });
-rejects(s => { s.editHistory.push({...s.editHistory[0], id:'concurrent',value:'다른 수정'}); });
+{
+ const state=edited();
+ state.editHistory.push({...state.editHistory[0],id:'concurrent',value:'다른 수정'});
+ const blocked=plan(snapshot(state));
+ assert.equal(blocked.changes.length,0);
+ assert.equal(blocked.reviewRequired[0].reason,'app-edit-conflict');
+}
 assert.throws(() => plan({ ...data, __memorySyncSnapshotV1: undefined }), /CONFLICT/);
+
+{
+ const state=edited();
+ const newer=structuredClone(templates);
+ state.templateBaselines={[templates[0].key]:{ko:templates[0].ko}};
+ newer[0].ko='가상 저장소 동시 편집';
+ const other=templates[1],unused=templates[2];
+ const before={cards:[...state.cards,{id:6,businessTemplateKey:other.key,en:other.en,ko:other.ko,context:other.context,priority:other.priority}]};
+ const current=structuredClone(before);current.cards[1].ko='별도 확인된 편집';
+ const combined=overrides.track({...before,editHistory:state.editHistory},current,'second-fixture');
+ combined.templateBaselines=state.templateBaselines;
+ combined.cards.push({id:7,businessTemplateKey:unused.key,en:'Unknown legacy English.',ko:'출처 불명 번역',context:unused.context,priority:unused.priority});
+ const checked=plan(snapshot(combined),newer);
+ assert.deepEqual(checked.changes.map(change=>change.key),[other.key]);
+ assert.equal(checked.reviewRequired.filter(issue=>issue.reason==='template-conflict').length,1);
+ assert.equal(checked.reviewRequired.filter(issue=>issue.reason==='unverified-legacy').length,2);
+}
 
 (async () => {
   let reads = 0, writes = 0;

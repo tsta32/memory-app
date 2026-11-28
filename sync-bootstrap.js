@@ -27,7 +27,15 @@ function mergeSettings(localRaw,remoteRaw,preferLocal){
   var merged=preferLocal?Object.assign({},remote,local):Object.assign({},local,remote);
   var opts=preferLocal?Object.assign({},defaults,remote.grammarOptions||{},local.grammarOptions||{}):Object.assign({},defaults,local.grammarOptions||{},remote.grammarOptions||{});
   Object.keys(defaults).forEach(function(k){if(typeof opts[k]!=='boolean')opts[k]=true;});
-  merged.grammarOptions=opts;return JSON.stringify(merged);
+  merged.grammarOptions=opts;
+  function events(s){return Array.isArray(s.manualCorrectEvents)?s.manualCorrectEvents.filter(function(id){return typeof id==='string';}):[];}
+  function baseline(s,list){return Math.max(0,(Number(s.manualCorrectTotal)||Number(s.manualCorrectCount)||0)-new Set(list).size);}
+  var le=events(local),re=events(remote),ids=Array.from(new Set(le.concat(re))).sort();
+  if(ids.length)merged.manualCorrectEvents=ids;
+  if(ids.length||local.manualCorrectTotal!==undefined||remote.manualCorrectTotal!==undefined){
+    merged.manualCorrectTotal=Math.max(baseline(local,le),baseline(remote,re))+ids.length;
+  }
+  return JSON.stringify(merged);
 }
 function mergeHistory(localRaw,remoteRaw){
   function parse(raw){if(!raw)return{version:1,records:[]};try{var x=JSON.parse(raw);return Array.isArray(x)?{version:1,records:x}:x&&Array.isArray(x.records)?x:null;}catch(e){return null;}}
@@ -78,12 +86,12 @@ function mergeNotes(localRaw,remoteRaw){
   Object.keys(local).forEach(function(cardId){merged[cardId]=mergeRecordArrays(local[cardId],remote[cardId],true);});
   return JSON.stringify(merged);
 }
-function mergePlainArrays(localRaw,remoteRaw){
+function mergePlainArrays(localRaw,remoteRaw,preferLocal){
   var local,remote;
   try{local=localRaw?JSON.parse(localRaw):[];}catch(e){return localRaw;}
   try{remote=remoteRaw?JSON.parse(remoteRaw):[];}catch(e){return localRaw||remoteRaw;}
   if(!Array.isArray(local)||!Array.isArray(remote))return localRaw||remoteRaw;
-  return JSON.stringify(mergeRecordArrays(local,remote,true));
+  return JSON.stringify(mergeRecordArrays(local,remote,preferLocal));
 }
 function mergeDataValue(key,localRaw,remoteRaw,preferLocal,unionRecords){
   if(key==='srs_cards_v2'&&window.CardOverrides){
@@ -97,11 +105,11 @@ function mergeDataValue(key,localRaw,remoteRaw,preferLocal,unionRecords){
     }catch(e){console.warn('[Memory sync] Card edit merge failed; keeping local data.',e);return localRaw||remoteRaw;}
   }
   if(key==='srs_settings_v1')return mergeSettings(localRaw,remoteRaw,preferLocal);
+  if(key==='srs_trends_v1'||key==='srs_biz_sessions_v1')return mergePlainArrays(localRaw,remoteRaw,preferLocal);
   if(!unionRecords)return preferLocal?localRaw:remoteRaw;
   if(key==='srs_cards_v2')return mergeWrappedRecords(localRaw,remoteRaw,'cards');
   if(key==='srs_chapters_v1')return mergeWrappedRecords(localRaw,remoteRaw,'chapters');
   if(key==='srs_notes_v1')return mergeNotes(localRaw,remoteRaw);
-  if(key==='srs_trends_v1'||key==='srs_biz_sessions_v1')return mergePlainArrays(localRaw,remoteRaw);
   return preferLocal?localRaw:remoteRaw;
 }
 function mergeSnapshots(local,remote,preferLocal,unionRecords){
@@ -123,12 +131,29 @@ function request(action,data){
     .then(function(r){return r.json().then(function(j){if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j;});});
 }
 function enqueueSyncWrite(){
-  var job=syncWriteQueue.then(function(){
+  async function write(){
     var local=snapshot(),localSignature=signature(local);
-    return request('get').then(function(r){var remote=snapshotData(r.data),d=mergeSnapshots(local,remote,true,!completeSnapshot(r.data));return request('set',snapshotPayload(d)).then(function(){
-      lastSnapshot=signature(snapshot());localDirty=signature(snapshot())!==localSignature;
-      return{ok:true,dirty:localDirty};
-    });});
+    for(var attempt=0;attempt<3;attempt++){
+      var current=(await request('get')).data;
+      var data=snapshotPayload(mergeSnapshots(local,snapshotData(current),true,!completeSnapshot(current)));
+      if(signature(data)!==signature(current)||!completeSnapshot(current)){
+        // The deployed API offers snapshot get/set. Recheck before writing and verify afterward.
+        var latest=(await request('get')).data;
+        if(signature(latest)!==signature(current)||completeSnapshot(latest)!==completeSnapshot(current))continue;
+        await request('set',data);
+        var confirmed=(await request('get')).data;
+        if(signature(confirmed)!==signature(data)||!completeSnapshot(confirmed)){
+          local=mergeSnapshots(data,snapshotData(confirmed),true,!completeSnapshot(confirmed));
+          continue;
+        }
+      }
+      lastSnapshot=localSignature;localDirty=signature(snapshot())!==localSignature;
+      return {ok:true,dirty:localDirty};
+    }
+    throw new Error('Concurrent sync could not be verified');
+  }
+  var job=syncWriteQueue.then(function(){
+    return navigator.locks?navigator.locks.request('memory-app-sync-write',write):write();
   });
   syncWriteQueue=job.then(function(){},function(){});
   return job;
@@ -164,12 +189,16 @@ window.memorySyncFlush=function(){
 };
 function installStorageHooks(){
   var oldSet=Storage.prototype.setItem;
-  Storage.prototype.setItem=function(k,v){oldSet.call(this,k,v);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal();};
+  Storage.prototype.setItem=function(k,v){
+    var tracked=DATA_KEYS.indexOf(String(k))!==-1,previous=tracked?this.getItem(k):null;
+    oldSet.call(this,k,v);
+    if(tracked&&previous!==String(v))pushLocal();
+  };
   var oldRemove=Storage.prototype.removeItem;
   Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal();};
 }
 function loadApp(){
-  var s=document.createElement('script');s.src='app.js?v=80';
+  var s=document.createElement('script');s.src='app.js?v=84';
   s.onerror=function(){console.error('[Memory sync] Could not load app.js');};
   document.body.appendChild(s);
 }
@@ -245,7 +274,7 @@ function connectAndLoad(){
   if(studyProtected()){loadApp();startPolling();return;}
   request('get').then(function(r){
     if(hasData(r.data)||completeSnapshot(r.data)){applyRemote(r.data);loadApp();startPolling();}
-    else{var d=snapshot();return request('set',snapshotPayload(d)).then(function(){lastSnapshot=signature(d);loadApp();startPolling();});}
+    else{return enqueueSyncWrite().then(function(){loadApp();startPolling();});}
   }).catch(function(e){console.warn('[Memory sync] Server unavailable; opening local data.',e);loadApp();startPolling();});
 }
 
@@ -256,12 +285,13 @@ function installSyncDiagnostics(){
   button.id='memory-sync-diagnostic-button';
   button.type='button';
   button.textContent='☁ 동기화 진단';
-  button.style.cssText='position:fixed;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:9000;padding:9px 12px;border-radius:20px;border:1px solid #777;background:#262626;color:white;font:13px system-ui,sans-serif;box-shadow:0 2px 8px #0005';
+  button.setAttribute('aria-controls','memory-sync-diagnostic-panel');
+  button.setAttribute('aria-expanded','false');
   var panel=document.createElement('section');
   panel.id='memory-sync-diagnostic-panel';
-  panel.setAttribute('role','dialog');
+  panel.setAttribute('role','region');
   panel.setAttribute('aria-label','동기화 진단');
-  panel.style.cssText='display:none;position:fixed;inset:auto 12px max(56px,env(safe-area-inset-bottom)) 12px;z-index:9001;max-width:440px;margin-left:auto;background:#242424;color:white;border:1px solid #777;border-radius:14px;padding:16px;box-shadow:0 4px 20px #0008;font:14px/1.6 system-ui,sans-serif';
+  panel.style.cssText='display:none;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:12px';
   var title=document.createElement('strong');title.textContent='동기화 진단 (읽기 전용)';
   var status=document.createElement('div');status.style.cssText='margin:12px 0;white-space:pre-line;overflow-wrap:anywhere';
   var check=document.createElement('button');check.type='button';check.textContent='서버 상태 조회 (GET만)';
@@ -292,13 +322,15 @@ function installSyncDiagnostics(){
   var note=document.createElement('p');note.textContent='동기화 코드와 학습 내용은 표시하지 않습니다. 이 조회는 서버에 저장하지 않지만, 앱의 기존 자동 동기화 동작은 그대로 유지됩니다.';
   note.style.cssText='font-size:12px;color:#ccc';
   panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(reveal);panel.appendChild(secretArea);panel.appendChild(compare);panel.appendChild(comparison);panel.appendChild(close);panel.appendChild(note);
-  document.body.appendChild(button);document.body.appendChild(panel);
+  var host=document.getElementById('memory-sync-diagnostic-settings');
+  if(!host)return;
+  host.appendChild(button);host.appendChild(panel);
   function localStatus(){
     var count=Object.keys(snapshot()).length;
     return '앱 동기화 코드: '+(syncCode?'등록됨':'미등록')+'\n로컬 학습 저장 항목: '+count+' / '+DATA_KEYS.length+'\n서버: 아직 조회하지 않음';
   }
   function hideSecret(){secretInput.value='';secretInput.type='password';toggle.textContent='보기';secretArea.style.display='none';secretMsg.textContent='';}
-  button.addEventListener('click',function(){hideSecret();panel.style.display='block';status.textContent=localStatus();});
+  button.addEventListener('click',function(){hideSecret();panel.style.display='block';button.setAttribute('aria-expanded','true');status.textContent=localStatus();});
   reveal.addEventListener('click',function(){
     if(!syncCode){secretArea.style.display='block';secretMsg.textContent='등록된 동기화 코드가 없습니다.';return;}
     if(!window.confirm('현재 PWA의 동기화 코드를 이 기기에서 확인하거나 복사합니다. 화면 공유나 스크린샷에 코드가 노출되지 않도록 주의하세요. 계속할까요?'))return;
@@ -311,7 +343,7 @@ function installSyncDiagnostics(){
     if(!navigator.clipboard||!navigator.clipboard.writeText){secretMsg.textContent='자동 복사가 지원되지 않습니다. 보기 버튼으로 확인하세요.';return;}
     navigator.clipboard.writeText(secretInput.value).then(function(){secretMsg.textContent='복사됨. Codex에 입력한 후 다른 내용을 복사해 클립보드를 지우세요.';}).catch(function(){secretMsg.textContent='복사 실패. 보기 버튼으로 확인하세요.';});
   });
-  close.addEventListener('click',function(){hideSecret();panel.style.display='none';});
+  close.addEventListener('click',function(){hideSecret();panel.style.display='none';button.setAttribute('aria-expanded','false');button.focus();});
   check.addEventListener('click',function(){
     if(!syncCode){status.textContent=localStatus()+'\n서버 조회 불가: 앱 동기화 코드가 없습니다.';return;}
     check.disabled=true;status.textContent='서버를 읽기 전용으로 조회 중…';

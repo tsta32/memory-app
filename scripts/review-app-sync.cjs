@@ -23,7 +23,7 @@ function plan(data, templates = require('../business-priorities').items) {
   if (!sync.complete(data)) stop();
   const state = JSON.parse(data.srs_cards_v2);
   if (!state || !Array.isArray(state.cards) || !Array.isArray(state.editHistory)) stop();
-  if ((state.deletedCards || []).length || (state.editConflicts || []).length ||
+  if ((state.deletedCards || []).length ||
       (state.identityConflicts || []).length || state.editHistory.some(e =>
         e.field === '$presence' && e.value && e.value.present === false)) stop();
   // Recompute conflicts instead of trusting caller-supplied conflict summaries.
@@ -55,9 +55,9 @@ function plan(data, templates = require('../business-priorities').items) {
   }
   for (const id of events.keys()) visit(id);
   const projected = overrides.project(structuredClone(state), structuredClone(state));
-  if (projected.editConflicts.length || projected.identityConflicts.length || projected.deletedCards.length) stop();
+  if (projected.identityConflicts.length || projected.deletedCards.length) stop();
   let analysis;
-  try { analysis = sync.analyze(structuredClone(data), templates); } catch { stop(); }
+  try { analysis = sync.analyze(structuredClone(data), templates,{projectedConflicts:projected.editConflicts}); } catch { stop(); }
   const keys = new Set();
   for (const card of analysis.state.cards) {
     if (keys.has(card.businessTemplateKey)) stop();
@@ -79,7 +79,7 @@ function plan(data, templates = require('../business-priorities').items) {
       if (!evidence) stop();
     }
   }
-  return analysis.changes;
+  return {...analysis.changes,reviewRequired:analysis.reviewRequired};
 }
 
 async function run({ repo = path.resolve(__dirname, '..'), env = process.env,
@@ -97,7 +97,7 @@ async function run({ repo = path.resolve(__dirname, '..'), env = process.env,
   const result = applyPatch(repo, patch, true, backupRoot);
   if(receiptPath) fs.writeFileSync(receiptPath,JSON.stringify({version:1,base,templates,changes:patch.changes,fileHashes:fileHashes(repo)}),{mode:0o600,flag:'wx'});
   if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, 'changed=' + (result.changes > 0) + '\n');
-  console.log('Verified user-field sync: ' + result.changes + ' template change(s); Worker writes: 0.');
+  console.log('Verified user-field sync: ' + result.changes + ' template change(s); separate review: ' + patch.reviewRequired.length + ' field(s); Worker writes: 0.');
   return result;
 }
 async function verify({receiptPath, repo=path.resolve(__dirname,'..'), env=process.env, fetcher=sync.fetchSnapshot, localCode=sync.getCode}={}) {

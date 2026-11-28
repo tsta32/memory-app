@@ -172,3 +172,27 @@ Then provide/connect the isolated canary repository/site described above. No
 PAT, Secret value, snapshot or additional credential should be supplied in chat.
 The agent can retry the failed permission job after that one-time configuration;
 normal hourly operation does not require pressing Run workflow or reading logs.
+
+## Bidirectional sync
+
+The dry run lists verified changes and counts the fields held for private review.
+The local analysis report includes the affected card ID, template key, field, and
+reason. The planner excludes the affected template and continues with unrelated
+verified templates. Ambiguous card identity still stops the plan.
+
+When editing a template directly, add the previous English, Korean, context,
+and priority values to its `previousDefaults` in `business-priorities.js`.
+The patch tool records this history automatically. A profile with no baseline
+can migrate fields that match a known previous default. It keeps unknown
+values and direct user edits. When a repository edit and an app edit disagree
+on a field changed from their common value, Settings offers **앱 값 유지** and
+**Codex 값 적용**. The app records the decision and keeps the previous edit
+history.
+
+The app merges study revisions separately from sentence edits and merges
+answer and statistics records across snapshots. Browser tabs on the same
+origin serialize writes when Web Locks is available. The client rereads the
+snapshot before and after writing and retries detected competition. The
+Worker API in use exposes snapshot reads and replacements. Cross-device
+writes require server-side conditional updates or atomic merging to guarantee
+that a client that closes after confirmation cannot lose an intervening write.

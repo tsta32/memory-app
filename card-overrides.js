@@ -10,7 +10,10 @@ function same(a,b){return JSON.stringify(a)===JSON.stringify(b);}
 function frontier(list){var used=new Set();list.forEach(function(e){(e.parents||[]).forEach(function(p){used.add(p);});});return list.filter(function(e){return !used.has(e.id);}).map(function(e){return e.id;});}
 function record(s,c,field,value,device,origin){
  s.editHistory=history(s).slice();
- s.editHistory.push({id:device?uid():'legacy:'+JSON.stringify([key(c),field,value]),entity:key(c),cardId:c.id,templateKey:c.businessTemplateKey||null,field:field,value:clone(value===undefined?null:value),parents:device?frontier(s.editHistory):[],at:device?Date.now():0,device:device||'import',origin:origin||(device?'user':'legacy-import'),userContext:field==='context'&&c.contextUserEdited===true});
+ var event={id:device?uid():'legacy:'+JSON.stringify([key(c),field,value]),entity:key(c),cardId:c.id,templateKey:c.businessTemplateKey||null,field:field,value:clone(value===undefined?null:value),parents:device?frontier(s.editHistory):[],at:device?Date.now():0,device:device||'import',origin:origin||(device?'user':'legacy-import'),userContext:field==='context'&&c.contextUserEdited===true};
+ var baseline=s.templateBaselines&&s.templateBaselines[c.businessTemplateKey];
+ if(event.origin==='user'&&baseline&&Object.prototype.hasOwnProperty.call(baseline,field))event.templateBase=clone(baseline[field]);
+ s.editHistory.push(event);
 }
 function template(c,templates){return templates.find(function(t){return c.businessTemplateKey?t.key===c.businessTemplateKey:t.en===c.en;});}
 function seed(s,templates,isDefault){
@@ -68,11 +71,76 @@ function project(state,preferred){
  state.cards=active;state.deletedCards=deleted;state.editConflicts=conflicts;state.identityConflicts=(state.identityConflicts||[]).concat(identityConflicts).filter(function(x,i,a){return a.findIndex(function(y){return same(x,y);})===i;});
  return state;
 }
+// Scheduling fields move together. Other study fields have their own revision.
+var studyGroups={schedule:['stage','dueAt'],tested:['lastTestedAt'],wrong:['ngCount']};
+function trackStudy(previous,next,resetWrong){
+ var priorCards=new Map(previous.cards.map(function(c){return [key(c),c];}));
+ next.cards.forEach(function(c){
+  var old=priorCards.get(key(c));if(!old)return;
+  Object.keys(studyGroups).forEach(function(group){
+   if(!studyGroups[group].some(function(f){return !same(old[f],c[f]);}))return;
+   var before=(old.studyVersions||{})[group];
+   c.studyVersions=Object.assign({},c.studyVersions);
+   var version={at:Math.max(Date.now(),(before?before.at:Number(old.lastTestedAt)||0)+1),id:uid()};
+   c.studyVersions[group]=Object.assign({},version);
+   if(group==='wrong'){
+    var previousWrong=old.wrongHistory||{base:{at:Number(old.lastTestedAt)||0,count:Number(old.ngCount)||0},events:[]};
+    c.wrongHistory={base:previousWrong.base,events:previousWrong.events.concat(Object.assign(version,
+     resetWrong?{reset:true}:{delta:(Number(c.ngCount)||0)-(Number(old.ngCount)||0)}))};
+   }
+  });
+ });
+}
+function studyVersion(c,group){
+ return (c.studyVersions||{})[group]||{at:Number(c.lastTestedAt)||0,id:''};
+}
+function mergeStudy(a,b,preferSecondOnTie){
+ var card=Object.assign({},a);
+ var versions={};
+ Object.keys(studyGroups).forEach(function(group){
+  var va=studyVersion(a,group),vb=studyVersion(b,group);
+  var order=vb.at-va.at||vb.id.localeCompare(va.id);
+  var chosen=order>0||order===0&&preferSecondOnTie?b:a;
+  studyGroups[group].forEach(function(f){
+   if(chosen[f]!==undefined)card[f]=chosen[f];
+   else if((chosen===a?b:a)[f]!==undefined)card[f]=(chosen===a?b:a)[f];
+  });
+  if((chosen.studyVersions||{})[group])versions[group]=chosen.studyVersions[group];
+ });
+ if(a.wrongHistory||b.wrongHistory){
+  var ah=a.wrongHistory||{base:{at:Number(a.lastTestedAt)||0,count:Number(a.ngCount)||0},events:[]};
+  var bh=b.wrongHistory||{base:{at:Number(b.lastTestedAt)||0,count:Number(b.ngCount)||0},events:[]};
+  var base=!a.wrongHistory?bh.base:!b.wrongHistory?ah.base:
+   bh.base.at>ah.base.at||bh.base.at===ah.base.at&&bh.base.count>ah.base.count?bh.base:ah.base;
+  var events=Array.from(new Map(ah.events.concat(bh.events).map(function(event){return [event.id,event];})).values())
+   .sort(function(x,y){return x.at-y.at||x.id.localeCompare(y.id);});
+  var legacy=!a.wrongHistory?ah:!b.wrongHistory?bh:null;
+  if(legacy&&events.length&&legacy.base.at>events[events.length-1].at)base=legacy.base;
+  card.wrongHistory={base:base,events:events};
+  card.ngCount=events.reduce(function(count,event){
+   if(event.at<base.at)return count;
+   return event.reset?0:Math.max(0,count+event.delta);
+  },base.count);
+ }
+ if(Number.isFinite(a.lastTestedAt)&&Number.isFinite(b.lastTestedAt)){
+  card.lastTestedAt=Math.max(a.lastTestedAt,b.lastTestedAt);
+ }
+ if(a.everAnswered||b.everAnswered)card.everAnswered=true;
+ var correct=[a.firstCorrectAt,b.firstCorrectAt].filter(function(at){return Number.isFinite(at)&&at>0;});
+ if(correct.length)card.firstCorrectAt=Math.min.apply(null,correct);
+ if(Object.keys(versions).length)card.studyVersions=versions;
+ else delete card.studyVersions;
+ return card;
+}
 function merge(local,remote,preferLocal){
  var out=Object.assign({},remote,local),map=new Map();
  history(remote).concat(history(local)).forEach(function(e){map.set(e.id,e);});out.editHistory=Array.from(map.values());
  var list=preferLocal?(local.cards||[]).concat(remote.cards||[]):(remote.cards||[]).concat(local.cards||[]),records=new Map();
- list.forEach(function(c){if(!records.has(key(c)))records.set(key(c),clone(c));});out.cards=Array.from(records.values());
+ list.forEach(function(c){
+  var entity=key(c),existing=records.get(entity);
+  records.set(entity,existing?mergeStudy(existing,c,preferLocal):clone(c));
+ });
+ out.cards=Array.from(records.values());
  out.identityConflicts=(local.identityConflicts||[]).concat(remote.identityConflicts||[]);
  out.nextId=Math.max(local.nextId||0,remote.nextId||0,...out.cards.map(function(c){return typeof c.id==='number'?c.id+1:0;}));
  return project(out,local);
@@ -82,14 +150,54 @@ function resolve(state,entity,field,value,device){
  if(!c)throw new Error('카드를 찾을 수 없습니다.');
  record(state,c,field,field==='$presence'?{present:!!value,card:clone(c)}:value,device);return project(state,state);
 }
+function userEvent(state,c,field){
+ return history(state).slice().reverse().find(function(e){
+  return e.entity===key(c)&&e.field===field&&(e.origin==='user'||e.userContext===true)&&same(e.value,c[field]);
+ });
+}
+function directEdit(state,c,field){return !!userEvent(state,c,field);}
+function templateConflict(state,c,t,field){
+ var event=userEvent(state,c,field);
+ if(!event||same(c[field],t[field]))return null;
+ var stored=state.templateBaselines&&state.templateBaselines[t.key];
+ var known=event.templateResolution&&Object.prototype.hasOwnProperty.call(event.templateResolution,'codex')?
+  event.templateResolution.codex:Object.prototype.hasOwnProperty.call(event,'templateBase')?event.templateBase:stored&&stored[field];
+ if(known===undefined&&t.previousDefaults&&t.previousDefaults.length)known=t.previousDefaults[t.previousDefaults.length-1][field];
+ if(known===undefined||same(known,t[field])||same(c[field],known))return null;
+ return {entity:key(c),cardId:c.id,templateKey:t.key,field:field,base:known,app:c[field],codex:t[field]};
+}
+function resolveTemplate(state,conflict,value,device){
+ state=resolve(state,conflict.entity,conflict.field,value,device);
+ var event=state.editHistory[state.editHistory.length-1];
+ event.templateResolution={base:conflict.base,codex:conflict.codex};
+ state.templateBaselines[conflict.templateKey][conflict.field]=conflict.codex;
+ state.templateConflicts=(state.templateConflicts||[]).filter(function(c){
+  return c.entity!==conflict.entity||c.field!==conflict.field;
+ });
+ return state;
+}
 function defaults(state,templates,isDefault){
  seed(state,templates,isDefault);state.templateBaselines=state.templateBaselines||{};
+ state.templateConflicts=[];
  state.cards.forEach(function(c){var t=template(c,templates);if(!t)return;var entity=key(c),priorEvents=history(state).filter(function(e){return e.entity===entity;}),hasUserPriority=priorEvents.some(function(e){return e.field==='priority'&&e.origin==='user';}),hasUserContent=priorEvents.some(function(e){return ['en','ko','context','priorityAssessment'].indexOf(e.field)!==-1&&(e.origin==='user'||e.userContext===true);}),knownMigratedContext=priorEvents.some(function(e){return e.field==='context'&&e.origin==='template-default-migration'&&same(e.value,c.context);}),legacyGrade=Array.isArray(t.legacyPriorityDefaults)&&t.legacyPriorityDefaults.indexOf(c.priority)!==-1,legacyGradeEvent=priorEvents.some(function(e){return e.field==='priority'&&e.origin==='legacy-import'&&same(e.value,c.priority);});
   if(!hasUserPriority&&!hasUserContent&&legacyGrade&&legacyGradeEvent&&c.en===t.en&&c.ko===t.ko&&(c.context===t.context||knownMigratedContext)){
    record(state,c,'priority',t.priority,'template-migration','template-default-migration');c.priority=t.priority;
   }
-  var old=state.templateBaselines[t.key];
-  if(old)['en','ko','context','priority'].forEach(function(f){var edited=history(state).some(function(e){return e.entity===key(c)&&e.field===f;});var enEdited=history(state).some(function(e){return e.entity===key(c)&&e.field==='en';});var koEdited=history(state).some(function(e){return e.entity===key(c)&&e.field==='ko';});if(f==='ko'&&!edited&&c.ko===t.ko_before)c.ko=t.ko;else if(!edited&&!(f==='context'&&enEdited)&&!(f==='priority'&&(enEdited||koEdited))&&same(c[f],old[f]))c[f]=t[f];});
+  var old=state.templateBaselines[t.key],next={};
+  ['en','ko','context','priority'].forEach(function(f){
+   var conflict=templateConflict(state,c,t,f);
+   if(conflict){state.templateConflicts.push(conflict);next[f]=conflict.base;return;}
+   next[f]=t[f];
+   var events=history(state).filter(function(e){return e.entity===entity&&e.field===f;});
+   var blocked=f==='context'&&directEdit(state,c,'en')||f==='priority'&&(directEdit(state,c,'en')||directEdit(state,c,'ko'));
+   var known=old&&same(c[f],old[f])||(t.previousDefaults||[]).some(function(prior){return same(c[f],prior[f]);})||
+    f==='ko'&&c.ko===t.ko_before;
+   var user=userEvent(state,c,f);
+   var acceptsDefault=user&&user.templateResolution&&same(user.value,user.templateResolution.codex);
+   if(blocked||!known||same(c[f],t[f])||user&&!acceptsDefault)return;
+   if(events.length)record(state,c,f,t[f],'template-migration','template-default-migration');
+   c[f]=t[f];
+  });
   var enEdited=history(state).some(function(e){return e.entity===key(c)&&e.field==='en';}),contextEdited=history(state).some(function(e){return e.entity===key(c)&&e.field==='context';});
   if(enEdited&&!contextEdited&&!c.contextUserEdited&&(c.context===t.context||(isDefault&&isDefault(t.en,c.context)))){var exact=templates.find(function(x){return x.en===c.en;});c.context=exact?exact.context:'';c.contextNeedsReview=!exact;}
   var contextWasManuallyEdited=c.contextUserEdited===true||history(state).some(function(e){return e.entity===key(c)&&e.field==='context'&&(e.userContext===true||e.device!=='import'&&e.origin!=='english-derived'&&e.origin!=='template-default-migration');});
@@ -98,17 +206,17 @@ function defaults(state,templates,isDefault){
    record(state,c,'context',t.context,'template-migration','template-default-migration');
    c.context=t.context;delete c.contextNeedsReview;
   }
-  state.templateBaselines[t.key]={en:t.en,ko:t.ko,context:t.context,priority:t.priority};
+  state.templateBaselines[t.key]=next;
  });return state;
 }
 function patch(state,templates){
- if((state.editConflicts||[]).length||(state.identityConflicts||[]).length)throw new Error('CONFLICT: resolve card edit or identity conflicts before template export');
+ if((state.editConflicts||[]).length||(state.identityConflicts||[]).length||(state.templateConflicts||[]).length)throw new Error('CONFLICT: resolve card edit or identity conflicts before template export');
  var changes=[];
  state.cards.forEach(function(c){var t=template(c,templates),edited=history(state).some(function(e){return e.entity===key(c);});if(!edited)return;if(c.contextNeedsReview)throw new Error('CONFLICT: modified English has no reviewed context');var after={en:c.en,ko:c.ko,context:c.context||'',priority:c.priority||'supplementary'};var assessment=c.priorityAssessment;if(assessment&&assessment.version===1&&assessment.en===c.en&&assessment.ko===c.ko&&assessment.context===c.context&&assessment.priority===after.priority)after.priorityAssessment=clone(assessment);var assessmentChanged=!!(after.priorityAssessment&&(!t||t.reason!==after.priorityAssessment.reason||!same(t.coverageAreas||[],after.priorityAssessment.coverageAreas||[])||!same(t.coveragePurposes||[],after.priorityAssessment.coveragePurposes||[])));if(!t||['en','ko','context','priority'].some(function(f){return after[f]!==t[f];})||assessmentChanged)changes.push({key:t?t.key:'user-'+key(c),operation:'upsert',before:t?{en:t.en,ko:t.ko,context:t.context,priority:t.priority}:null,after:after});});
  (state.deletedCards||[]).forEach(function(d){var t=template(d.card,templates);if(t)changes.push({key:t.key,operation:'delete',before:{en:t.en,ko:t.ko,context:t.context,priority:t.priority}});});
  if(new Set(changes.map(function(c){return c.key;})).size!==changes.length)throw new Error('CONFLICT: multiple edited cards map to the same template key');
  return {kind:'memory-app-template-patch',version:1,createdAt:Date.now(),changes:changes};
 }
-var api={fields:fields,key:key,seed:seed,track:track,merge:merge,project:project,resolve:resolve,defaults:defaults,patch:patch};
+var api={fields:fields,key:key,seed:seed,track:track,merge:merge,project:project,resolve:resolve,defaults:defaults,patch:patch,trackStudy:trackStudy,templateConflict:templateConflict,resolveTemplate:resolveTemplate};
 if(typeof module==='object'&&module.exports)module.exports=api;else root.CardOverrides=api;
 })(typeof window!=='undefined'?window:globalThis);

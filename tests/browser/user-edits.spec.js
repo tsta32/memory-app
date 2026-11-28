@@ -1,12 +1,31 @@
 const {test,expect}=require('@playwright/test');
 const templates=require('../../business-priorities').items;
+const fs=require('node:fs');
+const {createHash}=require('node:crypto');
 const KEYS=['srs_cards_v2','srs_chapters_v1','srs_settings_v1','srs_notes_v1','srs_trends_v1','srs_biz_sessions_v1','srs_error_history_v1'];
 const copy=x=>JSON.parse(JSON.stringify(x));
 function initial(){return {srs_cards_v2:JSON.stringify({cards:templates.slice(0,2).map((t,i)=>({id:i+1,en:t.en,ko:t.ko,context:t.context,priority:t.priority,businessTemplateKey:t.key,chapterId:9,stage:4,dueAt:123,ngCount:7,firstCorrectAt:42,lastTestedAt:88,everAnswered:true,bookmarked:false})),nextId:3}),srs_chapters_v1:JSON.stringify({chapters:[{id:9,name:'영어업무(일반)'}],nextId:10}),srs_settings_v1:JSON.stringify({volume:0}),srs_notes_v1:'{}',srs_trends_v1:'[]',srs_biz_sessions_v1:'[]',srs_error_history_v1:JSON.stringify({version:1,records:[]})};}
-async function open(browser,{server,offline=false}={}){
- const context=await browser.newContext({serviceWorkers:'block'}),state={offline};
+async function open(browser,{server,offline=false,viewport}={}){
+ const context=await browser.newContext({serviceWorkers:'block',viewport}),state={offline};
  await context.addInitScript(({data,sync})=>{if(localStorage.getItem('edits_fixture'))return;Object.entries(data).forEach(([k,v])=>localStorage.setItem(k,v));localStorage.setItem('edits_fixture','1');if(sync)localStorage.setItem('memory_sync_code_v1','user_edits_fixture_12345');},{data:initial(),sync:!!server});
- await context.route('**/*',r=>{const u=new URL(r.request().url());if(u.hostname==='toeic-cloud-sync.tsta32.workers.dev'&&server){if(state.offline)return r.fulfill({status:503,json:{error:'offline fixture'}});const b=r.request().postDataJSON();if(b.action==='get')return r.fulfill({json:{data:copy(server.data)}});server.data=copy(b.data);return r.fulfill({json:{ok:true}});}return u.hostname.endsWith('workers.dev')?r.abort():u.hostname.includes('google')?r.fulfill({body:''}):r.continue();});
+ await context.route('**/*',async route=>{
+  const url=new URL(route.request().url());
+  if(url.hostname==='toeic-cloud-sync.tsta32.workers.dev'&&server){
+   if(state.offline)return route.fulfill({status:503,json:{error:'offline fixture'}});
+   const body=route.request().postDataJSON();
+   if(body.action==='get'){
+    return route.fulfill({json:{data:copy(server.data)}});
+   }
+   if(body.action!=='set')return route.abort();
+   server.data=copy(body.data);
+   if(server.afterWrite)await server.afterWrite();
+   return route.fulfill({json:{ok:true}});
+  }
+  if(url.pathname.endsWith('/business-priorities.js')&&server?.assets){
+   return route.fulfill({contentType:'application/javascript',body:server.assets});
+  }
+  return url.hostname.endsWith('workers.dev')?route.abort():url.hostname.includes('google')?route.fulfill({body:''}):route.continue();
+ });
  const page=await context.newPage();await page.goto('./');if(!server)await page.locator('#memory-sync-local').click();await expect(page.locator('#chapterSelectList')).toContainText('영어업무(일반)');
  return {page,context,state};
 }
@@ -57,4 +76,122 @@ test('concurrent offline device edits retain both histories, block repository ex
   await b.page.locator('#cardEditConflicts').getByRole('button',{name:/기기 A의 번역/}).click();expect((await stored(b.page)).editConflicts).toHaveLength(0);await b.page.evaluate(()=>window.memorySyncFlush());
   await a.page.reload();await expect(a.page.locator('#chapterSelectList')).toContainText('영어업무(일반)');expect((await stored(a.page)).cards[0].ko).toBe('기기 A의 번역');expect((await stored(a.page)).editHistory.filter(e=>e.field==='ko').length).toBeGreaterThanOrEqual(3);
  }finally{await a.context.close();await b.context.close();}
+});
+
+function mockServer(){
+ return {data:{...initial(),__memorySyncSnapshotV1:{version:1,keys:KEYS.slice().sort()}}};
+}
+const templateFields=['en','ko','context','priority'];
+function installTemplate(server,changes){
+ const prior=Object.fromEntries(templateFields.map(field=>[field,templates[0][field]]));
+ const source=fs.readFileSync(require.resolve('../../business-priorities'),'utf8');
+ server.assets=source+'\nObject.assign(window.BusinessPriority.items[0],'+JSON.stringify({...changes,previousDefaults:[prior]})+');';
+}
+async function flush(page){
+ expect(await page.evaluate(async()=>({ok:(await window.memorySyncFlush()).ok}))).toEqual({ok:true});
+}
+function remoteCards(server){return JSON.parse(server.data.srs_cards_v2);}
+function setRemoteStudy(server){
+ const cards=remoteCards(server);
+ Object.assign(cards.cards[0],{stage:6,dueAt:2000,lastTestedAt:1000,firstCorrectAt:20,ngCount:8});
+ // Older clients can reschedule a card without changing the last answer timestamp.
+ Object.assign(cards.cards[1],{stage:5,dueAt:2200});
+ server.data.srs_cards_v2=JSON.stringify(cards);
+ server.data.srs_settings_v1=JSON.stringify({manualCorrectTotal:17});
+ server.data.srs_trends_v1=JSON.stringify([{id:'remote-trend',correct:12,incorrect:3}]);
+ server.data.srs_error_history_v1=JSON.stringify({version:1,records:[{id:'remote-error',cardId:1,errorType:'article',count:1,occurrences:[{id:'wrong-answer',at:10}]}]});
+}
+
+test('concurrent remote study updates survive a stale app sentence edit and a competing snapshot write',async({browser})=>{
+ const server=mockServer(),app=await open(browser,{server});
+ try{
+  await flush(app.page);
+  setRemoteStudy(server);
+  const newer=copy(server.data);
+  let raceInjected=false;
+  server.afterWrite=()=>{
+   if(raceInjected)return;
+   raceInjected=true;
+   // A second device overwrites the first save before its confirmation read.
+   server.data={...newer,srs_trends_v1:JSON.stringify([
+    ...JSON.parse(newer.srs_trends_v1),{id:'competing-trend',correct:1,incorrect:0}
+   ])};
+  };
+  await edit(app.page,{ko:'가상 앱 편집'});
+  await flush(app.page);
+  expect(raceInjected).toBe(true);
+  const remote=remoteCards(server);
+  expect(remote.cards.map(c=>c.id)).toEqual([1,2]);
+  expect(remote.cards[0]).toMatchObject({ko:'가상 앱 편집',stage:6,dueAt:2000,lastTestedAt:1000,firstCorrectAt:20,ngCount:8});
+  expect(remote.cards[1]).toMatchObject({stage:5,dueAt:2200,lastTestedAt:88});
+  expect(JSON.parse(server.data.srs_settings_v1).manualCorrectTotal).toBe(17);
+  expect(JSON.parse(server.data.srs_trends_v1).map(t=>t.id)).toEqual(['remote-trend','competing-trend']);
+  expect(JSON.parse(server.data.srs_error_history_v1).records[0].occurrences[0].id).toBe('wrong-answer');
+ }finally{await app.context.close();}
+});
+
+test('a known prior template migrates a profile without baselines',async({browser})=>{
+ const server=mockServer();
+ const update={en:'The virtual lab opens at seven.',ko:'가상 연구소가 일곱 시에 열립니다.',context:'연구소 개장안내',priority:'supplementary'};
+ installTemplate(server,update);
+ const app=await open(browser,{server});
+ try{
+  const state=await stored(app.page);
+  expect(state.cards.map(c=>c.id)).toEqual([1,2]);
+  expect(state.cards[0]).toMatchObject(update);
+  historyPreserved(state.cards[0]);
+  await flush(app.page);
+  expect(remoteCards(server).cards[0]).toMatchObject(update);
+ }finally{await app.context.close();}
+});
+
+for(const choice of ['앱 값 유지','Codex 값 적용']){
+ test('same-field template conflict offers '+choice,async({browser})=>{
+  const server=mockServer(),app=await open(browser,{server});
+  try{
+   const appValue='가상 앱 번역',codexValue='가상 저장소 번역';
+   await edit(app.page,{ko:appValue});
+   await flush(app.page);
+   installTemplate(server,{ko:codexValue});
+   await app.page.reload();
+   await expect(app.page.locator('#chapterSelectList')).toContainText('영어업무(일반)');
+   expect((await stored(app.page)).cards[0].ko).toBe(appValue);
+   await app.page.locator('#tabSettings').click();
+   const conflicts=app.page.locator('#cardEditConflicts');
+   await expect(conflicts.getByRole('button',{name:/앱 값 유지/})).toBeVisible();
+   await expect(conflicts.getByRole('button',{name:/Codex 값 적용/})).toBeVisible();
+   await conflicts.getByRole('button',{name:new RegExp(choice)}).click();
+   expect((await stored(app.page)).templateConflicts).toEqual([]);
+   await flush(app.page);
+   await app.page.reload();
+   await expect(app.page.locator('#chapterSelectList')).toContainText('영어업무(일반)');
+   const result=await stored(app.page);
+   expect(result.templateConflicts).toEqual([]);
+   expect(result.cards[0].ko).toBe(choice==='앱 값 유지'?appValue:codexValue);
+   expect(result.editHistory.some(e=>e.value===appValue)).toBe(true);
+   historyPreserved(result.cards[0]);
+  }finally{await app.context.close();}
+ });
+}
+
+test('mobile diagnostics are in Settings and still compare and copy the synthetic code',async({browser})=>{
+ const server=mockServer(),app=await open(browser,{server,viewport:{width:390,height:844}});
+ try{
+  const code='user_edits_fixture_12345';
+  const button=app.page.locator('#settingsPane #memory-sync-diagnostic-button');
+  await expect(button).toBeHidden();
+  await app.page.locator('#tabSettings').click();
+  await button.click();
+  const panel=app.page.locator('#memory-sync-diagnostic-panel');
+  app.page.once('dialog',dialog=>dialog.accept(createHash('sha256').update(code).digest('hex')));
+  await panel.getByRole('button',{name:'Codex 코드 일치 검사'}).click();
+  await expect(panel).toContainText('Codex 코드: 일치');
+  await app.context.grantPermissions(['clipboard-read','clipboard-write']);
+  app.page.once('dialog',dialog=>dialog.accept());
+  await panel.getByRole('button',{name:'코드 확인 / 복사'}).click();
+  await expect(panel.locator('input')).toHaveAttribute('type','password');
+  await panel.getByRole('button',{name:'복사',exact:true}).click();
+  await expect(panel).toContainText('복사됨');
+  expect(await app.page.evaluate(()=>navigator.clipboard.readText())).toBe(code);
+ }finally{await app.context.close();}
 });

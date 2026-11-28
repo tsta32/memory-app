@@ -14,7 +14,7 @@ var GRAMMAR_OPTION_DEFAULTS={article:true};
 var GRAMMAR_OPTION_LABELS={article:'관사',vocabulary:'어휘'};
 
 var cards=[],chapters=[],settings={volume:100,newCardRatio:5,manualCorrectTotal:0,grammarOptions:Object.assign({},GRAMMAR_OPTION_DEFAULTS)};
-var manualCorrectTotalCount=0;
+var manualCorrectTotalCount=0,manualCorrectEvents=[];
 var nextCardId=1,nextChapterId=1;
 var errorHistory=[],errorHistoryWritable=true;
 
@@ -421,9 +421,12 @@ document.addEventListener('visibilitychange',function(){persistStudySession();})
 
 /* ---------- persistence ---------- */
 var cardEnvelope={},cardBaseline=null;
-function saveCards(automatic){
+function saveCards(automatic,resetWrong){
   var next=Object.assign({},cardEnvelope,{cards:cards,nextId:nextCardId});
-  if(window.CardOverrides&&!automatic&&cardBaseline)next=window.CardOverrides.track(cardBaseline,next,getEditDevice());
+  if(window.CardOverrides&&!automatic&&cardBaseline){
+    window.CardOverrides.trackStudy(cardBaseline,next,resetWrong);
+    next=window.CardOverrides.track(cardBaseline,next,getEditDevice());
+  }
   cards=next.cards;cardEnvelope=next;
   var ok=studyWriteData(CARDS_KEY,JSON.stringify(next));
   if(ok)cardBaseline=JSON.parse(JSON.stringify(next));
@@ -443,6 +446,7 @@ function buildSettingsObject(raw){
   if(raw){try{saved=JSON.parse(raw);if(!saved||typeof saved!=='object'||Array.isArray(saved))return null;}catch(e){return null;}}
   saved.volume=settings.volume;saved.newCardRatio=settings.newCardRatio;
   saved.manualCorrectTotal=manualCorrectTotalCount;
+  if(manualCorrectEvents.length)saved.manualCorrectEvents=manualCorrectEvents;
   saved.acSort=acSort;saved.quizOrder=quizOrder;
   saved.bizChapterIds=Object.keys(bizChapterIds).map(Number);
   saved.grammarOptions=normalizeGrammarOptions(settings.grammarOptions);
@@ -525,6 +529,7 @@ function loadAll(){
     if(typeof sp.newCardRatio==='number')settings.newCardRatio=sp.newCardRatio;
     if(typeof sp.manualCorrectTotal==='number'&&isFinite(sp.manualCorrectTotal)&&sp.manualCorrectTotal>=0)manualCorrectTotalCount=Math.floor(sp.manualCorrectTotal);
     else if(typeof sp.manualCorrectCount==='number'&&isFinite(sp.manualCorrectCount)&&sp.manualCorrectCount>=0)manualCorrectTotalCount=Math.floor(sp.manualCorrectCount);
+    manualCorrectEvents=Array.isArray(sp.manualCorrectEvents)?sp.manualCorrectEvents.filter(function(id){return typeof id==='string';}):[];
     settings.manualCorrectTotal=manualCorrectTotalCount;
     if(typeof sp.acSort==='string')acSort=sp.acSort;
     if(typeof sp.quizOrder==='string')quizOrder=sp.quizOrder;
@@ -1704,7 +1709,7 @@ on('resetNgCountsBtn','click',function(){
   var confirmed=window.confirm('초기화 대상: 모든 카드의 오답 누적 횟수(ngCount)만 0으로 초기화합니다.\n\n초기화되지 않는 항목: 기존 오답 이력과 반복 기록, SRS 단계와 다음 복습일, 카드 내용, 학습 기록, 정답 통계 및 수동판정정답 통계.\n\n오답 누적 횟수를 초기화할까요?');
   if(!confirmed)return;
   var changed=zeroNgCounts(cards);
-  if(changed)saveCards();
+  if(changed)saveCards(false,true);
   renderAllCards();refreshSetupInfo();
   var feedback=$('resetNgCountsFeedback');
   if(feedback)feedback.textContent=changed+'개 카드의 오답 누적 횟수를 초기화했습니다. 오답 이력과 SRS 일정은 유지했습니다.';
@@ -2386,7 +2391,7 @@ function bizShowFinalResult(){
   var passCount=results.filter(function(r){return r.pass&&!r.timeUp;}).length;
   var total=results.length;
   var avgTime=total?Math.round(results.reduce(function(s,r){return s+(r.elapsed||0);},0)/total):0;
-  var session={date:new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),passRate:total?Math.round(passCount/total*100):0,avgTime:avgTime,totalSteps:total,situation:'사용자가 테스트 완료를 눌러 종료',steps:results.map(function(r){return {stepKo:r.ko,userAnswer:r.userAnswer,pass:!!(r.pass&&!r.timeUp),elapsed:r.elapsed,min:r.min,min_ko:r.min_ko,ideal:r.ideal,ideal_ko:r.ideal_ko,feedback:r.feedback,timeUp:r.timeUp,bookmarked:!!r.bookmarked,sourceCardId:r.sourceCardId||null};})};
+  var session={id:crypto.randomUUID(),date:new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),passRate:total?Math.round(passCount/total*100):0,avgTime:avgTime,totalSteps:total,situation:'사용자가 테스트 완료를 눌러 종료',steps:results.map(function(r){return {stepKo:r.ko,userAnswer:r.userAnswer,pass:!!(r.pass&&!r.timeUp),elapsed:r.elapsed,min:r.min,min_ko:r.min_ko,ideal:r.ideal,ideal_ko:r.ideal_ko,feedback:r.feedback,timeUp:r.timeUp,bookmarked:!!r.bookmarked,sourceCardId:r.sourceCardId||null};})};
   bizSessions.unshift(session);if(bizSessions.length>100)bizSessions=bizSessions.slice(0,100);saveBizSessions();
   $('bizVerdict').textContent=passCount+'/'+total+' 합격';
   $('bizVerdict').style.color=passCount===total?'var(--success-text)':'var(--warning)';
@@ -2448,7 +2453,7 @@ function finalizeCorrect(manual){
   var firstPass=!currentIsRetry&&window.BusinessPriority&&window.BusinessPriority.business(current,chapters)&&!window.BusinessPriority.passed(current);
   if(firstPass)current.firstCorrectAt=now();
   if(practiceMode&&firstPass)saveCards();
-  if(manual){manualCorrectTotalCount++;settings.manualCorrectTotal=manualCorrectTotalCount;saveSettings();if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
+  if(manual){manualCorrectEvents=manualCorrectEvents.concat(crypto.randomUUID());manualCorrectTotalCount++;settings.manualCorrectTotal=manualCorrectTotalCount;saveSettings();if($('footerHint')){$('footerHint').textContent='수동판정정답으로 기록했습니다.';$('footerHint').style.color='var(--success-text)';}}
   var cls=hintLevel>=2?'hard':'easy';
   current.lastTestedAt=now();
   if(!practiceMode){
@@ -2717,7 +2722,8 @@ function renderCardEditConflicts(){
   var host=$('cardEditConflicts');if(!host||!window.CardOverrides)return;
   host.textContent='';
   var conflicts=cardEnvelope.editConflicts||[],identities=cardEnvelope.identityConflicts||[];
-  if(conflicts.length||identities.length){var title=document.createElement('p');title.textContent='수정 충돌 '+(conflicts.length+identities.length)+'건 · 양쪽 이력은 보존되어 있습니다.';host.appendChild(title);}
+  var templateConflicts=cardEnvelope.templateConflicts||[];
+  if(conflicts.length||identities.length||templateConflicts.length){var title=document.createElement('p');title.textContent='수정 충돌 '+(conflicts.length+identities.length+templateConflicts.length)+'건 · 양쪽 이력은 보존되어 있습니다.';host.appendChild(title);}
   conflicts.forEach(function(conflict){
     var box=document.createElement('div'),label=document.createElement('p');label.textContent='카드 '+conflict.cardId+' · '+conflict.field;box.appendChild(label);
     var values=conflict.field==='$presence'?[{value:false,label:'삭제 상태 유지'},{value:true,label:'카드 복원'}]:conflict.variants.map(function(e){return {value:e.value,label:String(e.value)+' ('+e.device+')'};});
@@ -2725,6 +2731,21 @@ function renderCardEditConflicts(){
       cardEnvelope=window.CardOverrides.resolve(cardEnvelope,conflict.entity,conflict.field,v.value,getEditDevice());
       cards=cardEnvelope.cards;saveCards(true);renderCardEditConflicts();renderAllCards();renderMoveCardList();refreshSetupInfo();
     };box.appendChild(button);});host.appendChild(box);
+  });
+  templateConflicts.forEach(function(conflict){
+    var box=document.createElement('div'),label=document.createElement('p');
+    label.textContent='카드 '+conflict.cardId+' · '+conflict.field;box.appendChild(label);
+    [[conflict.app,'앱 값 유지'],[conflict.codex,'Codex 값 적용']].forEach(function(option){
+      var button=document.createElement('button');button.type='button';
+      button.textContent=option[1]+' · '+String(option[0]);
+      button.onclick=function(){
+        cardEnvelope=window.CardOverrides.resolveTemplate(cardEnvelope,conflict,option[0],getEditDevice());
+        cardEnvelope=window.CardOverrides.defaults(cardEnvelope,window.BusinessPriority.items,window.BusinessContexts.isDefault);
+        cards=cardEnvelope.cards;saveCards(true);renderCardEditConflicts();renderAllCards();renderMoveCardList();refreshSetupInfo();
+      };
+      box.appendChild(button);
+    });
+    host.appendChild(box);
   });
   identities.forEach(function(c){var p=document.createElement('p');p.textContent='카드 ID '+c.cardId+'의 독립 추가 충돌: 두 카드 모두 백업에 보존되었습니다. 백업을 내려받아 별도 ID로 검토해 주세요.';host.appendChild(p);});
 }
@@ -3174,7 +3195,7 @@ on('bizWeaknessRunBtn','click',function(){
     $('bizWeaknessResult').textContent=result;
     // 이력 저장
     var date=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
-    trends.unshift({type:'biz_weakness',date:date,result:result});
+    trends.unshift({id:crypto.randomUUID(),type:'biz_weakness',date:date,result:result});
     if(trends.length>40)trends=trends.slice(0,40);
     saveTrends();
     // 이전 분석 목록 갱신
@@ -3261,7 +3282,7 @@ on('trendRunBtn','click',function(){
     $('trendLoading').style.display='none';$('trendRunBtn').disabled=false;
     var result=(data.content&&data.content[0]&&data.content[0].text)||'(결과 없음)';
     var date=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'});
-    trends.unshift({date:date,result:result});
+    trends.unshift({id:crypto.randomUUID(),date:date,result:result});
     if(trends.length>20)trends=trends.slice(0,20);
     saveTrends();
     $('trendResult').style.display='block';$('trendResult').textContent=result;
