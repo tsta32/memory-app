@@ -36,7 +36,8 @@ async function github(token, path, options = {}) {
       'User-Agent': 'Memory-App-Private-Refresh',
       'X-GitHub-Api-Version': '2026-03-10'
     },
-    redirect: 'error',
+    // Workers supports manual redirects. The status check below rejects them.
+    redirect: 'manual',
     signal: AbortSignal.timeout(15000)
   });
   if (!response.ok) {

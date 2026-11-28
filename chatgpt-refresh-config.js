@@ -1,2 +1,2 @@
-// Configure the trusted HTTPS relay origin only after deploying its secrets.
-window.MemoryChatGPTRefreshOrigin = '';
+// Trusted HTTPS origin for the on-demand private catalog refresh.
+window.MemoryChatGPTRefreshOrigin = 'https://memory-app-chatgpt-refresh.tsta32.workers.dev';
