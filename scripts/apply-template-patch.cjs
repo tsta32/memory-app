@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // Authenticated writes happen only through the user's local Git installation.
-const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),cp=require('node:child_process');
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 function apply(repo,patch,write=false,backupRoot=path.join(os.homedir(),'.config','memory-app','template-backups')){
  if(patch.kind!=='memory-app-template-patch'||patch.version!==1||!Array.isArray(patch.changes))throw new Error('Invalid patch format');
  const sourcePath=path.join(repo,'general_business_english_literal_ko.json'),source=JSON.parse(fs.readFileSync(sourcePath,'utf8'));
@@ -27,9 +27,13 @@ function apply(repo,patch,write=false,backupRoot=path.join(os.homedir(),'.config
   const old=priorityRows.find(r=>r.key===row.businessTemplateKey),change=patch.changes.find(c=>c.key===row.businessTemplateKey&&c.operation==='upsert');
   const item=Object.assign({},old||{key:row.businessTemplateKey,source_line:row.source_line,ko_before:row.ko_before,criteria:[]},{en:row.en,ko:row.ko_after,context:row.context,priority:row.priority});
   if(!old){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
+  if(change&&old&&['en','ko','context','priority'].some(f=>change.before[f]!==change.after[f])){
+   const prior=change.before;
+   item.previousDefaults=[...(old.previousDefaults||[]).filter(row=>JSON.stringify(row)!==JSON.stringify(prior)),prior];
+  }
   if(change){const a=change.after,assessment=a.priorityAssessment,validAssessment=assessment&&assessment.version===1&&assessment.en===a.en&&assessment.ko===a.ko&&assessment.context===a.context&&assessment.priority===a.priority&&String(assessment.reason||'').trim()&&Array.isArray(assessment.coverageAreas)&&assessment.coverageAreas.length&&Array.isArray(assessment.coveragePurposes)&&assessment.coveragePurposes.length;
    if(validAssessment){item.reason=assessment.reason;item.coverageAreas=assessment.coverageAreas.slice();item.coveragePurposes=assessment.coveragePurposes.slice();}
-   else if(['en','ko','context'].some(f=>a[f]!==change.before[f])||(a.priority==='essential'&&change.before.priority!=='essential')){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
+   else if(!change.before||['en','ko','context'].some(f=>a[f]!==change.before[f])||(a.priority==='essential'&&change.before.priority!=='essential')){item.reason='';item.coverageAreas=[];item.coveragePurposes=[];}
   }
   return item;
  });
@@ -47,11 +51,10 @@ function apply(repo,patch,write=false,backupRoot=path.join(os.homedir(),'.config
 }
 if(require.main===module){
  try{
-  const args=process.argv.slice(2),filename=args[0];if(!filename)throw new Error('Usage: node scripts/apply-template-patch.cjs patch.json [--repo path] [--write] [--push]');
+  const args=process.argv.slice(2),filename=args[0];if(!filename)throw new Error('Usage: node scripts/apply-template-patch.cjs patch.json [--repo path] [--write]');
   const repo=args.includes('--repo')?path.resolve(args[args.indexOf('--repo')+1]):path.resolve(__dirname,'..'),push=args.includes('--push');
-  if(push){cp.execFileSync('git',['fetch','origin','main'],{cwd:repo,stdio:'inherit'});const head=cp.execFileSync('git',['rev-parse','HEAD'],{cwd:repo,encoding:'utf8'}).trim(),remote=cp.execFileSync('git',['rev-parse','origin/main'],{cwd:repo,encoding:'utf8'}).trim();if(head!==remote)throw new Error('CONFLICT: local HEAD differs from origin/main');if(cp.execFileSync('git',['status','--porcelain'],{cwd:repo,encoding:'utf8'}).trim())throw new Error('CONFLICT: use a clean checkout before publishing');}
-  const result=apply(repo,JSON.parse(fs.readFileSync(filename,'utf8')),args.includes('--write')||push);
-  if(push){cp.execFileSync('git',['add','--','general_business_english_literal_ko.json','business-contexts.js','business-priorities.js'],{cwd:repo});cp.execFileSync('git',['diff','--cached','--check'],{cwd:repo,stdio:'inherit'});if(cp.execFileSync('git',['diff','--cached','--name-only'],{cwd:repo,encoding:'utf8'}).trim()){cp.execFileSync('git',['commit','-m','Apply reviewed app template edits'],{cwd:repo,stdio:'inherit'});cp.execFileSync('git',['push','origin','HEAD:main'],{cwd:repo,stdio:'inherit'});}result.status='pushed-to-github';}
+  if(push)throw new Error('Direct publishing is disabled. Sync sentence data to an authenticated private catalog.');
+  const result=apply(repo,JSON.parse(fs.readFileSync(filename,'utf8')),args.includes('--write'));
   console.log(JSON.stringify(result));
  }catch(e){console.error(e.message);process.exitCode=e.message.includes('CONFLICT:')?2:1;}
 }

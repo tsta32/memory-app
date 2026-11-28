@@ -74,3 +74,22 @@ try{
  assert.throws(()=>apply(temp,{...patch,kind:'invalid'}),/Invalid/);
 }catch(e){throw e;}finally{fs.rmSync(temp,{recursive:true,force:true});}
 console.log('Passed causal field merge, all content overrides, additions, deletion tombstones, ID collision retention, template defaults, export and repository success/failure/conflict checks.');
+
+// Study changes use separate revisions, so a simultaneous text edit cannot revert them.
+{
+ const prior=structuredClone(base);
+ prior.cards[0].lastTestedAt=88;
+ const left=structuredClone(prior),right=structuredClone(prior);
+ Object.assign(left.cards[0],{ngCount:8,stage:5,dueAt:400,lastTestedAt:101,firstCorrectAt:12});
+ Object.assign(right.cards[0],{ngCount:8,lastTestedAt:102,firstCorrectAt:10});
+ o.trackStudy(prior,left);o.trackStudy(prior,right);
+ assert.deepEqual(o.merge(left,right,true).cards[0],o.merge(right,left,true).cards[0]);
+ const merged=o.merge(left,right,true).cards[0];
+ assert.equal(merged.ngCount,9,'independent misses are counted once each');
+ assert.equal(merged.stage,5);assert.equal(merged.dueAt,400);
+ assert.equal(merged.lastTestedAt,102);assert.equal(merged.firstCorrectAt,10);
+ assert.equal(o.merge({cards:[merged]},left,true).cards[0].ngCount,9,'retry is idempotent');
+ const renamed=o.track(prior,{cards:[{...prior.cards[0],ko:'가상 번역 편집'}]},'fixture');
+ const result=o.merge(renamed,{cards:[merged]},true).cards[0];
+ assert.equal(result.ko,'가상 번역 편집');assert.equal(result.ngCount,9);assert.equal(result.dueAt,400);
+}

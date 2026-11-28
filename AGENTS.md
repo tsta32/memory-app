@@ -1,5 +1,26 @@
 # Codex repository workflow
 
+## Mandatory fresh catalog for sentence tasks
+
+Before generating, editing or proposing sentences, obtain a recent receipt
+from the device that holds the latest edits through the app's sync diagnostics.
+Save only the receipt to a private temporary file. Run
+`node scripts/refresh-sentence-task.cjs --device-receipt <file>` from the
+application checkout. This
+dispatches the existing workflow on `tsta32/memory-app-private`, waits for that
+specific run to succeed, then verifies its published Worker receipt and the
+catalog hash at the same private commit. The current seven-entry Worker hash must
+match the device receipt and conflicts must be cleared. Worker-only diagnostics
+do not authorize sentence work. Use the catalog in the private
+temporary directory reported by the command. Use all cards to check for
+duplicates and verified user before/after edits to understand preferences.
+
+If the command fails at any step, stop the sentence task and explain the
+blocker. A previous catalog, cached connector result, default templates, or
+an unrelated successful run cannot satisfy this requirement. A standalone
+Worker dry run also cannot satisfy it because it does not publish the catalog.
+Keep proposals and private data in the private repository.
+
 ## Cloud review-only sync
 
 For cloud automation of app-to-template sync, use
@@ -49,12 +70,12 @@ fixtures, not an existing user browser profile.
 Before inspecting, editing, or regenerating `general_business_english_literal_ko.json`, `business-contexts.js`, or `business-priorities.js` for a task involving templates, contexts, or priority grades, run this first from the repository root:
 
 ```sh
-npm run sync:app-templates
+npm run sync:app-templates -- --dry-run
 ```
 
-This command fetches a new, complete snapshot from the existing authenticated Worker `get` API and safely applies template-linked user edits locally. App edits to English, Korean, context, and priority take precedence over repository defaults. It checks card IDs and edit-history template keys before content; English-string equality by itself is never an identity link. If template IDs are absent, a stable ID-to-template mapping is accepted only when at least 199 of 200 template-linked cards prove one unique sequence offset. Unlinked-card details and a per-field comparison of all 200 templates are saved outside Git at `~/.config/memory-app/latest-app-card-analysis.json` with mode `0600`. The report separates independently categorized cards from stable-ID candidates and marks import-only content differences unverified; those differences stop export instead of being overwritten. It creates a private pre-change backup outside Git. It does not call Worker `set`, push to GitHub, or change SRS/review statistics.
+This command fetches a new, complete snapshot from the existing authenticated Worker `get` API and evaluates template-linked user edits without changing the template assets. App edits to English, Korean, context, and priority take precedence over repository defaults. It checks card IDs and edit-history template keys before content; English-string equality by itself is never an identity link. If template IDs are absent, a stable ID-to-template mapping is accepted only when at least 199 of 200 template-linked cards prove one unique sequence offset. Unlinked-card details and a per-field comparison of all 200 templates are saved outside Git at `~/.config/memory-app/latest-app-card-analysis.json` with mode `0600`. The report separates independently categorized cards from stable-ID candidates and marks import-only content differences unverified and leaves them for separate review. It does not call Worker `set`, push to GitHub, or change SRS/review statistics.
 
-If the Codex runtime cannot reach the Worker, do not reuse a saved snapshot or continue with repository defaults. Ask the user to run the same fetch/apply process from a normal Linux terminal in this checkout:
+If a template task requires the Worker dry run below, perform it after the mandatory private catalog refresh. If either required operation fails, stop and report the blocker. The legacy local commands below are for authorized private-only template recovery:
 
 ```sh
 npm run sync:app-templates:local
