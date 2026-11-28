@@ -1,7 +1,5 @@
 name: Refresh private sentence library
 on:
-  schedule:
-    - cron: '11,31,51 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -41,6 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           node .memory-app-exporter/scripts/sync-sentence-library.cjs . --check-private
+          node -e 'const fs = require("node:fs"); const path = "memory-library/status.json"; const status = JSON.parse(fs.readFileSync(path, "utf8")); status.workflowRunId = process.env.GITHUB_RUN_ID; status.workflowRunAttempt = process.env.GITHUB_RUN_ATTEMPT; fs.writeFileSync(path, JSON.stringify(status, null, 2) + "\n");'
           git add -- memory-library/catalog.json memory-library/status.json
           git diff --cached --quiet && exit 0
           git -c user.name='Memory App' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Refresh private sentence catalog'
