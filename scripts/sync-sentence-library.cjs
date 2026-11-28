@@ -125,7 +125,11 @@ async function run(repo, { env = process.env, assertPrivate = checkDestination, 
   const checkedAt = now().toISOString();
   const result = catalog(snapshot, [code, token]);
   const snapshotSha256 = createHash('sha256').update(integrity.canonical).digest('hex');
-  const uploadEvidence = validateUploadEvidence(snapshot.__memorySyncSnapshotV1.uploadEvidence, snapshotSha256, checkedAt);
+  const marker = snapshot.__memorySyncSnapshotV1;
+  const uploadEvidence = validateUploadEvidence(marker.uploadEvidence, snapshotSha256, checkedAt);
+  if (Object.hasOwn(marker, 'uploadEvidence') && !uploadEvidence) {
+    throw Error('The stored upload evidence does not match the Worker snapshot');
+  }
   const folder = path.resolve(repo, 'memory-library');
   fs.mkdirSync(folder, { mode: 0o700, recursive: true });
   if (fs.lstatSync(folder).isSymbolicLink()) throw Error('Unsafe sentence catalog path');

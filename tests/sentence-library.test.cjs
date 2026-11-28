@@ -77,6 +77,17 @@ assert.equal(library.importChanges(baseline,chapters,document,overrides,100).sta
     await assert.rejects(run(repo,{env,assertPrivate:access,fetcher:async()=>{throw Error('offline');}}),/offline/);
     assert.equal(fs.readFileSync(statusPath,'utf8'),lastStatus);
     assert.equal(reads,1);
+    const status=JSON.parse(lastStatus);
+    assert.equal(status.uploadEvidence,null);
+    const evidence={version:1,scope:'worker-stored-snapshot',snapshotSha256:status.snapshotSha256,clientUploadAt:status.checkedAt};
+    const withEvidence={...snapshot,__memorySyncSnapshotV1:{...snapshot.__memorySyncSnapshotV1,uploadEvidence:evidence}};
+    assert.equal(await run(repo,{env,assertPrivate:access,fetcher:async()=>withEvidence}),2);
+    const savedWithEvidence=fs.readFileSync(statusPath,'utf8');
+    assert.deepEqual(JSON.parse(savedWithEvidence).uploadEvidence,evidence);
+    withEvidence.__memorySyncSnapshotV1.uploadEvidence={...evidence,snapshotSha256:'0'.repeat(64)};
+    await assert.rejects(run(repo,{env,assertPrivate:access,fetcher:async()=>withEvidence}),/does not match/);
+    assert.equal(fs.readFileSync(statusPath,'utf8'),savedWithEvidence);
+
   }finally{fs.rmSync(repo,{recursive:true,force:true});}
   console.log('Passed private destination, allowlisted export, preference history, fresh status and conflict-safe imports.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

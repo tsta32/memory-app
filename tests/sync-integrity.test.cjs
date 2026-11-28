@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const {createHash}=require('node:crypto');
 const {keys,inspect}=require('../sync-integrity');
-const {validateDeviceReceipt,verifyPublished,verifySyncedOnly}=require('../scripts/refresh-sentence-task.cjs');
+const {validateDeviceReceipt,verifyPublished,verifySyncedOnly,collectPreferenceEvidence}=require('../scripts/refresh-sentence-task.cjs');
 const fixture=Object.fromEntries(keys.map(key=>[key,'{}']));
 fixture.srs_cards_v2='{"cards":[{"id":1,"en":"Synthetic example","ko":"Fixture translation","priority":"important","context":"Fixture context","chapterId":1}],"editHistory":[{"field":"en","before":"Fixture original","value":"Synthetic example"}]}';
 fixture.srs_chapters_v1='{"chapters":[{"id":1,"name":"Fixture category"}]}';
@@ -31,7 +31,12 @@ assert.throws(()=>verify(status,device,Buffer.from('{}')),/verified/);
 assert.throws(()=>verify({...status,conflictCount:1}),/conflicts/);
 verify({...status,conflictCount:1},null);
 const uploadEvidence={version:1,scope:'worker-stored-snapshot',snapshotSha256:device.snapshotSha256,clientUploadAt:checkedAt};
-verifySyncedOnly({...status,uploadEvidence});
+assert.equal(verifySyncedOnly({...status,uploadEvidence}),'hash-matched-upload');
+assert.equal(verifySyncedOnly({...status,uploadEvidence:null}),'legacy-snapshot');
+const human={field:'ko',before:'fixture old',after:'fixture new',userEdited:true,beforeKnown:true};
+assert.deepEqual(collectPreferenceEvidence({kind:'memory-app-sentence-catalog',version:1,cards:[{id:'fixture-card',history:[human,{...human,userEdited:false},{...human,beforeKnown:false}]}]}),[
+ {cardId:'fixture-card',field:'ko',before:'fixture old',after:'fixture new',at:undefined}
+]);
 assert.throws(()=>verifySyncedOnly(status),/No matching upload evidence/);
 assert.throws(()=>verifySyncedOnly({...status,uploadEvidence:{...uploadEvidence,snapshotSha256:'a'.repeat(64)}}),/No matching upload evidence/);
 assert.throws(()=>verifySyncedOnly({...status,uploadEvidence:{...uploadEvidence,clientUploadAt:new Date(now+1000).toISOString()}}),/No matching upload evidence/);
