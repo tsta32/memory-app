@@ -2,16 +2,13 @@ name: Review app template sync
 
 on:
   workflow_dispatch:
-  schedule:
-    # Off the busy top of the hour; GitHub may delay scheduled runs.
-    - cron: '17 * * * *'
 
 permissions:
   contents: write
   pull-requests: write
   pages: write
 
-# Covers manual and scheduled executions, including merge and deployment.
+# Serializes manual runs through merge and deployment.
 concurrency:
   group: app-template-sync-review
   cancel-in-progress: false

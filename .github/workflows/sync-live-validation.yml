@@ -9,8 +9,6 @@ on:
       - 'scripts/sync-automation.cjs'
       - 'scripts/review-app-sync.cjs'
   workflow_dispatch:
-  schedule:
-    - cron: '37 * * * *'
 
 permissions:
   contents: write
