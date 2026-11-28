@@ -1,0 +1,12 @@
+name = "memory-app-chatgpt-refresh"
+main = "index.mjs"
+compatibility_date = "2025-03-01"
+workers_dev = true
+
+[vars]
+APP_ORIGIN = "https://tsta32.github.io"
+
+[[ratelimits]]
+name = "REFRESH_LIMIT"
+namespace_id = "4107"
+simple = { limit = 30, period = 60 }

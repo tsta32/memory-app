@@ -337,6 +337,86 @@ function connectAndLoad(){
 }
 
 /* Read-only sync diagnostics: never reveal codes or snapshot contents. */
+function hasSettledSync(){
+  return !localDirty&&!dirtyKeys.size&&!readLocal(DIRTY_KEY,[]).length&&
+    syncStatus.result==='ok'&&!!syncStatus.lastSuccessAt;
+}
+function installChatGPTRefresh(){
+  var button=document.getElementById('chatgptRefreshButton'),status=document.getElementById('chatgptRefreshStatus');
+  if(!button||!status)return;
+  var key='memory_chatgpt_refresh_success_v1';
+  var last=localStorage.getItem(key);
+  var rawOrigin=window.MemoryChatGPTRefreshOrigin,origin;
+  try{
+    var url=new URL(rawOrigin);
+    if(url.protocol==='https:'&&url.origin===rawOrigin)origin=url.origin;
+  }catch(e){}
+  function show(message){
+    status.textContent=message+(last&&Number.isFinite(Date.parse(last))?
+      ' · 마지막 성공 '+new Date(last).toLocaleString():'');
+  }
+  show(origin?'갱신 대기':'갱신 서버 연결 설정이 필요합니다.');
+  if(!origin){button.disabled=true;return;}
+  var reasons={conflicts:'해결되지 않은 수정 충돌이 있습니다.', 'snapshot-changed':'갱신 중 Worker 데이터가 바뀌었습니다.',
+    workflow:'비공개 GitHub 갱신이 실패했습니다.',verification:'게시된 카탈로그 검증에 실패했습니다.'};
+  async function send(route,body){
+    var result=await fetch(origin+route,{
+      method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',redirect:'error',
+      body:JSON.stringify(body),signal:AbortSignal.timeout?AbortSignal.timeout(20000):undefined
+    });
+    if(route==='/status'&&result.status===502)return {state:'pending'};
+    if(!result.ok)throw Error('request');
+    return result.json();
+  }
+  button.addEventListener('click',async function(){
+    if(button.disabled)return;
+    if(!syncCode||studyProtected()){
+      show('갱신 실패 · 학습을 마치고 동기화 설정을 확인하세요.');return;
+    }
+    button.disabled=true;
+    try{
+      show('갱신 중 · Worker에 저장 중');
+      var flushed=await window.memorySyncFlush();
+      if(!flushed.ok||flushed.localOnly||!hasSettledSync())throw Error('sync');
+      var signatureAtStart=signature(snapshot());
+      var result=await request('get');
+      if(!completeSnapshot(result.data))throw Error('sync');
+      var local=window.SyncIntegrity.inspect(snapshot()),remote=window.SyncIntegrity.inspect(result.data);
+      if(local.canonical!==remote.canonical)throw Error('sync');
+      if(remote.conflictCount)throw Error('conflicts');
+      function sha256(value){
+        return crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)).then(function(bytes){
+          return Array.from(new Uint8Array(bytes),function(b){return b.toString(16).padStart(2,'0');}).join('');
+        });
+      }
+      var hashes=await Promise.all([sha256(remote.canonical),sha256('memory-app:chatgpt-refresh:v1:'+syncCode)]);
+      function unchanged(){return hasSettledSync()&&signature(snapshot())===signatureAtStart;}
+      if(!unchanged())throw Error('snapshot-changed');
+      var body={refreshKey:hashes[1],snapshotSha256:hashes[0]};
+      show('갱신 중 · 비공개 GitHub 실행 요청');
+      var start=await send('/start',body);
+      if(!Number.isSafeInteger(start.runId)||start.runId<=0)throw Error('request');
+      body.runId=start.runId;
+      show('갱신 중 · 카탈로그 및 해시 검증 대기');
+      var deadline=Date.now()+180000;
+      while(Date.now()<deadline){
+        await new Promise(function(resolve){setTimeout(resolve,4000);});
+        var check=await send('/status',body);
+        if(check.state==='pending')continue;
+        if(check.state!=='success'||!Number.isFinite(Date.parse(check.checkedAt)))throw Error(check.reason||'verification');
+        if(!unchanged())throw Error('snapshot-changed');
+        last=check.checkedAt;
+        try{localStorage.setItem(key,last);}catch(e){}
+        show('갱신 성공 · 문장 목록과 수정 이력이 확인됐습니다.');
+        return;
+      }
+      throw Error('timeout');
+    }catch(e){
+      var messages=Object.assign({sync:'Worker 저장 또는 기기 일치를 확인할 수 없습니다.',timeout:'시간 내에 게시를 확인하지 못했습니다.'},reasons);
+      show('갱신 실패 · '+(messages[e.message]||'연결 또는 실행 상태를 확인할 수 없습니다.'));
+    }finally{button.disabled=false;}
+  });
+}
 function installSyncDiagnostics(){
   if(document.getElementById('memory-sync-diagnostic-button'))return;
   var button=document.createElement('button');
@@ -357,7 +437,7 @@ function installSyncDiagnostics(){
   receiptButton.type='button';receiptButton.textContent='검증 영수증 복사';receiptButton.hidden=true;
   var receipt=null,receiptSignature=null;
   receiptButton.addEventListener('click',async function(){
-    if(!receipt||!settled()||receiptSignature!==signature(snapshot())){
+    if(!receipt||!hasSettledSync()||receiptSignature!==signature(snapshot())){
       receipt=null;receiptButton.hidden=true;
       status.textContent='검증 중단 · 기기 상태가 변경되었습니다. 다시 검사하세요.';
       return;
@@ -419,13 +499,9 @@ function installSyncDiagnostics(){
     navigator.clipboard.writeText(secretInput.value).then(function(){secretMsg.textContent='복사됨. Codex에 입력한 후 다른 내용을 복사해 클립보드를 지우세요.';}).catch(function(){secretMsg.textContent='복사 실패. 보기 버튼으로 확인하세요.';});
   });
   close.addEventListener('click',function(){hideSecret();receipt=null;receiptButton.hidden=true;panel.style.display='none';button.setAttribute('aria-expanded','false');button.focus();});
-  function settled(){
-    return !localDirty&&!dirtyKeys.size&&!readLocal(DIRTY_KEY,[]).length&&
-      syncStatus.result==='ok'&&!!syncStatus.lastSuccessAt;
-  }
   check.addEventListener('click',async function(){
     receipt=null;receiptButton.hidden=true;
-    if(!syncCode||!settled()){
+    if(!syncCode||!hasSettledSync()){
       status.textContent='검증 중단 · 동기화 성공 확인 및 미전송 데이터 해소가 필요합니다.';return;
     }
     check.disabled=true;status.textContent='Worker와 기기 데이터를 읽기 전용으로 비교 중…';
@@ -440,7 +516,7 @@ function installSyncDiagnostics(){
         status.textContent='검증 중단 · 해결되지 않은 수정 충돌이 있습니다.';return;
       }
       var digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(local.canonical));
-      if(!settled()||before!==signature(snapshot())){
+      if(!hasSettledSync()||before!==signature(snapshot())){
         status.textContent='검증 중단 · 검사 중 기기 상태가 변경되었습니다.';return;
       }
       receiptSignature=before;
@@ -454,7 +530,8 @@ function installSyncDiagnostics(){
     }finally{check.disabled=false;}
   });
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installSyncDiagnostics,{once:true});else installSyncDiagnostics();
+function installSyncSettings(){installSyncDiagnostics();installChatGPTRefresh();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installSyncSettings,{once:true});else installSyncSettings();
 
 function start(){if(!syncCode){if(studyProtected()){loadApp();return;}showCodeEntry();return;}connectAndLoad();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
