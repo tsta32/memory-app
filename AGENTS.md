@@ -1,5 +1,17 @@
 # Codex repository workflow
 
+## Private sentence catalog
+
+For sentence generation or edits, first verify a fresh Worker read or a new
+successful refresh of the connected private `memory-library/status.json`.
+Read `memory-library/catalog.json` from that same revision. Use all cards
+for duplicate checks and verified before/after user history for preferences.
+A failed refresh, stale connector index, or unverified timestamp blocks
+claims that the app data is current. Keep privacy-sensitive proposals in the
+private repository and use the import schema in
+`docs/private-sentence-library.md`. Do not copy private app sentences, history,
+or catalog files into this public application repository.
+
 ## Cloud review-only sync
 
 For cloud automation of app-to-template sync, use
@@ -49,12 +61,12 @@ fixtures, not an existing user browser profile.
 Before inspecting, editing, or regenerating `general_business_english_literal_ko.json`, `business-contexts.js`, or `business-priorities.js` for a task involving templates, contexts, or priority grades, run this first from the repository root:
 
 ```sh
-npm run sync:app-templates
+npm run sync:app-templates -- --dry-run
 ```
 
-This command fetches a new, complete snapshot from the existing authenticated Worker `get` API and safely applies template-linked user edits locally. App edits to English, Korean, context, and priority take precedence over repository defaults. It checks card IDs and edit-history template keys before content; English-string equality by itself is never an identity link. If template IDs are absent, a stable ID-to-template mapping is accepted only when at least 199 of 200 template-linked cards prove one unique sequence offset. Unlinked-card details and a per-field comparison of all 200 templates are saved outside Git at `~/.config/memory-app/latest-app-card-analysis.json` with mode `0600`. The report separates independently categorized cards from stable-ID candidates and marks import-only content differences unverified; those differences stop export instead of being overwritten. It creates a private pre-change backup outside Git. It does not call Worker `set`, push to GitHub, or change SRS/review statistics.
+This command fetches a new, complete snapshot from the existing authenticated Worker `get` API and evaluates template-linked user edits without changing the template assets. App edits to English, Korean, context, and priority take precedence over repository defaults. It checks card IDs and edit-history template keys before content; English-string equality by itself is never an identity link. If template IDs are absent, a stable ID-to-template mapping is accepted only when at least 199 of 200 template-linked cards prove one unique sequence offset. Unlinked-card details and a per-field comparison of all 200 templates are saved outside Git at `~/.config/memory-app/latest-app-card-analysis.json` with mode `0600`. The report separates independently categorized cards from stable-ID candidates and marks import-only content differences unverified and leaves them for separate review. It does not call Worker `set`, push to GitHub, or change SRS/review statistics.
 
-If the Codex runtime cannot reach the Worker, do not reuse a saved snapshot or continue with repository defaults. Ask the user to run the same fetch/apply process from a normal Linux terminal in this checkout:
+If the Codex runtime cannot reach the Worker, use a freshly verified private catalog. If neither path is available, report that the data could not be confirmed current. The legacy local commands below are for authorized private-only template recovery:
 
 ```sh
 npm run sync:app-templates:local

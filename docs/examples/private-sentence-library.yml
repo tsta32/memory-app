@@ -1,0 +1,47 @@
+name: Refresh private sentence library
+on:
+  schedule:
+    - cron: '11,31,51 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: private-sentence-library
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.event.repository.private && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the pinned exporter revision
+        env:
+          EXPORTER_REF: ${{ vars.MEMORY_APP_EXPORTER_REF }}
+        run: '[[ "$EXPORTER_REF" =~ ^[a-f0-9]{40}$ ]]'
+      - uses: actions/checkout@v4
+        with:
+          repository: tsta32/memory-app
+          ref: ${{ vars.MEMORY_APP_EXPORTER_REF }}
+          path: .memory-app-exporter
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Refresh catalog from Worker
+        run: node .memory-app-exporter/scripts/sync-sentence-library.cjs .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MEMORY_APP_SYNC_CODE: ${{ secrets.MEMORY_APP_SYNC_CODE }}
+      - name: Publish catalog and verification status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node .memory-app-exporter/scripts/sync-sentence-library.cjs . --check-private
+          git add -- memory-library/catalog.json memory-library/status.json
+          git diff --cached --quiet && exit 0
+          git -c user.name='Memory App' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Refresh private sentence catalog'
+          git push origin "HEAD:${GITHUB_REF}"

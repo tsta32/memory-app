@@ -8,9 +8,10 @@ function key(c){return c.userCardKey||'id:'+typeof c.id+':'+c.id;}
 function history(s){return Array.isArray(s.editHistory)?s.editHistory:[];}
 function same(a,b){return JSON.stringify(a)===JSON.stringify(b);}
 function frontier(list){var used=new Set();list.forEach(function(e){(e.parents||[]).forEach(function(p){used.add(p);});});return list.filter(function(e){return !used.has(e.id);}).map(function(e){return e.id;});}
-function record(s,c,field,value,device,origin){
+function record(s,c,field,value,device,origin,before){
  s.editHistory=history(s).slice();
  var event={id:device?uid():'legacy:'+JSON.stringify([key(c),field,value]),entity:key(c),cardId:c.id,templateKey:c.businessTemplateKey||null,field:field,value:clone(value===undefined?null:value),parents:device?frontier(s.editHistory):[],at:device?Date.now():0,device:device||'import',origin:origin||(device?'user':'legacy-import'),userContext:field==='context'&&c.contextUserEdited===true};
+ if(before!==undefined)event.before=clone(before);
  var baseline=s.templateBaselines&&s.templateBaselines[c.businessTemplateKey];
  if(event.origin==='user'&&baseline&&Object.prototype.hasOwnProperty.call(baseline,field))event.templateBase=clone(baseline[field]);
  s.editHistory.push(event);
@@ -38,7 +39,7 @@ function track(previous,next,device){
   var prior=before.get(key(c));
   if(!prior){if(!c.userCardKey)c.userCardKey=uid();record(next,c,'$presence',{present:true,card:clone(c)},device);}
   after.add(key(c));
-  fields.forEach(function(f){if((!prior&&c[f]!==undefined)||(prior&&!same(prior[f],c[f])))record(next,c,f,c[f],device,f==='context'&&prior&&prior.en!==c.en&&!c.contextUserEdited?'english-derived':undefined);});
+  fields.forEach(function(f){if((!prior&&c[f]!==undefined)||(prior&&!same(prior[f],c[f])))record(next,c,f,c[f],device,f==='context'&&prior&&prior.en!==c.en&&!c.contextUserEdited?'english-derived':undefined,prior?prior[f]:null);});
  });
  (previous.cards||[]).forEach(function(c){if(!after.has(key(c)))record(next,c,'$presence',{present:false,card:clone(c)},device);});
  return project(next,next);
@@ -142,13 +143,37 @@ function merge(local,remote,preferLocal){
  });
  out.cards=Array.from(records.values());
  out.identityConflicts=(local.identityConflicts||[]).concat(remote.identityConflicts||[]);
+ if(local.sentenceProposalIds||remote.sentenceProposalIds){
+  out.sentenceProposalIds=Array.from(new Set((local.sentenceProposalIds||[]).concat(remote.sentenceProposalIds||[]))).sort();
+ }
  out.nextId=Math.max(local.nextId||0,remote.nextId||0,...out.cards.map(function(c){return typeof c.id==='number'?c.id+1:0;}));
  return project(out,local);
+}
+function addRepositoryCard(state,card){
+ record(state,card,'$presence',{present:true,card:clone(card)},'Codex','repository');
+ fields.forEach(function(field){
+  if(card[field]!==undefined)record(state,card,field,card[field],'Codex','repository',null);
+ });
+}
+function repositoryEdit(state,card,field,before,value,conflict){
+ var entity=key(card),events=history(state),id='repository:'+JSON.stringify([entity,field,before,value]);
+ if(events.some(function(e){return e.id===id;}))return false;
+ if(conflict&&!events.some(function(e){return e.entity===entity&&e.field===field&&same(e.value,card[field]);})){
+  record(state,card,field,card[field],'local','legacy-import');
+ }
+ record(state,card,field,value,'Codex','repository',before);
+ var event=state.editHistory[state.editHistory.length-1];
+ event.id=id;
+ if(conflict)event.parents=events.filter(function(e){
+  return e.entity===entity&&e.field===field&&same(e.value,before);
+ }).map(function(e){return e.id;});
+ else card[field]=value;
+ return true;
 }
 function resolve(state,entity,field,value,device){
  var c=state.cards.find(function(c){return key(c)===entity;})||(state.deletedCards||[]).map(function(x){return x.card;}).find(function(c){return key(c)===entity;});
  if(!c)throw new Error('카드를 찾을 수 없습니다.');
- record(state,c,field,field==='$presence'?{present:!!value,card:clone(c)}:value,device);return project(state,state);
+ record(state,c,field,field==='$presence'?{present:!!value,card:clone(c)}:value,device,undefined,c[field]);return project(state,state);
 }
 function userEvent(state,c,field){
  return history(state).slice().reverse().find(function(e){
@@ -217,6 +242,6 @@ function patch(state,templates){
  if(new Set(changes.map(function(c){return c.key;})).size!==changes.length)throw new Error('CONFLICT: multiple edited cards map to the same template key');
  return {kind:'memory-app-template-patch',version:1,createdAt:Date.now(),changes:changes};
 }
-var api={fields:fields,key:key,seed:seed,track:track,merge:merge,project:project,resolve:resolve,defaults:defaults,patch:patch,trackStudy:trackStudy,templateConflict:templateConflict,resolveTemplate:resolveTemplate};
+var api={fields:fields,key:key,seed:seed,track:track,merge:merge,project:project,resolve:resolve,defaults:defaults,patch:patch,trackStudy:trackStudy,templateConflict:templateConflict,resolveTemplate:resolveTemplate,addRepositoryCard:addRepositoryCard,repositoryEdit:repositoryEdit};
 if(typeof module==='object'&&module.exports)module.exports=api;else root.CardOverrides=api;
 })(typeof window!=='undefined'?window:globalThis);

@@ -13,7 +13,7 @@ permissions:
 jobs:
   verify-template-pr:
     # Never expose the Worker secret to forked pull requests.
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.repository.private && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:

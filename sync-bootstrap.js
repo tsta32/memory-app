@@ -2,9 +2,29 @@
 'use strict';
 var API='https://toeic-cloud-sync.tsta32.workers.dev/';
 var CODE_KEY='memory_sync_code_v1';
+var DIRTY_KEY='memory_sync_dirty_v1',STATUS_KEY='memory_sync_status_v1';
+function readLocal(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback;}catch(e){return fallback;}}
+var dirtyKeys=new Set(readLocal(DIRTY_KEY,[])),retryDelay=2000,pulling=false;
+var syncStatus=readLocal(STATUS_KEY,{});
+function showSyncStatus(){
+  var node=document.getElementById('memory-sync-status');
+  if(!node)return;
+  var labels={pending:'저장 대기',ok:'동기화 성공',error:'동기화 실패 · 재시도 대기'};
+  node.textContent=(labels[syncStatus.result]||'아직 동기화하지 않음')+
+    (syncStatus.lastSuccessAt?' · 마지막 성공 '+new Date(syncStatus.lastSuccessAt).toLocaleString():'')+
+    (syncStatus.result==='error'&&syncStatus.lastAttemptAt?' · 실패 시각 '+new Date(syncStatus.lastAttemptAt).toLocaleString():'');
+}
+function setSyncStatus(result){
+  syncStatus.result=result;
+  syncStatus.lastAttemptAt=new Date().toISOString();
+  if(result==='ok')syncStatus.lastSuccessAt=syncStatus.lastAttemptAt;
+  try{localStorage.setItem(STATUS_KEY,JSON.stringify(syncStatus));}catch(e){}
+  showSyncStatus();
+}
+function saveDirtyKeys(){try{localStorage.setItem(DIRTY_KEY,JSON.stringify(Array.from(dirtyKeys)));}catch(e){}}
 var SNAPSHOT_META_KEY='__memorySyncSnapshotV1';
 var DATA_KEYS=['srs_cards_v2','srs_chapters_v1','srs_settings_v1','srs_notes_v1','srs_trends_v1','srs_biz_sessions_v1','srs_error_history_v1'];
-var applyingRemote=false, localDirty=false, pushTimer=null, lastSnapshot='',syncWriteQueue=Promise.resolve();
+var applyingRemote=false, localDirty=dirtyKeys.size>0, pushTimer=null, lastSnapshot='',syncWriteQueue=Promise.resolve();
 var syncCode=localStorage.getItem(CODE_KEY)||'';
 
 function validCode(v){return /^[A-Za-z0-9_-]{12,80}$/.test(v);}
@@ -112,11 +132,11 @@ function mergeDataValue(key,localRaw,remoteRaw,preferLocal,unionRecords){
   if(key==='srs_notes_v1')return mergeNotes(localRaw,remoteRaw);
   return preferLocal?localRaw:remoteRaw;
 }
-function mergeSnapshots(local,remote,preferLocal,unionRecords){
+function mergeSnapshots(local,remote,preferLocal,unionRecords,localKeys){
   var out={};
   DATA_KEYS.forEach(function(k){
     var hasLocal=Object.prototype.hasOwnProperty.call(local||{},k),hasRemote=Object.prototype.hasOwnProperty.call(remote||{},k);
-    if(hasLocal&&hasRemote)out[k]=mergeDataValue(k,local[k],remote[k],preferLocal,unionRecords);
+    if(hasLocal&&hasRemote)out[k]=mergeDataValue(k,local[k],remote[k],preferLocal&&(!localKeys||localKeys.has(k)),unionRecords);
     else if(hasLocal)out[k]=local[k];
     else if(hasRemote)out[k]=remote[k];
   });
@@ -127,15 +147,15 @@ function mergeSnapshots(local,remote,preferLocal,unionRecords){
 function request(action,data){
   var payload={action:action,code:syncCode};
   if(action==='set')payload.data=data;
-  return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),redirect:'error',signal:AbortSignal.timeout?AbortSignal.timeout(20000):undefined})
     .then(function(r){return r.json().then(function(j){if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j;});});
 }
 function enqueueSyncWrite(){
   async function write(){
-    var local=snapshot(),localSignature=signature(local);
+    var local=snapshot(),localSignature=signature(local),changedKeys=new Set(dirtyKeys);
     for(var attempt=0;attempt<3;attempt++){
       var current=(await request('get')).data;
-      var data=snapshotPayload(mergeSnapshots(local,snapshotData(current),true,!completeSnapshot(current)));
+      var data=snapshotPayload(mergeSnapshots(local,snapshotData(current),true,!completeSnapshot(current),completeSnapshot(current)?changedKeys:null));
       if(signature(data)!==signature(current)||!completeSnapshot(current)){
         // The deployed API offers snapshot get/set. Recheck before writing and verify afterward.
         var latest=(await request('get')).data;
@@ -148,6 +168,8 @@ function enqueueSyncWrite(){
         }
       }
       lastSnapshot=localSignature;localDirty=signature(snapshot())!==localSignature;
+      if(!localDirty){dirtyKeys.clear();saveDirtyKeys();setSyncStatus('ok');}
+      retryDelay=2000;
       return {ok:true,dirty:localDirty};
     }
     throw new Error('Concurrent sync could not be verified');
@@ -162,13 +184,17 @@ function scheduleSyncRetry(delay){
   clearTimeout(pushTimer);
   pushTimer=setTimeout(function(){
     enqueueSyncWrite().then(function(result){if(result.dirty)scheduleSyncRetry(250);}).catch(function(e){
-      console.warn('[Memory sync] Save failed; local data remains safe.',e);localDirty=true;scheduleSyncRetry(2000);
+      localDirty=true;retrySync();
     });
   },delay);
 }
-function pushLocal(){
+function retrySync(){
+  setSyncStatus('error');scheduleSyncRetry(retryDelay);retryDelay=Math.min(60000,retryDelay*2);
+}
+function pushLocal(key){
   if(applyingRemote||!syncCode)return;
-  localDirty=true;scheduleSyncRetry(250);
+  dirtyKeys.add(key);saveDirtyKeys();
+  localDirty=true;setSyncStatus('pending');scheduleSyncRetry(250);
 }
 
 // 백업 복원처럼 즉시 재시작해야 하는 작업을 위한 강제 저장
@@ -183,7 +209,7 @@ window.memorySyncFlush=function(){
   function flushUntilClean(){return enqueueSyncWrite().then(function(result){return result.dirty?flushUntilClean():{ok:true};});}
   return flushUntilClean().catch(function(e){
     console.warn('[Memory sync] Explicit save failed.',e);
-    localDirty=true;scheduleSyncRetry(2000);
+    localDirty=true;retrySync();
     return {ok:false,error:e};
   });
 };
@@ -192,20 +218,20 @@ function installStorageHooks(){
   Storage.prototype.setItem=function(k,v){
     var tracked=DATA_KEYS.indexOf(String(k))!==-1,previous=tracked?this.getItem(k):null;
     oldSet.call(this,k,v);
-    if(tracked&&previous!==String(v))pushLocal();
+    if(tracked&&previous!==String(v))pushLocal(String(k));
   };
   var oldRemove=Storage.prototype.removeItem;
-  Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal();};
+  Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal(String(k));};
 }
 function loadApp(){
-  var s=document.createElement('script');s.src='app.js?v=84';
+  var s=document.createElement('script');s.src='app.js?v=85';
   s.onerror=function(){console.error('[Memory sync] Could not load app.js');};
   document.body.appendChild(s);
 }
 function applyRemote(d){
   var remote=snapshotData(d),isComplete=completeSnapshot(d),current=snapshot();
   // Old/unknown snapshots cannot prove completeness: preserve local values on conflicts.
-  var merged=mergeSnapshots(current,remote,!isComplete,!isComplete);
+  var merged=mergeSnapshots(current,remote,!isComplete||dirtyKeys.size>0,!isComplete,isComplete?dirtyKeys:null);
   // Preserve locally edited contexts when an older complete snapshot carries defaults.
   if(!window.CardOverrides&&window.BusinessContexts&&merged.srs_cards_v2&&current.srs_cards_v2){
     try{
@@ -224,7 +250,8 @@ function applyRemote(d){
   finally{applyingRemote=false;}
   var localNow=snapshot(),needsRepair=signature(localNow)!==signature(remote);
   lastSnapshot=signature(localNow);localDirty=false;
-  if(needsRepair&&syncCode){localDirty=true;enqueueSyncWrite().then(function(result){if(result.dirty)scheduleSyncRetry(250);}).catch(function(e){console.warn('[Memory sync] Preserved local settings/history but cloud repair failed.',e);scheduleSyncRetry(2000);});}
+  if(needsRepair&&syncCode){localDirty=true;scheduleSyncRetry(250);}
+  else if(isComplete){dirtyKeys.clear();saveDirtyKeys();setSyncStatus('ok');}
 }
 function studyProtected(){
   if(window.memoryStudySession&&window.memoryStudySession.isActive())return true;
@@ -234,18 +261,35 @@ function studyProtected(){
   }catch(e){}});
   return !!(latest&&latest.status==='active'&&latest.state&&latest.state.currentId!=null);
 }
+function canRefresh(){
+  return document.visibilityState!=='hidden'&&!localDirty&&!studyProtected()&&
+    !document.querySelector('.modal.show, .modal-overlay.show');
+}
+function refreshRemote(){
+  if(pulling||!canRefresh())return;
+  pulling=true;
+  var requestedSignature=signature(snapshot());
+  request('get').then(function(r){
+    if(!canRefresh()||signature(snapshot())!==requestedSignature)return;
+    if(!hasData(r.data)&&!completeSnapshot(r.data))return;
+    var remoteSignature=signature(r.data);
+    if(remoteSignature!==requestedSignature&&remoteSignature!==lastSnapshot){
+      applyRemote(r.data);
+      if(signature(snapshot())!==requestedSignature)window.location.reload();
+    }else if(completeSnapshot(r.data))setSyncStatus('ok');
+  }).catch(function(){setSyncStatus('error');}).finally(function(){pulling=false;});
+}
 function startPolling(){
-  window.setInterval(function(){
-    if(document.visibilityState==='hidden'||localDirty||studyProtected())return;
-    var requestedSignature=signature(snapshot());
-    request('get').then(function(r){
-      // A request begun on the home screen can arrive after typing has started.
-      if(studyProtected()||localDirty||document.visibilityState==='hidden'||signature(snapshot())!==requestedSignature)return;
-      if(!hasData(r.data)&&!completeSnapshot(r.data))return;
-      var remoteSignature=signature(r.data),localSignature=signature(snapshot());
-      if(remoteSignature!==localSignature&&remoteSignature!==lastSnapshot){applyRemote(r.data);window.location.reload();}
-    }).catch(function(e){console.warn('[Memory sync] Background check failed; continuing locally.',e);});
-  },20000);
+  window.setInterval(refreshRemote,20000);
+  function resume(){
+    if(document.visibilityState==='hidden')return;
+    if(localDirty)scheduleSyncRetry(0);
+    else refreshRemote();
+  }
+  document.addEventListener('visibilitychange',resume);
+  window.addEventListener('pageshow',resume);
+  window.addEventListener('focus',resume);
+  window.addEventListener('online',resume);
 }
 function showCodeEntry(){
   var overlay=document.createElement('div');
@@ -271,11 +315,11 @@ function showCodeEntry(){
 function connectAndLoad(){
   installStorageHooks();
   // Restore local session/card journal before any remote snapshot can replace it.
-  if(studyProtected()){loadApp();startPolling();return;}
+  if(studyProtected()){loadApp();startPolling();if(localDirty)scheduleSyncRetry(250);return;}
   request('get').then(function(r){
     if(hasData(r.data)||completeSnapshot(r.data)){applyRemote(r.data);loadApp();startPolling();}
     else{return enqueueSyncWrite().then(function(){loadApp();startPolling();});}
-  }).catch(function(e){console.warn('[Memory sync] Server unavailable; opening local data.',e);loadApp();startPolling();});
+  }).catch(function(){setSyncStatus('error');loadApp();startPolling();if(localDirty)scheduleSyncRetry(2000);});
 }
 
 /* Read-only sync diagnostics: never reveal codes or snapshot contents. */
@@ -324,7 +368,7 @@ function installSyncDiagnostics(){
   panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(reveal);panel.appendChild(secretArea);panel.appendChild(compare);panel.appendChild(comparison);panel.appendChild(close);panel.appendChild(note);
   var host=document.getElementById('memory-sync-diagnostic-settings');
   if(!host)return;
-  host.appendChild(button);host.appendChild(panel);
+  host.appendChild(button);host.appendChild(panel);showSyncStatus();
   function localStatus(){
     var count=Object.keys(snapshot()).length;
     return '앱 동기화 코드: '+(syncCode?'등록됨':'미등록')+'\n로컬 학습 저장 항목: '+count+' / '+DATA_KEYS.length+'\n서버: 아직 조회하지 않음';

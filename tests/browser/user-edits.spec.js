@@ -5,8 +5,8 @@ const {createHash}=require('node:crypto');
 const KEYS=['srs_cards_v2','srs_chapters_v1','srs_settings_v1','srs_notes_v1','srs_trends_v1','srs_biz_sessions_v1','srs_error_history_v1'];
 const copy=x=>JSON.parse(JSON.stringify(x));
 function initial(){return {srs_cards_v2:JSON.stringify({cards:templates.slice(0,2).map((t,i)=>({id:i+1,en:t.en,ko:t.ko,context:t.context,priority:t.priority,businessTemplateKey:t.key,chapterId:9,stage:4,dueAt:123,ngCount:7,firstCorrectAt:42,lastTestedAt:88,everAnswered:true,bookmarked:false})),nextId:3}),srs_chapters_v1:JSON.stringify({chapters:[{id:9,name:'영어업무(일반)'}],nextId:10}),srs_settings_v1:JSON.stringify({volume:0}),srs_notes_v1:'{}',srs_trends_v1:'[]',srs_biz_sessions_v1:'[]',srs_error_history_v1:JSON.stringify({version:1,records:[]})};}
-async function open(browser,{server,offline=false,viewport}={}){
- const context=await browser.newContext({serviceWorkers:'block',viewport}),state={offline};
+async function open(browser,{server,offline=false,viewport,userAgent}={}){
+ const context=await browser.newContext({serviceWorkers:'block',viewport,userAgent}),state={offline};
  await context.addInitScript(({data,sync})=>{if(localStorage.getItem('edits_fixture'))return;Object.entries(data).forEach(([k,v])=>localStorage.setItem(k,v));localStorage.setItem('edits_fixture','1');if(sync)localStorage.setItem('memory_sync_code_v1','user_edits_fixture_12345');},{data:initial(),sync:!!server});
  await context.route('**/*',async route=>{
   const url=new URL(route.request().url());
@@ -193,5 +193,79 @@ test('mobile diagnostics are in Settings and still compare and copy the syntheti
   await panel.getByRole('button',{name:'복사',exact:true}).click();
   await expect(panel).toContainText('복사됨');
   expect(await app.page.evaluate(()=>navigator.clipboard.readText())).toBe(code);
+ }finally{await app.context.close();}
+});
+
+async function addSentence(page, en, ko, context){
+ await page.locator('#tabAdd').click();
+ await page.locator('#manualModeBtn').click();
+ await page.locator('#manualEnInput').fill(en);
+ await page.locator('#manualKoInput').fill(ko);
+ await page.locator('#manualContextInput').fill(context);
+ await page.locator('#bulkAddBtn').click();
+}
+test('alternating mobile and Chromebook profiles refresh, retry and preserve both devices’ additions',async({browser})=>{
+ const server=mockServer();
+ const mobile=await open(browser,{server,viewport:{width:390,height:844},
+  userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'});
+ const laptop=await open(browser,{server,userAgent:'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36'});
+ try{
+  await flush(mobile.page);
+  await flush(laptop.page);
+  mobile.state.offline=true;
+  await edit(mobile.page,{ko:'가상 모바일 수정'});
+  await addSentence(mobile.page,'Synthetic mobile sentence.','가상 모바일 문장','모바일 문장 추가');
+  await expect.poll(()=>mobile.page.locator('#memory-sync-status').textContent()).toContain('동기화 실패');
+  await mobile.page.reload();
+  await expect(mobile.page.locator('#chapterSelectList')).toContainText('영어업무(일반)');
+  expect((await stored(mobile.page)).cards.some(c=>c.en==='Synthetic mobile sentence.')).toBe(true);
+  mobile.state.offline=false;
+  await mobile.page.evaluate(()=>window.dispatchEvent(new Event('online')));
+  await expect.poll(()=>remoteCards(server).cards.length).toBe(3);
+  await expect.poll(()=>mobile.page.locator('#memory-sync-status').textContent()).toContain('마지막 성공');
+  await laptop.page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect.poll(async()=>{try{return (await stored(laptop.page)).cards[0].ko;}catch{return '';}}).toBe('가상 모바일 수정');
+  await edit(laptop.page,{ko:'가상 크롬북 수정'},1);
+  await addSentence(laptop.page,'Synthetic Chromebook sentence.','가상 크롬북 문장','크롬북 문장 추가');
+  await expect.poll(()=>remoteCards(server).cards.length).toBe(4);
+  await mobile.page.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
+  await expect.poll(async()=>{try{return (await stored(mobile.page)).cards.length;}catch{return 0;}}).toBe(4);
+  const state=await stored(mobile.page);
+  expect(state.cards.find(c=>c.id===2).ko).toBe('가상 크롬북 수정');
+  expect(new Set(state.cards.map(c=>c.id)).size).toBe(4);
+  historyPreserved(state.cards[0]);
+  await addSentence(mobile.page,'SYNTHETIC CHROMEBOOK SENTENCE!','가상 중복','중복 방지');
+  await expect(mobile.page.locator('#bulkResult')).toContainText('이미 등록');
+  expect((await stored(mobile.page)).cards).toHaveLength(4);
+ }finally{await mobile.context.close();await laptop.context.close();}
+});
+test('private GitHub proposal import updates untouched fields and preserves existing study data',async({browser})=>{
+ const server=mockServer();setRemoteStudy(server);
+ const app=await open(browser,{server});
+ const proposal={kind:'memory-app-sentence-proposals',version:1,changes:[
+   {id:'id:number:1',before:{ko:templates[0].ko},after:{ko:'가상 저장소의 최신 번역'}},
+   {id:'bc17a3e5-74d8-470b-80ae-ebe43e5ef06b',before:null,
+    after:{en:'A synthetic reviewed proposal.',ko:'가상 검토 제안',context:'가상 검토 제안 등록',category:'가상 분류'}}
+ ]};
+ async function importProposal(){
+  await app.page.locator('#tabSettings').click();
+  await app.page.locator('#sentenceProposalFile').setInputFiles({
+   name:'proposals.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(proposal))
+  });
+  await expect(app.page.locator('#sentenceProposalStatus')).toContainText('검토한 문장');
+ }
+ try{
+  await importProposal();await flush(app.page);
+  let profile=remoteCards(server);
+  expect(profile.cards).toHaveLength(3);expect(profile.cards[0].ko).toBe('가상 저장소의 최신 번역');
+  expect(profile.editHistory.some(e=>e.field==='ko'&&e.origin==='repository')).toBe(true);
+  expect(profile.cards[0]).toMatchObject({id:1,stage:6,dueAt:2000,lastTestedAt:1000,firstCorrectAt:20,ngCount:8});
+  expect(JSON.parse(server.data.srs_settings_v1).manualCorrectTotal).toBe(17);
+  expect(JSON.parse(server.data.srs_trends_v1)).toEqual([{id:'remote-trend',correct:12,incorrect:3}]);
+  expect(JSON.parse(server.data.srs_error_history_v1).records[0].occurrences[0].id).toBe('wrong-answer');
+  expect(JSON.parse(server.data.srs_chapters_v1).chapters).toEqual(expect.arrayContaining([expect.objectContaining({name:'가상 분류'})]));
+  await app.page.reload();await expect(app.page.locator('#chapterSelectList')).toContainText('영어업무(일반)');
+  await importProposal();await flush(app.page);profile=remoteCards(server);
+  expect(profile.cards).toHaveLength(3);expect(profile.cards[0].id).toBe(1);
  }finally{await app.context.close();}
 });
