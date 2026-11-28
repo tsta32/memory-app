@@ -14,6 +14,11 @@ function inspect(data){
     if(!value||typeof value!=='object')throw Error('Invalid storage entry');
     return value;
   });
+  // Older Worker snapshots materialize these unused grammar defaults.
+  const grammar=values[2].grammarOptions;
+  if(grammar && typeof grammar==='object' && !Array.isArray(grammar)){
+    for(const key of ['tense','number','modal','preposition'])if(grammar[key]===true)delete grammar[key];
+  }
   if(!Array.isArray(values[0].cards)||!Array.isArray(values[1].chapters))throw Error('Invalid card or chapter structure');
   const conflictCount=['editConflicts','identityConflicts','templateConflicts'].reduce((count,key)=>{
     const items=values[0][key];

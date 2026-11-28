@@ -13,6 +13,10 @@ assert.equal(inspect({...fixture,srs_cards_v2:JSON.stringify(JSON.parse(fixture.
 assert.notEqual(inspect({...fixture,srs_cards_v2:fixture.srs_cards_v2.replace('Fixture original','Different original')}).canonical,data.canonical);
 assert.notEqual(inspect({...fixture,srs_chapters_v1:fixture.srs_chapters_v1.replace('Fixture category','Different category')}).canonical,data.canonical);
 assert.throws(()=>inspect({...fixture,srs_settings_v1:undefined}),/required storage/);
+assert.equal(inspect({...fixture,srs_settings_v1:'{"grammarOptions":{"article":true,"tense":true}}'}).canonical,
+  inspect({...fixture,srs_settings_v1:'{"grammarOptions":{"article":true}}'}).canonical);
+assert.notEqual(inspect({...fixture,srs_settings_v1:'{"grammarOptions":{"article":false}}'}).canonical,
+  inspect({...fixture,srs_settings_v1:'{"grammarOptions":{"article":true}}'}).canonical);
 const device={version:1,snapshotVersion:1,hashVersion:1,storageKeyCount:7,pending:false,checkedAt,lastSuccessAt:checkedAt,snapshotSha256:hash(data.canonical)};
 const catalog=Buffer.from('{"cards":[]}');
 const status={...device,source:'worker-get',workflowRunId:'9',workflowRunAttempt:'1',catalogSha256:hash(catalog),conflictCount:0};
