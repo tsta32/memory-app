@@ -273,3 +273,44 @@ test('private GitHub proposal import updates untouched fields and preserves exis
   expect(profile.cards).toHaveLength(3);expect(profile.cards[0].id).toBe(1);
  }finally{await app.context.close();}
 });
+
+test('manual data match check is read-only and withholds receipts on mismatch or pending writes',async({browser})=>{
+ const server=mockServer(),app=await open(browser,{server});
+ const {page}=app;
+ async function diagnostics(){
+  await page.locator('#tabSettings').click();
+  const panel=page.locator('#memory-sync-diagnostic-panel');
+  if(!await panel.isVisible())await page.locator('#memory-sync-diagnostic-button').click();
+  return panel;
+ }
+ try{
+  await flush(page);
+  let writes=0;server.afterWrite=()=>{writes++;};
+  let panel=await diagnostics();
+  const check=()=>panel.getByRole('button',{name:'기기·Worker 데이터 일치 검사'}).click();
+  const receipt=()=>panel.getByRole('button',{name:'검증 영수증 복사'});
+  await check();
+  await expect(panel).toContainText('일치 · 저장 항목 7개');
+  await app.context.grantPermissions(['clipboard-read','clipboard-write']);
+  await receipt().click();
+  const result=await page.evaluate(async()=>JSON.parse(await navigator.clipboard.readText()));
+  expect(result).toMatchObject({version:1,snapshotVersion:1,hashVersion:1,storageKeyCount:7,pending:false});
+  expect(result.snapshotSha256).toMatch(/^[a-f0-9]{64}$/);
+  expect(writes).toBe(0);
+  const notes=server.data.srs_notes_v1;
+  server.data.srs_notes_v1='{"fixture":"different"}';
+  await check();
+  await expect(panel).toContainText('불일치');
+  await expect(receipt()).toBeHidden();
+  server.data.srs_notes_v1=notes;
+  app.state.offline=true;
+  await check();
+  await expect(panel).toContainText('검증 실패');
+  await edit(page,{ko:'가상 미전송 편집'});
+  panel=await diagnostics();
+  await check();
+  await expect(panel).toContainText('미전송 데이터 해소');
+  await expect(receipt()).toBeHidden();
+  expect(writes).toBe(0);
+ }finally{await app.context.close();}
+});

@@ -23,7 +23,7 @@ function setSyncStatus(result){
 }
 function saveDirtyKeys(){try{localStorage.setItem(DIRTY_KEY,JSON.stringify(Array.from(dirtyKeys)));}catch(e){}}
 var SNAPSHOT_META_KEY='__memorySyncSnapshotV1';
-var DATA_KEYS=['srs_cards_v2','srs_chapters_v1','srs_settings_v1','srs_notes_v1','srs_trends_v1','srs_biz_sessions_v1','srs_error_history_v1'];
+var DATA_KEYS=window.SyncIntegrity.keys;
 var applyingRemote=false, localDirty=dirtyKeys.size>0, pushTimer=null, lastSnapshot='',syncWriteQueue=Promise.resolve();
 var syncCode=localStorage.getItem(CODE_KEY)||'';
 
@@ -226,7 +226,7 @@ function installStorageHooks(){
   Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal(String(k));};
 }
 function loadApp(){
-  var s=document.createElement('script');s.src='app.js?v=85';
+  var s=document.createElement('script');s.src='app.js?v=86';
   s.onerror=function(){console.error('[Memory sync] Could not load app.js');};
   document.body.appendChild(s);
 }
@@ -342,7 +342,18 @@ function installSyncDiagnostics(){
   panel.style.cssText='display:none;margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:12px';
   var title=document.createElement('strong');title.textContent='동기화 진단 (읽기 전용)';
   var status=document.createElement('div');status.style.cssText='margin:12px 0;white-space:pre-line;overflow-wrap:anywhere';
-  var check=document.createElement('button');check.type='button';check.textContent='서버 상태 조회 (GET만)';
+  var check=document.createElement('button');check.type='button';check.textContent='기기·Worker 데이터 일치 검사';
+  var receiptButton=document.createElement('button');
+  receiptButton.type='button';receiptButton.textContent='검증 영수증 복사';receiptButton.hidden=true;
+  var receipt=null;
+  receiptButton.addEventListener('click',async function(){
+    try{
+      await navigator.clipboard.writeText(JSON.stringify(receipt));
+      status.textContent+='\n검증 영수증을 복사했습니다.';
+    }catch(e){
+      status.textContent+='\n복사 실패 · 다음 영수증을 선택해 복사하세요.\n'+JSON.stringify(receipt);
+    }
+  });
   check.style.cssText='padding:9px;border-radius:8px;margin-right:8px';
   var reveal=document.createElement('button');reveal.type='button';reveal.textContent='코드 확인 / 복사';reveal.style.cssText='padding:9px;border-radius:8px;margin:8px 8px 8px 0';
   var secretArea=document.createElement('div');secretArea.style.cssText='display:none;margin:8px 0;padding:10px;border:1px solid #777;border-radius:8px';
@@ -369,7 +380,7 @@ function installSyncDiagnostics(){
   var close=document.createElement('button');close.type='button';close.textContent='닫기';close.style.cssText='padding:9px;border-radius:8px';
   var note=document.createElement('p');note.textContent='동기화 코드와 학습 내용은 표시하지 않습니다. 이 조회는 서버에 저장하지 않지만, 앱의 기존 자동 동기화 동작은 그대로 유지됩니다.';
   note.style.cssText='font-size:12px;color:#ccc';
-  panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(reveal);panel.appendChild(secretArea);panel.appendChild(compare);panel.appendChild(comparison);panel.appendChild(close);panel.appendChild(note);
+  panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(receiptButton);panel.appendChild(reveal);panel.appendChild(secretArea);panel.appendChild(compare);panel.appendChild(comparison);panel.appendChild(close);panel.appendChild(note);
   var host=document.getElementById('memory-sync-diagnostic-settings');
   if(!host)return;
   host.appendChild(button);host.appendChild(panel);showSyncStatus();
@@ -391,17 +402,39 @@ function installSyncDiagnostics(){
     if(!navigator.clipboard||!navigator.clipboard.writeText){secretMsg.textContent='자동 복사가 지원되지 않습니다. 보기 버튼으로 확인하세요.';return;}
     navigator.clipboard.writeText(secretInput.value).then(function(){secretMsg.textContent='복사됨. Codex에 입력한 후 다른 내용을 복사해 클립보드를 지우세요.';}).catch(function(){secretMsg.textContent='복사 실패. 보기 버튼으로 확인하세요.';});
   });
-  close.addEventListener('click',function(){hideSecret();panel.style.display='none';button.setAttribute('aria-expanded','false');button.focus();});
-  check.addEventListener('click',function(){
-    if(!syncCode){status.textContent=localStatus()+'\n서버 조회 불가: 앱 동기화 코드가 없습니다.';return;}
-    check.disabled=true;status.textContent='서버를 읽기 전용으로 조회 중…';
-    request('get').then(function(r){
-      var d=r&&r.data;
-      var state=d==null?'저장 데이터 없음 (null)':completeSnapshot(d)?'완전한 스냅샷 있음':hasData(d)?'데이터 있음 (완전성 표시 없음)':'데이터 없음 또는 알 수 없는 형식';
-      status.textContent='앱 동기화 코드: 등록됨\n로컬 학습 저장 항목: '+Object.keys(snapshot()).length+' / '+DATA_KEYS.length+'\n서버: '+state+'\n주의: Codex와 코드 일치 여부는 이 화면만으로 확인할 수 없습니다.';
-    }).catch(function(e){
-      status.textContent='서버 조회 실패: '+(e&&e.message?String(e.message).slice(0,120):'알 수 없는 오류');
-    }).then(function(){check.disabled=false;});
+  close.addEventListener('click',function(){hideSecret();receipt=null;receiptButton.hidden=true;panel.style.display='none';button.setAttribute('aria-expanded','false');button.focus();});
+  function settled(){
+    return !localDirty&&!dirtyKeys.size&&!readLocal(DIRTY_KEY,[]).length&&
+      syncStatus.result==='ok'&&!!syncStatus.lastSuccessAt;
+  }
+  check.addEventListener('click',async function(){
+    receipt=null;receiptButton.hidden=true;
+    if(!syncCode||!settled()){
+      status.textContent='검증 중단 · 동기화 성공 확인 및 미전송 데이터 해소가 필요합니다.';return;
+    }
+    check.disabled=true;status.textContent='Worker와 기기 데이터를 읽기 전용으로 비교 중…';
+    try{
+      var before=signature(snapshot()),response=await request('get');
+      if(!completeSnapshot(response.data))throw Error('Snapshot version');
+      var local=window.SyncIntegrity.inspect(snapshot()),remote=window.SyncIntegrity.inspect(response.data);
+      if(local.canonical!==remote.canonical){
+        status.textContent='불일치 · 기기와 Worker의 저장 데이터가 다릅니다.';return;
+      }
+      if(local.conflictCount){
+        status.textContent='검증 중단 · 해결되지 않은 수정 충돌이 있습니다.';return;
+      }
+      var digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(local.canonical));
+      if(!settled()||before!==signature(snapshot())){
+        status.textContent='검증 중단 · 검사 중 기기 상태가 변경되었습니다.';return;
+      }
+      receipt={version:1,snapshotVersion:1,hashVersion:1,storageKeyCount:DATA_KEYS.length,
+        pending:false,checkedAt:new Date().toISOString(),lastSuccessAt:syncStatus.lastSuccessAt,
+        snapshotSha256:Array.from(new Uint8Array(digest),function(byte){return byte.toString(16).padStart(2,'0');}).join('')};
+      status.textContent='일치 · 저장 항목 7개 · 마지막 동기화 성공 '+new Date(receipt.lastSuccessAt).toLocaleString();
+      receiptButton.hidden=panel.style.display==='none';
+    }catch(e){
+      status.textContent='검증 실패 · Worker 응답 또는 필수 저장 항목을 확인할 수 없습니다.';
+    }finally{check.disabled=false;}
   });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installSyncDiagnostics,{once:true});else installSyncDiagnostics();

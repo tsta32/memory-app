@@ -32,7 +32,10 @@ details typed into arbitrary sentence text.
 
 ## Before every sentence task
 
-Run `node scripts/refresh-sentence-task.cjs` from the application checkout
+On the device with the latest edits, open Settings → Sync diagnostics and run
+the device–Worker data match check. Copy its receipt into a private temporary
+file. The receipt carries only a hash, schema versions and timestamps.
+Run `node scripts/refresh-sentence-task.cjs --device-receipt <file>` from the application checkout
 using GitHub credentials with Actions write and private contents read access.
 The workflow reuses the existing Worker secret. The helper waits for the
 exact run and verifies the published receipt and catalog hash at one private

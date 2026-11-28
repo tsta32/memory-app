@@ -7,6 +7,7 @@ const path = require('node:path');
 const { complete, validate, getCode } = require('./sync-app-templates.cjs');
 const { key } = require('../card-overrides');
 const { idPattern, fields } = require('../sentence-library');
+const { keys, inspect } = require('../sync-integrity');
 
 const source = 'https://toeic-cloud-sync.tsta32.workers.dev/';
 const origins = new Set(['user', 'repository', 'template-default-migration', 'english-derived', 'legacy-import']);
@@ -119,13 +120,19 @@ async function run(repo, { env = process.env, assertPrivate = checkDestination, 
   const token = env.GH_TOKEN || env.GITHUB_TOKEN;
   await assertPrivate(repo, token);
   const code = Object.hasOwn(env, 'MEMORY_APP_SYNC_CODE') ? validate(env.MEMORY_APP_SYNC_CODE) : getCode();
-  const result = catalog(await fetcher(code), [code, token]);
+  const snapshot = await fetcher(code);
+  const integrity = inspect(snapshot);
+  const checkedAt = now().toISOString();
+  const result = catalog(snapshot, [code, token]);
   const folder = path.resolve(repo, 'memory-library');
   fs.mkdirSync(folder, { mode: 0o700, recursive: true });
   if (fs.lstatSync(folder).isSymbolicLink()) throw Error('Unsafe sentence catalog path');
   writePrivate(path.join(folder, 'catalog.json'), result.output);
   writePrivate(path.join(folder, 'status.json'), JSON.stringify({
-    version: 1, source: 'worker-get', checkedAt: now().toISOString(), catalogSha256: result.sha256, cardCount: result.count
+    version: 1, source: 'worker-get', checkedAt, catalogSha256: result.sha256, cardCount: result.count,
+    snapshotVersion: snapshot.__memorySyncSnapshotV1.version, hashVersion: 1, storageKeyCount: keys.length,
+    snapshotSha256: createHash('sha256').update(integrity.canonical).digest('hex'),
+    conflictCount: integrity.conflictCount
   }, null, 2) + '\n');
   return result.count;
 }

@@ -2,11 +2,16 @@
 
 ## Mandatory fresh catalog for sentence tasks
 
-Before generating, editing or proposing sentences, run
-`node scripts/refresh-sentence-task.cjs` from the application checkout. This
+Before generating, editing or proposing sentences, obtain a recent receipt
+from the device that holds the latest edits through the app's sync diagnostics.
+Save only the receipt to a private temporary file. Run
+`node scripts/refresh-sentence-task.cjs --device-receipt <file>` from the
+application checkout. This
 dispatches the existing workflow on `tsta32/memory-app-private`, waits for that
 specific run to succeed, then verifies its published Worker receipt and the
-catalog hash at the same private commit. Use the catalog in the private
+catalog hash at the same private commit. The current seven-entry Worker hash must
+match the device receipt and conflicts must be cleared. Worker-only diagnostics
+do not authorize sentence work. Use the catalog in the private
 temporary directory reported by the command. Use all cards to check for
 duplicates and verified user before/after edits to understand preferences.
 

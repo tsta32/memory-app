@@ -17,7 +17,39 @@ function gh(args, timeout = 30000) {
 function api(endpoint, ...args) {
   return JSON.parse(gh(['api', '-H', 'X-GitHub-Api-Version: 2026-03-10', endpoint, ...args]));
 }
-async function refresh() {
+const maxReceiptAge = 10 * 60 * 1000;
+function validSnapshotReceipt(receipt) {
+  return receipt?.version === 1 && receipt.snapshotVersion === 1 && receipt.hashVersion === 1 &&
+    receipt.storageKeyCount === 7 && /^[a-f0-9]{64}$/.test(receipt.snapshotSha256);
+}
+function validateDeviceReceipt(receipt, now) {
+  const checked = Date.parse(receipt?.checkedAt), success = Date.parse(receipt?.lastSuccessAt);
+  if (!validSnapshotReceipt(receipt) || receipt.pending !== false ||
+      !(checked <= now && now - checked <= maxReceiptAge && success > 0 && success <= checked)) {
+    throw Error('A current matching device receipt with no pending writes is required');
+  }
+}
+function verifyPublished(status, catalog, runId, attempt, started, device, now = Date.now()) {
+  if (!validSnapshotReceipt(status) || status.source !== 'worker-get' ||
+      status.workflowRunId !== String(runId) || status.workflowRunAttempt !== String(attempt) ||
+      !(Date.parse(status.checkedAt) >= started && Date.parse(status.checkedAt) <= now) ||
+      !Number.isSafeInteger(status.conflictCount) || status.conflictCount < 0 ||
+      status.catalogSha256 !== createHash('sha256').update(catalog).digest('hex')) {
+    throw Error('Published catalog could not be verified for this refresh');
+  }
+  if (device) {
+    validateDeviceReceipt(device, now);
+    if (status.snapshotSha256 !== device.snapshotSha256) throw Error('Device and Worker snapshots differ');
+    if (status.conflictCount) throw Error('Unresolved sync conflicts block sentence work');
+  }
+}
+async function refresh(args) {
+  const workerOnly = args.length === 1 && args[0] === '--verify-worker-only';
+  if (!workerOnly && (args.length !== 2 || args[0] !== '--device-receipt')) {
+    throw Error('Provide the receipt from the app data match check with --device-receipt <file>');
+  }
+  const device = workerOnly ? null : JSON.parse(fs.readFileSync(args[1], 'utf8'));
+  if (!workerOnly) validateDeviceReceipt(device, Date.now());
   const root = 'repos/' + repository;
   const info = api(root);
   if (info.private !== true || info.visibility !== 'private' || info.full_name !== repository || info.default_branch !== 'main') {
@@ -47,17 +79,19 @@ async function refresh() {
   const statusBytes = read('status.json');
   const catalog = read('catalog.json');
   const status = JSON.parse(statusBytes);
-  if (status.source !== 'worker-get' || status.workflowRunId !== String(id) ||
-      status.workflowRunAttempt !== String(run.run_attempt) || !(Date.parse(status.checkedAt) >= started) ||
-      status.catalogSha256 !== createHash('sha256').update(catalog).digest('hex')) {
-    throw Error('Published catalog could not be verified for this refresh');
+  verifyPublished(status, catalog, id, run.run_attempt, started, device);
+  if (workerOnly) {
+    console.log(JSON.stringify({ revision, runId: id, storageKeyCount: status.storageKeyCount,
+      conflictCount: status.conflictCount, deviceVerified: false, sentenceWorkAllowed: false }));
+    return;
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'memory-sentence-task-'));
   fs.writeFileSync(path.join(dir, 'status.json'), statusBytes, { mode: 0o600 });
   fs.writeFileSync(path.join(dir, 'catalog.json'), catalog, { mode: 0o600 });
   console.log(JSON.stringify({ revision, runId: id, checkedAt: status.checkedAt, privateDirectory: dir }));
 }
-refresh().catch(error => {
-  console.error('Fresh sentence catalog unavailable: ' + (error instanceof SyntaxError ? 'Invalid GitHub response' : error.message));
+if (require.main === module) refresh(process.argv.slice(2)).catch(error => {
+  console.error('Fresh sentence catalog unavailable: ' + (error instanceof SyntaxError ? 'Invalid receipt or GitHub response' : error.message));
   process.exitCode = 1;
 });
+module.exports = { validateDeviceReceipt, verifyPublished };

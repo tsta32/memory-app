@@ -23,6 +23,8 @@ const snapshot = {
   srs_chapters_v1: JSON.stringify({ chapters }), srs_error_history_v1: '{"answer":"private-wrong-answer"}',
   srs_settings_v1: '{"key":"private-settings"}', srs_notes_v1: '{"note":"private-note"}'
 };
+snapshot.srs_trends_v1='[]';
+snapshot.srs_biz_sessions_v1='[]';
 const exported = catalog(snapshot, [confusableCode]);
 const parsed = JSON.parse(exported.output);
 assert.equal(parsed.cards.length, 2);
