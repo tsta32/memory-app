@@ -399,6 +399,10 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
 
     <!-- SETTINGS PANE -->
     <div class="pane" id="settingsPane">
+      <div class="card">
+        <button type="button" id="chatgptRefreshButton">ChatGPT용 문장 목록 갱신</button>
+        <p class="muted" id="chatgptRefreshStatus" role="status"></p>
+      </div>
       <div class="card" id="memory-sync-diagnostic-settings" style="margin-bottom:12px;"><p class="muted" id="memory-sync-status" aria-live="polite"></p></div>
       <div class="card" style="margin-bottom:12px;">
         <h2 style="font-size:15px;margin-bottom:10px;">💾 데이터 백업 / 복원</h2>
@@ -857,6 +861,7 @@ select{font-family:'Nunito',sans-serif;background:var(--surface-2);color:var(--t
 <script src="card-overrides.js?v=85"></script>
 <script src="sentence-library.js?v=85"></script>
 <script src="sync-integrity.js?v=87"></script>
-<script src="sync-bootstrap.js?v=87"></script>
+<script src="chatgpt-refresh-config.js?v=88"></script>
+<script src="sync-bootstrap.js?v=88"></script>
 </body>
 </html>

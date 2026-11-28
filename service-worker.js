@@ -1,6 +1,6 @@
 
 /* Update-safe service worker */
-var CACHE_NAME = 'srs-app-v87';
+var CACHE_NAME = 'srs-app-v88';
 
 var ASSETS = [
   './index.html',
@@ -8,7 +8,8 @@ var ASSETS = [
   './business-contexts.js?v=80',
   './business-priorities.js?v=80',
   './sync-integrity.js?v=87',
-  './sync-bootstrap.js?v=87',
+  './chatgpt-refresh-config.js?v=88',
+  './sync-bootstrap.js?v=88',
   './card-overrides.js?v=85',
   './sentence-library.js?v=85',
   './manifest.json',
@@ -53,6 +54,7 @@ self.addEventListener('fetch', function(event) {
     url.pathname.endsWith('/business-priorities.js') ||
     url.pathname.endsWith('/sync-integrity.js') ||
     url.pathname.endsWith('/sync-bootstrap.js') ||
+    url.pathname.endsWith('/chatgpt-refresh-config.js') ||
     url.pathname.endsWith('/card-overrides.js') ||
     url.pathname.endsWith('/sentence-library.js') ||
     url.pathname.endsWith('/manifest.json') ||

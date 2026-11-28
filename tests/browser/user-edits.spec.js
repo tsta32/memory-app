@@ -5,11 +5,19 @@ const {createHash}=require('node:crypto');
 const KEYS=['srs_cards_v2','srs_chapters_v1','srs_settings_v1','srs_notes_v1','srs_trends_v1','srs_biz_sessions_v1','srs_error_history_v1'];
 const copy=x=>JSON.parse(JSON.stringify(x));
 function initial(){return {srs_cards_v2:JSON.stringify({cards:templates.slice(0,2).map((t,i)=>({id:i+1,en:t.en,ko:t.ko,context:t.context,priority:t.priority,businessTemplateKey:t.key,chapterId:9,stage:4,dueAt:123,ngCount:7,firstCorrectAt:42,lastTestedAt:88,everAnswered:true,bookmarked:false})),nextId:3}),srs_chapters_v1:JSON.stringify({chapters:[{id:9,name:'영어업무(일반)'}],nextId:10}),srs_settings_v1:JSON.stringify({volume:0}),srs_notes_v1:'{}',srs_trends_v1:'[]',srs_biz_sessions_v1:'[]',srs_error_history_v1:JSON.stringify({version:1,records:[]})};}
-async function open(browser,{server,offline=false,viewport,userAgent}={}){
+async function open(browser,{server,offline=false,viewport,userAgent,relay}={}){
  const context=await browser.newContext({serviceWorkers:'block',viewport,userAgent}),state={offline};
  await context.addInitScript(({data,sync})=>{if(localStorage.getItem('edits_fixture'))return;Object.entries(data).forEach(([k,v])=>localStorage.setItem(k,v));localStorage.setItem('edits_fixture','1');if(sync)localStorage.setItem('memory_sync_code_v1','user_edits_fixture_12345');},{data:initial(),sync:!!server});
  await context.route('**/*',async route=>{
   const url=new URL(route.request().url());
+  if(relay&&url.pathname.endsWith('/chatgpt-refresh-config.js')){
+   return route.fulfill({contentType:'application/javascript',body:"window.MemoryChatGPTRefreshOrigin='https://refresh-fixture.invalid';"});
+  }
+  if(url.origin==='https://refresh-fixture.invalid'&&relay){
+   const headers={'access-control-allow-origin':'*','access-control-allow-methods':'POST, OPTIONS','access-control-allow-headers':'content-type'};
+   if(route.request().method()==='OPTIONS')return route.fulfill({status:204,headers});
+   return route.fulfill({json:relay(url.pathname,route.request().postDataJSON()),headers});
+  }
   if(url.hostname==='toeic-cloud-sync.tsta32.workers.dev'&&server){
    if(state.offline)return route.fulfill({status:503,json:{error:'offline fixture'}});
    const body=route.request().postDataJSON();
@@ -330,5 +338,42 @@ test('normal upload attaches snapshot evidence without a separate Worker write',
    version:1,scope:'worker-stored-snapshot',clientUploadAt:expect.any(String),
    snapshotSha256:createHash('sha256').update(inspect(server.data).canonical).digest('hex')
   });
+ }finally{await app.context.close();}
+});
+
+test('ChatGPT refresh flushes first, verifies on demand, and retains last success on failure',async({browser})=>{
+ const {inspect}=require('../../sync-integrity');
+ const server=mockServer(),calls=[];
+ const checkedAt=new Date().toISOString();
+ let failure=false;
+ const relay=(path,body)=>{
+  calls.push({path,body});
+  expect(body).not.toHaveProperty('code');
+  expect(body.refreshKey).toBe(createHash('sha256').update('memory-app:chatgpt-refresh:v1:user_edits_fixture_12345').digest('hex'));
+  expect(body.snapshotSha256).toBe(createHash('sha256').update(inspect(server.data).canonical).digest('hex'));
+  if(path==='/start')return {runId:35};
+  expect(body.runId).toBe(35);
+  return failure?{state:'failed',reason:'snapshot-changed'}:{state:'success',checkedAt};
+ };
+ const app=await open(browser,{server,relay});
+ try{
+  const button=app.page.locator('#chatgptRefreshButton'),status=app.page.locator('#chatgptRefreshStatus');
+  await edit(app.page,{ko:'가상 갱신 사용자 편집'});
+  await app.page.locator('#tabSettings').click();
+  expect(calls).toHaveLength(0);
+  await button.click();
+  await expect(status).toContainText('갱신 중');
+  await expect(status).toContainText('갱신 성공',{timeout:12000});
+  expect(remoteCards(server).cards[0].ko).toBe('가상 갱신 사용자 편집');
+  expect(calls.map(c=>c.path)).toEqual(['/start','/status']);
+  expect(await app.page.evaluate(()=>localStorage.getItem('memory_chatgpt_refresh_success_v1'))).toBe(checkedAt);
+  failure=true;
+  await button.click();
+  await expect(status).toContainText('Worker 데이터가 바뀌었습니다',{timeout:12000});
+  await expect(status).toContainText('마지막 성공');
+  app.state.offline=true;
+  await button.click();
+  await expect(status).toContainText('Worker 저장 또는 기기 일치');
+  expect(calls.map(c=>c.path)).toEqual(['/start','/status','/start','/status']);
  }finally{await app.context.close();}
 });
