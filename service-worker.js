@@ -1,14 +1,14 @@
 
 /* Update-safe service worker */
-var CACHE_NAME = 'srs-app-v86';
+var CACHE_NAME = 'srs-app-v87';
 
 var ASSETS = [
   './index.html',
-  './app.js?v=86',
+  './app.js?v=87',
   './business-contexts.js?v=80',
   './business-priorities.js?v=80',
-  './sync-integrity.js?v=86',
-  './sync-bootstrap.js?v=86',
+  './sync-integrity.js?v=87',
+  './sync-bootstrap.js?v=87',
   './card-overrides.js?v=85',
   './sentence-library.js?v=85',
   './manifest.json',

@@ -46,6 +46,19 @@ use Codex, or configure the GitHub Enterprise app template where available.
 A private GPT Action can also call the GitHub API directly with scoped
 credentials. These options require setup and may ask for user approval.
 
+### Default scope for sentence tasks
+
+Run `node scripts/refresh-sentence-task.cjs` with no arguments. This verifies
+the latest uploaded Worker snapshot and analyzes direct before/after edits
+into a protected temporary `preference-evidence.json` file. It does not need
+a manually copied device receipt. A normal app upload includes a versioned
+hash and client upload time with no extra Worker requests. The export rejects
+invalid evidence; a complete older snapshot without evidence is accepted only
+after the same fresh Worker read and catalog verification.
+
+Offline pending edits remain unknown. For device parity, use the separate
+`--device-receipt <file>` procedure. If pending edits are known, wait for sync.
+
 ## Files to reference
 
 - `memory-library/status.json` records the last successful Worker fetch as

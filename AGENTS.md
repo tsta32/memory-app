@@ -2,24 +2,25 @@
 
 ## Mandatory fresh catalog for sentence tasks
 
-Before generating, editing or proposing sentences, obtain a recent receipt
-from the device that holds the latest edits through the app's sync diagnostics.
-Save only the receipt to a private temporary file. Run
-`node scripts/refresh-sentence-task.cjs --device-receipt <file>` from the
-application checkout. This
-dispatches the existing workflow on `tsta32/memory-app-private`, waits for that
-specific run to succeed, then verifies its published Worker receipt and the
-catalog hash at the same private commit. The current seven-entry Worker hash must
-match the device receipt and conflicts must be cleared. Worker-only diagnostics
-do not authorize sentence work. Use the catalog in the private
-temporary directory reported by the command. Use all cards to check for
-duplicates and verified user before/after edits to understand preferences.
+Before generating, editing or proposing sentences, run
+`node scripts/refresh-sentence-task.cjs` from the application checkout.
+The default scope is the latest data stored in the Worker. The command
+dispatches a fresh private workflow and verifies that run, its complete
+snapshot receipt, catalog hash and absence of unresolved conflicts. It
+checks the app upload evidence when present. Older snapshots use the same
+fresh Worker and catalog checks without requiring a data rewrite.
 
-If the command fails at any step, stop the sentence task and explain the
-blocker. A previous catalog, cached connector result, default templates, or
-an unrelated successful run cannot satisfy this requirement. A standalone
-Worker dry run also cannot satisfy it because it does not publish the catalog.
-Keep proposals and private data in the private repository.
+Use `catalog.json` and `preference-evidence.json` from the reported private
+temporary directory. Check all cards for duplicates and analyze verified
+direct before/after edits for preferences. Keep proposals and learning data
+in the private repository. Stop when refresh or verification fails. Never
+use an earlier catalog, cached search result or unrelated successful run.
+
+Offline or untransmitted device changes are unknown. Never claim device
+parity from the default path. If pending edits are known, wait for sync
+before starting. When a user explicitly requests device parity, obtain a
+recent receipt and use `--device-receipt <file>`. Worker-only diagnostics
+do not authorize sentence work.
 
 ## Cloud review-only sync
 

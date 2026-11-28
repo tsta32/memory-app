@@ -314,3 +314,21 @@ test('manual data match check is read-only and withholds receipts on mismatch or
   expect(writes).toBe(0);
  }finally{await app.context.close();}
 });
+
+test('normal upload attaches snapshot evidence without a separate Worker write',async({browser})=>{
+ const {inspect}=require('../../sync-integrity');
+ const server=mockServer(),app=await open(browser,{server});
+ try{
+  await flush(app.page);
+  let writes=0;server.afterWrite=()=>{writes++;};
+  await edit(app.page,{ko:'가상 증거 검증 편집'});
+  await expect.poll(()=>writes).toBe(1);
+  await flush(app.page);
+  expect(writes).toBe(1);
+  const evidence=server.data.__memorySyncSnapshotV1.uploadEvidence;
+  expect(evidence).toEqual({
+   version:1,scope:'worker-stored-snapshot',clientUploadAt:expect.any(String),
+   snapshotSha256:createHash('sha256').update(inspect(server.data).canonical).digest('hex')
+  });
+ }finally{await app.context.close();}
+});

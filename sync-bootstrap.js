@@ -150,6 +150,15 @@ function request(action,data){
   return fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),redirect:'error',signal:AbortSignal.timeout?AbortSignal.timeout(20000):undefined})
     .then(function(r){return r.json().then(function(j){if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j;});});
 }
+async function addUploadEvidence(data){
+  try{
+    var canonical=window.SyncIntegrity.inspect(data).canonical;
+    var digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical));
+    data[SNAPSHOT_META_KEY].uploadEvidence={version:1,scope:'worker-stored-snapshot',
+      clientUploadAt:new Date().toISOString(),
+      snapshotSha256:Array.from(new Uint8Array(digest),function(byte){return byte.toString(16).padStart(2,'0');}).join('')};
+  }catch(e){/* Evidence is optional for older or incomplete profiles. */}
+}
 function enqueueSyncWrite(){
   async function write(){
     var local=snapshot(),localSignature=signature(local),changedKeys=new Set(dirtyKeys);
@@ -157,6 +166,7 @@ function enqueueSyncWrite(){
       var current=(await request('get')).data;
       var data=snapshotPayload(mergeSnapshots(local,snapshotData(current),true,!completeSnapshot(current),completeSnapshot(current)?changedKeys:null));
       if(signature(data)!==signature(current)||!completeSnapshot(current)){
+        await addUploadEvidence(data);
         // The deployed API offers snapshot get/set. Recheck before writing and verify afterward.
         var latest=(await request('get')).data;
         if(signature(latest)!==signature(current)||completeSnapshot(latest)!==completeSnapshot(current))continue;
@@ -226,7 +236,7 @@ function installStorageHooks(){
   Storage.prototype.removeItem=function(k){oldRemove.call(this,k);if(DATA_KEYS.indexOf(String(k))!==-1)pushLocal(String(k));};
 }
 function loadApp(){
-  var s=document.createElement('script');s.src='app.js?v=86';
+  var s=document.createElement('script');s.src='app.js?v=87';
   s.onerror=function(){console.error('[Memory sync] Could not load app.js');};
   document.body.appendChild(s);
 }
