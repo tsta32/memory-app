@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const {createHash}=require('node:crypto');
 const {keys,inspect}=require('../sync-integrity');
-const {validateDeviceReceipt,verifyPublished}=require('../scripts/refresh-sentence-task.cjs');
+const {validateDeviceReceipt,verifyPublished,verifySyncedOnly}=require('../scripts/refresh-sentence-task.cjs');
 const fixture=Object.fromEntries(keys.map(key=>[key,'{}']));
 fixture.srs_cards_v2='{"cards":[{"id":1,"en":"Synthetic example","ko":"Fixture translation","priority":"important","context":"Fixture context","chapterId":1}],"editHistory":[{"field":"en","before":"Fixture original","value":"Synthetic example"}]}';
 fixture.srs_chapters_v1='{"chapters":[{"id":1,"name":"Fixture category"}]}';
@@ -30,4 +30,10 @@ assert.throws(()=>verify({...status,snapshotSha256:'a'.repeat(64)}),/snapshots d
 assert.throws(()=>verify(status,device,Buffer.from('{}')),/verified/);
 assert.throws(()=>verify({...status,conflictCount:1}),/conflicts/);
 verify({...status,conflictCount:1},null);
+const uploadEvidence={version:1,scope:'worker-stored-snapshot',snapshotSha256:device.snapshotSha256,clientUploadAt:checkedAt};
+verifySyncedOnly({...status,uploadEvidence});
+assert.throws(()=>verifySyncedOnly(status),/No matching upload evidence/);
+assert.throws(()=>verifySyncedOnly({...status,uploadEvidence:{...uploadEvidence,snapshotSha256:'a'.repeat(64)}}),/No matching upload evidence/);
+assert.throws(()=>verifySyncedOnly({...status,uploadEvidence:{...uploadEvidence,clientUploadAt:new Date(now+1000).toISOString()}}),/No matching upload evidence/);
+assert.throws(()=>verifySyncedOnly({...status,uploadEvidence,conflictCount:1}),/conflicts/);
 console.log('Passed seven-entry integrity, edit history, stale receipt, pending writes, mismatched catalog, and conflict gate.');

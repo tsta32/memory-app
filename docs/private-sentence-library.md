@@ -46,6 +46,20 @@ use Codex, or configure the GitHub Enterprise app template where available.
 A private GPT Action can also call the GitHub API directly with scoped
 credentials. These options require setup and may ask for user approval.
 
+### Optional uploaded-snapshot scope
+
+A normal app upload includes a versioned hash and client upload time in its
+existing snapshot metadata. It adds no Worker requests. On-demand export
+validates that evidence against the Worker data it read. This establishes
+what is stored in the Worker at read time. Offline pending edits remain unknown.
+
+With the user's explicit authorization to work from uploaded data alone,
+run `node scripts/refresh-sentence-task.cjs --synced-only`. It rejects missing
+or mismatched evidence and unresolved conflicts. If device parity is required,
+continue using a device receipt. The private workflow must pin the approved
+exporter revision, and the updated app must make a normal upload before this
+path is available. Existing data does not need to be rewritten for migration.
+
 ## Files to reference
 
 - `memory-library/status.json` records the last successful Worker fetch as

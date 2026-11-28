@@ -7,6 +7,8 @@ const { setTimeout: delay } = require('node:timers/promises');
 const os = require('node:os');
 const path = require('node:path');
 
+const { validateUploadEvidence } = require('../sync-integrity');
+
 const repository = 'tsta32/memory-app-private';
 const workflow = 'private-sentence-library.yml';
 function gh(args, timeout = 30000) {
@@ -43,13 +45,20 @@ function verifyPublished(status, catalog, runId, attempt, started, device, now =
     if (status.conflictCount) throw Error('Unresolved sync conflicts block sentence work');
   }
 }
+function verifySyncedOnly(status) {
+  if (status.conflictCount) throw Error('Unresolved sync conflicts block sentence work');
+  if (!validateUploadEvidence(status.uploadEvidence, status.snapshotSha256, status.checkedAt)) {
+    throw Error('No matching upload evidence from the app; a device receipt is required');
+  }
+}
 async function refresh(args) {
   const workerOnly = args.length === 1 && args[0] === '--verify-worker-only';
-  if (!workerOnly && (args.length !== 2 || args[0] !== '--device-receipt')) {
+  const syncedOnly = args.length === 1 && args[0] === '--synced-only';
+  if (!workerOnly && !syncedOnly && (args.length !== 2 || args[0] !== '--device-receipt')) {
     throw Error('Provide the receipt from the app data match check with --device-receipt <file>');
   }
-  const device = workerOnly ? null : JSON.parse(fs.readFileSync(args[1], 'utf8'));
-  if (!workerOnly) validateDeviceReceipt(device, Date.now());
+  const device = (workerOnly || syncedOnly) ? null : JSON.parse(fs.readFileSync(args[1], 'utf8'));
+  if (device) validateDeviceReceipt(device, Date.now());
   const root = 'repos/' + repository;
   const info = api(root);
   if (info.private !== true || info.visibility !== 'private' || info.full_name !== repository || info.default_branch !== 'main') {
@@ -85,13 +94,14 @@ async function refresh(args) {
       conflictCount: status.conflictCount, deviceVerified: false, sentenceWorkAllowed: false }));
     return;
   }
+  if (syncedOnly) verifySyncedOnly(status);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'memory-sentence-task-'));
   fs.writeFileSync(path.join(dir, 'status.json'), statusBytes, { mode: 0o600 });
   fs.writeFileSync(path.join(dir, 'catalog.json'), catalog, { mode: 0o600 });
-  console.log(JSON.stringify({ revision, runId: id, checkedAt: status.checkedAt, privateDirectory: dir }));
+  console.log(JSON.stringify({ revision, runId: id, checkedAt: status.checkedAt, privateDirectory: dir, scope: syncedOnly ? 'worker-stored-snapshot' : 'device-receipt', deviceVerified: !syncedOnly, offlinePendingStatus: 'unknown' }));
 }
 if (require.main === module) refresh(process.argv.slice(2)).catch(error => {
   console.error('Fresh sentence catalog unavailable: ' + (error instanceof SyntaxError ? 'Invalid receipt or GitHub response' : error.message));
   process.exitCode = 1;
 });
-module.exports = { validateDeviceReceipt, verifyPublished };
+module.exports = { validateDeviceReceipt, verifyPublished, verifySyncedOnly };

@@ -7,7 +7,7 @@ const path = require('node:path');
 const { complete, validate, getCode } = require('./sync-app-templates.cjs');
 const { key } = require('../card-overrides');
 const { idPattern, fields } = require('../sentence-library');
-const { keys, inspect } = require('../sync-integrity');
+const { keys, inspect, validateUploadEvidence } = require('../sync-integrity');
 
 const source = 'https://toeic-cloud-sync.tsta32.workers.dev/';
 const origins = new Set(['user', 'repository', 'template-default-migration', 'english-derived', 'legacy-import']);
@@ -124,6 +124,8 @@ async function run(repo, { env = process.env, assertPrivate = checkDestination, 
   const integrity = inspect(snapshot);
   const checkedAt = now().toISOString();
   const result = catalog(snapshot, [code, token]);
+  const snapshotSha256 = createHash('sha256').update(integrity.canonical).digest('hex');
+  const uploadEvidence = validateUploadEvidence(snapshot.__memorySyncSnapshotV1.uploadEvidence, snapshotSha256, checkedAt);
   const folder = path.resolve(repo, 'memory-library');
   fs.mkdirSync(folder, { mode: 0o700, recursive: true });
   if (fs.lstatSync(folder).isSymbolicLink()) throw Error('Unsafe sentence catalog path');
@@ -131,7 +133,7 @@ async function run(repo, { env = process.env, assertPrivate = checkDestination, 
   writePrivate(path.join(folder, 'status.json'), JSON.stringify({
     version: 1, source: 'worker-get', checkedAt, catalogSha256: result.sha256, cardCount: result.count,
     snapshotVersion: snapshot.__memorySyncSnapshotV1.version, hashVersion: 1, storageKeyCount: keys.length,
-    snapshotSha256: createHash('sha256').update(integrity.canonical).digest('hex'),
+    snapshotSha256, uploadEvidence,
     conflictCount: integrity.conflictCount
   }, null, 2) + '\n');
   return result.count;

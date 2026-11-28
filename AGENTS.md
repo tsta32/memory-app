@@ -21,6 +21,14 @@ an unrelated successful run cannot satisfy this requirement. A standalone
 Worker dry run also cannot satisfy it because it does not publish the catalog.
 Keep proposals and private data in the private repository.
 
+If the user explicitly authorizes sentence work based on the uploaded Worker
+snapshot alone, `node scripts/refresh-sentence-task.cjs --synced-only` may
+replace the manual device receipt. It verifies the current private catalog,
+matching upload evidence and absence of conflicts. It has no access to
+offline devices. Report their pending status as unknown. If device parity is
+required or pending work is known, use the device receipt path and stop on
+failure. Never silently fall back to synced-only.
+
 ## Cloud review-only sync
 
 For cloud automation of app-to-template sync, use

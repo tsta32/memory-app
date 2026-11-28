@@ -27,7 +27,14 @@ function inspect(data){
   },0);
   return {canonical:JSON.stringify(values,ordered),conflictCount};
 }
-const api={keys,inspect};
+function validateUploadEvidence(evidence,snapshotSha256,checkedAt){
+  if(evidence?.version!==1||evidence.scope!=='worker-stored-snapshot'||
+     evidence.snapshotSha256!==snapshotSha256||!/^([a-f0-9]{64})$/.test(snapshotSha256))return null;
+  const uploadTime=Date.parse(evidence.clientUploadAt),checkTime=Date.parse(checkedAt);
+  if(!Number.isFinite(uploadTime)||uploadTime<=0||uploadTime>checkTime||!Number.isFinite(checkTime))return null;
+  return {version:1,scope:evidence.scope,snapshotSha256,clientUploadAt:new Date(uploadTime).toISOString()};
+}
+const api={keys,inspect,validateUploadEvidence};
 if(typeof module==='object'&&module.exports)module.exports=api;
 else root.SyncIntegrity=api;
 })(typeof window==='undefined'?globalThis:window);
