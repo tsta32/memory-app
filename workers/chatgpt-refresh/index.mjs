@@ -39,7 +39,9 @@ async function github(token, path, options = {}) {
     redirect: 'error',
     signal: AbortSignal.timeout(15000)
   });
-  if (!response.ok) throw Error('GitHub request failed');
+  if (!response.ok) {
+    throw Object.assign(Error('GitHub request failed'), { upstreamStatus: response.status });
+  }
   return response.json();
 }
 
@@ -83,6 +85,7 @@ export default {
     if (!env.GITHUB_TOKEN || !validHash(env.REFRESH_KEY_SHA256) || !env.REFRESH_LIMIT) {
       return reply(origin, 503, { reason: 'unconfigured' });
     }
+    let stage = 'request';
     try {
       const allowed = await env.REFRESH_LIMIT.limit({ key: path + ':' + (request.headers.get('CF-Connecting-IP') || 'unknown') });
       if (!allowed.success) return reply(origin, 429, { reason: 'limited' });
@@ -97,10 +100,12 @@ export default {
       }
       if (!validHash(body.snapshotSha256)) return reply(origin, 400, { reason: 'invalid-request' });
       if (path === '/start') {
+        stage = 'repository';
         const repo = await github(env.GITHUB_TOKEN, '');
         if (repo.full_name !== repository || repo.private !== true || repo.visibility !== 'private' || repo.default_branch !== 'main') {
           return reply(origin, 409, { reason: 'destination' });
         }
+        stage = 'dispatch';
         const run = await github(env.GITHUB_TOKEN, '/actions/workflows/' + workflow + '/dispatches', {
           method: 'POST',
           body: JSON.stringify({ ref: 'main' })
@@ -109,9 +114,14 @@ export default {
         return reply(origin, 202, { runId: run.workflow_run_id });
       }
       if (!Number.isSafeInteger(body.runId) || body.runId <= 0) return reply(origin, 400, { reason: 'invalid-request' });
+      stage = 'status';
       return reply(origin, 200, await status(env.GITHUB_TOKEN, body.runId, body.snapshotSha256));
-    } catch {
-      return reply(origin, 502, { reason: 'github' });
+    } catch (error) {
+      return reply(origin, 502, {
+        reason: 'github',
+        stage,
+        ...(Number.isInteger(error?.upstreamStatus) && { upstreamStatus: error.upstreamStatus })
+      });
     }
   }
 };
