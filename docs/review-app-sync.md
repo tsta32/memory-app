@@ -1,8 +1,7 @@
-# Hourly app template sync
+# App template sync review
 
-The workflow retains manual execution and adds `17 * * * *` (UTC). Scheduling
-starts after this implementation is merged into the default branch. GitHub may
-delay scheduled runs. This extends PR #1; historical commit 9df012d was not recovered.
+Run the workflow from GitHub Actions using **Run workflow**. This extends PR #1;
+historical commit 9df012d was not recovered.
 
 ## Release state
 
@@ -39,7 +38,7 @@ Git SHAs, never credentials or private card text.
 
 ## Idempotence and races
 
-One concurrency group serializes manual/scheduled executions through deployment.
+One concurrency group serializes manual executions through deployment.
 A canonical base/changes fingerprint selects an immutable branch named
 `sync/app-templates-<32 hex digits>`. Identical retries reuse its PR only when
 its parent and tree match. Closed or altered PRs fail instead of being overwritten.
@@ -89,8 +88,7 @@ merge/deployment canary or Secret configuration is performed in this task.
 Errors use nonzero exit status, Actions annotations and the run summary, covering
 authentication/planning, tests, changed snapshots, PR/head/main races and Pages
 errors/timeouts. GitHub Actions' existing email/web failure notifications are the
-available notification mechanism; delivery depends on user settings and scheduled
-workflow ownership. Review GitHub Settings → Notifications → Actions and repository
+available notification mechanism; delivery depends on user settings. Review GitHub Settings → Notifications → Actions and repository
 notification preferences. No email, Slack message, webhook, Issue or extra Secret
 is created. The ordinary Tests workflow remains independent of the Worker Secret.
 
@@ -108,8 +106,8 @@ profiles and Worker responses are fixtures. Validate workflow syntax with action
 
 ## Automatic operational validation
 
-`sync-live-validation.yml` adds an hourly read-only audit at minute 37 and an
-automatic audit on relevant main changes. It uses the existing Secret only in
+`sync-live-validation.yml` runs a read-only audit on manual dispatch and relevant
+code changes. It uses the existing Secret only in
 its Worker read step, checks the latest plan without applying it, and verifies
 current Pages build SHA and public template hashes. Its evidence artifact contains
 only fixed booleans, counts and public Git metadata. A successful metadata read
@@ -121,7 +119,7 @@ Actions token's PR/ref-merge rights on `sync-permission-probe/*` base/head refs.
 The test adds a disposable marker, never edits production main or app templates,
 never contacts the Worker and never changes or rebuilds production Pages. Its
 merged PR is evidence of the exact-tree merge-recognition mechanism, not an
-end-to-end Pages canary. The job is not repeated by normal hourly/main execution.
+end-to-end Pages canary. The job is not repeated by normal main execution.
 
 `sync-canary.yml` and `sync-canary.cjs` provide the real end-to-end proof in exactly
 `tsta32/memory-app-sync-canary`. Both reject production; the script also refuses
@@ -170,8 +168,7 @@ Settings → Actions → General → Workflow permissions → “Allow GitHub Ac
 create and approve pull requests,” including any overriding organization policy.
 Then provide/connect the isolated canary repository/site described above. No
 PAT, Secret value, snapshot or additional credential should be supplied in chat.
-The agent can retry the failed permission job after that one-time configuration;
-normal hourly operation does not require pressing Run workflow or reading logs.
+The agent can retry the failed permission job after that one-time configuration.
 
 ## Bidirectional sync
 

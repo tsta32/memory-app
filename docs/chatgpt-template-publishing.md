@@ -2,12 +2,12 @@
 
 The user edits sequentially, not concurrently. Two distinct write paths share the three template files on GitHub:
 
-1. **App → GitHub:** App changes persist in the existing Cloudflare Worker. The scheduled `sync-review.yml` reads authenticated Worker data, verifies direct user-edit provenance, tests the exact candidate, and merges/deploys when its release gate permits. Never write to Worker from GitHub.
+1. **App → GitHub:** App changes persist in the existing Cloudflare Worker. The manually dispatched `sync-review.yml` reads authenticated Worker data, verifies direct user-edit provenance, tests the exact candidate, and merges/deploys when its release gate permits. Never write to Worker from GitHub.
 2. **ChatGPT → GitHub → app:** For an explicit user request to add or edit learning templates, ChatGPT reads the current repository and submits a same-repository PR touching only the intended template files. GitHub Pages deploys after merge. This is **not** a continuous chat export: each requested publication requires a ChatGPT GitHub write.
 
 ## Required order for a ChatGPT edit
 
-- Check that the latest app-to-GitHub scheduled sync has completed. If pending user edits or a conflict exists, stop; do not overwrite app-owned fields.
+- Check that the latest app-to-GitHub review run has completed. If pending user edits or a conflict exists, stop; do not overwrite app-owned fields.
 - Before editing any template file, run `npm run sync:app-templates` with fresh authenticated Worker GET, per `AGENTS.md`. A connected GitHub file reader is **not** a substitute for the Worker snapshot. If the authenticated read cannot be performed, do not publish a template change.
 - Preserve existing template keys, stable card identities, category, SRS, stats, and user edits. Add only requested content; do not rewrite all 200 existing entries or invent essential-priority assessments.
 - Create a feature branch and PR, never directly edit `main` for ChatGPT-authored templates.

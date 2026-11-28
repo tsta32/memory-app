@@ -39,8 +39,8 @@ missing/cyclic history and unverified values. It never calls Worker `set`,
 commits, pushes, or changes learning records. Do not use the old patch CLI's
 `--push` path for this workflow: that path targets main.
 
-`.github/workflows/sync-review.yml` supports manual and hourly execution at minute
-17. It isolates changes, skips commits/PRs for no-op plans, runs the full suite,
+`.github/workflows/sync-review.yml` runs on manual dispatch. It isolates changes,
+skips commits/PRs for no-op plans, runs the full suite,
 re-reads the Worker after tests and reuses identical tested PRs. Never clean or
 publish existing untracked files. Worker access remains get-only.
 
