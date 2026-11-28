@@ -274,10 +274,24 @@ function installSyncDiagnostics(){
   var copy=document.createElement('button');copy.type='button';copy.textContent='복사';copy.style.cssText='margin:8px 8px 0 0;padding:7px';
   var secretMsg=document.createElement('div');secretMsg.style.cssText='font-size:12px;color:#ddd';
   secretArea.appendChild(secretInput);secretArea.appendChild(toggle);secretArea.appendChild(copy);secretArea.appendChild(secretMsg);
+  var compare=document.createElement('button');compare.type='button';compare.textContent='Codex 코드 일치 검사';compare.style.cssText='padding:9px;border-radius:8px;margin:8px 8px 8px 0';
+  var comparison=document.createElement('div');comparison.setAttribute('aria-live','polite');
+  compare.addEventListener('click',async function(){
+    if(!syncCode){comparison.textContent='앱 코드 미등록';return;}
+    var expected=window.prompt('Codex에서 확인한 SHA-256 해시를 입력하세요. 원본 코드는 입력하지 마세요.');
+    if(expected===null)return;
+    expected=expected.trim().toLowerCase();
+    if(!/^[a-f0-9]{64}$/.test(expected)){comparison.textContent='SHA-256 형식이 올바르지 않습니다.';return;}
+    try{
+      var bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(syncCode));
+      var actual=Array.from(new Uint8Array(bytes),function(b){return b.toString(16).padStart(2,'0');}).join('');
+      comparison.textContent='앱 코드 길이: '+syncCode.length+'자 / Codex 코드: '+(actual===expected?'일치':'불일치');
+    }catch(e){comparison.textContent='기기에서 해시 계산을 실행할 수 없습니다.';}
+  });
   var close=document.createElement('button');close.type='button';close.textContent='닫기';close.style.cssText='padding:9px;border-radius:8px';
   var note=document.createElement('p');note.textContent='동기화 코드와 학습 내용은 표시하지 않습니다. 이 조회는 서버에 저장하지 않지만, 앱의 기존 자동 동기화 동작은 그대로 유지됩니다.';
   note.style.cssText='font-size:12px;color:#ccc';
-  panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(reveal);panel.appendChild(secretArea);panel.appendChild(close);panel.appendChild(note);
+  panel.appendChild(title);panel.appendChild(status);panel.appendChild(check);panel.appendChild(reveal);panel.appendChild(secretArea);panel.appendChild(compare);panel.appendChild(comparison);panel.appendChild(close);panel.appendChild(note);
   document.body.appendChild(button);document.body.appendChild(panel);
   function localStatus(){
     var count=Object.keys(snapshot()).length;
